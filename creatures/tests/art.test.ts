@@ -37,7 +37,7 @@ describe("sprites", () => {
   it("a dead creature and its tombstone lie clear of the bed", () => {
     const tombstoneRight = ROOM.deadX + 18 + 10; // scene.ts draws the stone 18 px right, about 10 wide
     expect(ROOM.deadX).toBeGreaterThanOrEqual(0);
-    expect(tombstoneRight).toBeLessThan(ROOM.bedX - 6); // the bed starts about 6 px left of bedX
+    expect(tombstoneRight).toBeLessThan(ROOM.bedLeft);
   });
 });
 

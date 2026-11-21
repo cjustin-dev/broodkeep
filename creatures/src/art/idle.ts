@@ -1,10 +1,14 @@
 // Idle life: how the creature moves around the room when nobody is touching it.
 // This is only for looks. It is never saved and does not change any stat.
-// Reactions (hop for joy, shake for "no") are started by calling triggerPose.
+// Reactions (hop for joy, head shake for "no", eating) are started by calling triggerPose
+// or startEating.
 
+import type { FoodId } from "../game/types";
 import { ROOM } from "./layout";
 
-export type Pose = "idle" | "walk" | "hop" | "happy" | "startle" | "refuse" | "eat" | "sleep";
+// "refuse" is the creature saying no: eyes shut, slow gentle head shake.
+// "wobble" is the quick wiggle of a tapped egg.
+export type Pose = "idle" | "walk" | "hop" | "happy" | "startle" | "refuse" | "wobble" | "eat" | "sleep";
 
 export interface Effect {
   kind: "heart" | "sparkle";
@@ -12,6 +16,13 @@ export interface Effect {
   y: number;
   age: number; // seconds so far
   life: number; // seconds it lasts
+}
+
+// A bit of food on the floor while the creature eats it.
+export interface Snack {
+  food: FoodId;
+  x: number;
+  y: number;
 }
 
 export interface View {
@@ -23,19 +34,42 @@ export interface View {
   targetX: number; // where a walk is heading
   clock: number; // seconds since the screen opened, for bobbing
   effects: Effect[];
+  snack: Snack | null; // food being eaten, only while the pose is "eat"
 }
 
 export interface Mood {
   asleep: boolean;
   sad: boolean;
   sick: boolean;
+  dead?: boolean;
 }
 
 // How long each timed reaction lasts, in seconds.
-const poseLengths: Partial<Record<Pose, number>> = { hop: 0.5, happy: 0.8, startle: 0.4, refuse: 0.6, eat: 0.9 };
+const poseLengths: Partial<Record<Pose, number>> = {
+  hop: 0.5,
+  happy: 0.8,
+  startle: 0.4,
+  refuse: 1.3,
+  wobble: 0.6,
+  eat: 2.2,
+};
+
+// A meal, in seconds from the start of the "eat" pose: the food drops in, then four bites with
+// chewing between them, then a moment to swallow. Bite 4 finishes the food.
+export const MEAL = { drop: 0.35, bite: 0.4, bites: 4 };
 
 export function createView(): View {
-  return { x: ROOM.eggX, facing: 1, pose: "idle", poseTime: 0, poseLength: 2, targetX: ROOM.eggX, clock: 0, effects: [] };
+  return {
+    x: ROOM.eggX,
+    facing: 1,
+    pose: "idle",
+    poseTime: 0,
+    poseLength: 2,
+    targetX: ROOM.eggX,
+    clock: 0,
+    effects: [],
+    snack: null,
+  };
 }
 
 function setPose(view: View, pose: Pose, length?: number): void {
@@ -50,6 +84,39 @@ export function triggerPose(view: View, pose: Pose): void {
   if (pose === "startle") view.facing = view.facing === 1 ? -1 : 1;
 }
 
+// Put a piece of food on the floor in front of the creature and start eating it.
+export function startEating(view: View, food: FoodId): void {
+  // The food goes on the side it is facing, unless the wall or the bed is in the way there.
+  const rightOk = view.x + 15 + 8 <= ROOM.bedLeft;
+  const leftOk = view.x - 7 >= 1;
+  if (view.facing === 1 && !rightOk) view.facing = -1;
+  else if (view.facing === -1 && !leftOk) view.facing = 1;
+  setPose(view, "eat");
+  const x = Math.round(view.x); // whole pixels, like the creature, so the food lines up with it
+  view.snack = { food, x: x + (view.facing === 1 ? 15 : -7), y: ROOM.walkY + 8 };
+}
+
+// How much of the food is left, from 1 (all of it) to 0 (eaten).
+export function foodLeft(poseTime: number): number {
+  if (poseTime < MEAL.drop) return 1;
+  const bitten = Math.min(MEAL.bites, Math.floor((poseTime - MEAL.drop) / MEAL.bite) + 1);
+  return 1 - bitten / MEAL.bites;
+}
+
+// Which slice of a food picture is still there, and where it sits. The creature is on the side
+// the food is NOT facing away from: facing right it is left of the food and bites its left edge,
+// so the right part stays. Facing left it bites the right edge and the left part stays.
+export function snackCut(width: number, left: number, facing: 1 | -1): { from: number; columns: number; shift: number } {
+  const columns = Math.round(width * left);
+  const gone = width - columns;
+  return facing === 1 ? { from: gone, columns, shift: gone } : { from: 0, columns, shift: 0 };
+}
+
+// Eyes are shut while asleep (the caller knows that), saying no, and chewing.
+export function eyesClosed(view: View): boolean {
+  return view.pose === "refuse" || view.pose === "sleep" || (view.pose === "eat" && view.poseTime >= MEAL.drop);
+}
+
 export function addEffect(view: View, kind: Effect["kind"], x: number, y: number): void {
   view.effects.push({ kind, x, y, age: 0, life: 1.1 });
 }
@@ -59,6 +126,8 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
   view.clock += dt;
   view.poseTime += dt;
   view.effects = view.effects.filter((fx) => (fx.age += dt) < fx.life);
+  if (mood.dead && view.pose === "eat") setPose(view, "idle", 2); // a meal stops if it dies halfway
+  if (view.pose !== "eat") view.snack = null;
 
   if (mood.asleep) {
     goToBed(view, dt);
@@ -84,7 +153,13 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
       if (view.poseTime >= view.poseLength) chooseNext(view, mood, rand);
       break;
     default: // timed reactions end by themselves
-      if (view.poseTime >= view.poseLength) setPose(view, "idle", 1 + rand() * 2);
+      if (view.poseTime >= view.poseLength) {
+        if (view.pose === "eat") {
+          // A full tummy makes it happy.
+          setPose(view, "happy");
+          addEffect(view, "heart", view.x + 4, ROOM.walkY - 2);
+        } else setPose(view, "idle", 1 + rand() * 2);
+      }
   }
   view.x = Math.min(ROOM.walkMaxX, Math.max(ROOM.walkMinX, view.x));
 }
@@ -135,10 +210,17 @@ export function poseOffsets(view: View): { dx: number; dy: number; squash: numbe
     }
     case "startle":
       return { dx: 0, dy: -Math.round(8 * Math.sin(Math.min(1, t / view.poseLength) * Math.PI)), squash: 0 };
-    case "refuse":
+    case "refuse": {
+      // Slow, gentle: about three sways, easing in and out, two pixels at the most.
+      const ease = Math.sin(Math.min(1, t / view.poseLength) * Math.PI);
+      return { dx: Math.round(2 * ease * Math.sin(t * Math.PI * 4.5)), dy: 0, squash: 0 };
+    }
+    case "wobble":
       return { dx: Math.round(2 * Math.sin(t * 40)), dy: 0, squash: 0 };
-    case "eat":
-      return { dx: 0, dy: 0, squash: Math.sin(t * 14) > 0 ? 1 : 0 };
+    case "eat": {
+      const chewing = t >= MEAL.drop && t < MEAL.drop + MEAL.bite * MEAL.bites;
+      return { dx: 0, dy: 0, squash: chewing && Math.sin((t - MEAL.drop) * 16) > 0 ? 1 : 0 };
+    }
     case "walk":
       return { dx: 0, dy: -(Math.floor(view.clock * 8) % 2), squash: 0 }; // little step-bounce
     case "sleep":

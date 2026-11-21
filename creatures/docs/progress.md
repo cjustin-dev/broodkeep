@@ -26,6 +26,21 @@ code and passes on the new.
 
 Not checked by me: hatching, feeding and the other screens on a real phone, and iOS Safari save-on-close.
 
+## Emotes (branch `creature-emotes`, not pushed)
+
+Owner feedback after the first playtest: more visible emotion for small children. Built the three things asked for:
+food appears and the creature eats it bite by bite (eyes shut while chewing, then a heart and a hop); asleep (and dead)
+it lies flat with eyes shut instead of standing with open eyes; saying no is eyes shut and a slow gentle sway, with the
+old quick rattle kept only for a tapped egg. Design notes in [decisions.md](decisions.md), accepted gaps in
+[known-issues.md](known-issues.md).
+
+Checks: typecheck, 120 tests (17 new) and build exit 0. 17 deliberate code mutations on the new code were all caught (one
+was first missed because a test only looked at the end state, and was fixed). The built game was driven in a headless
+phone browser through eating, refusing, a Blip, Pip and Fennix asleep and a dead Fennix, with no console errors.
+A cheap-model review found 3 real issues (meal not cancelled by death, food position not on a whole pixel, missing
+tests), all fixed. Not checked: a real phone, and the sway as motion (tests cover its size and speed, the pictures are
+stills).
+
 ## Open for the owner
 
 - Play Phase 1 on a phone and report what feels wrong. Dev mode (gear, tap the version line 7 times) skips the waits.
@@ -48,6 +63,7 @@ Not checked by me: hatching, feeding and the other screens on a real phone, and 
 
 ## Next
 
-1. Collect the owner's Phase 1 feedback and fix it. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
+1. Owner reviews the emotes (after a push and merge), and picks which of the suggested extra emotes, if any, to add.
+2. Collect the owner's Phase 1 feedback and fix it. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
    after that feedback.
    Work on a new branch, never push `main`, and the owner merges the pull request.

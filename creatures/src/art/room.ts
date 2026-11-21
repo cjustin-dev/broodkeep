@@ -54,7 +54,7 @@ export function drawRoom(ctx: CanvasRenderingContext2D, hour: number): void {
   rect(ctx, "#6a7fd1", 11, 86, 8, 1);
 
   // Bed.
-  rect(ctx, "#8a5a3a", 62, ROOM.bedY + 10, 32, 14); // frame
+  rect(ctx, "#8a5a3a", ROOM.bedLeft, ROOM.bedY + 10, 32, 14); // frame
   rect(ctx, "#6d86e0", 63, ROOM.bedY + 8, 30, 10); // mattress
   rect(ctx, "#ffffff", 64, ROOM.bedY + 6, 8, 6); // pillow
   rect(ctx, "#8a5a3a", 62, ROOM.bedY + 22, 3, 3);

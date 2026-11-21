@@ -57,3 +57,24 @@ old project was deleted.
   A failed open is also retried next time instead of being cached, and a later good write clears the warning.
 - **One finger at a time on the room.** A second finger replaces the first hold, and only the finger that started a hold
   can end it. Before, a second finger left the first finger's petting timer running forever.
+
+## 2026-11-20: creature emotes (owner feedback after the first playtest)
+
+The owner asked for more visible emotion for small children: a food picture that appears and gets eaten, closed eyes and
+a lying-down look when asleep, and a gentle "no" (eyes shut, slow head shake) instead of a rattle. Built exactly those
+three. More emotes are listed as suggestions in the owner message, not built.
+
+- **Eyes follow one rule: a 2 x 2 block, `WW` over `WK`.** `src/art/face.ts` finds the blocks and derives the closed-eye
+  picture (top half takes the body color above, bottom half a dark line) and the lying picture from the one standing grid.
+  A test requires two such eyes on every form, so Phase 2's real art must follow the rule or bring its own frames.
+- **Lying down is a derived picture.** About a third fewer rows and a third more columns, removed and doubled at even
+  spacing. The face rows and the top and bottom outline are never removed, the bottom edge stays on the same floor line,
+  and the canvas is 24 wide because it is wider. Asleep it alternates two heights every 1.4 s (breathing). A dead
+  creature uses the same picture with its eyes shut, kept flat (no breathing).
+- **A meal takes 2.2 s and is only a picture.** The food drops in (0.35 s), four bites 0.4 s apart with the eyes shut
+  while chewing, a short swallow, then a heart and a happy hop. The food loses a quarter per bite from the side the
+  creature is on. It goes on the side the creature faces, unless the wall or the bed is in the way, then it turns around.
+  The real effect (stats, poop) still happens at the tap, nothing about the meal is saved.
+- **"No" is slow.** Eyes shut for 1.3 s and a sway of at most 2 pixels at about 2 swings a second, easing in and out. It
+  is used for food when full, medicine when not sick, and lights when not tired. The old quick rattle is kept only for a
+  tapped egg, as its own pose (`wobble`).

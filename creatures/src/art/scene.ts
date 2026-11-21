@@ -5,9 +5,11 @@ import { getForm } from "../data/forms";
 import type { CallKind, Save } from "../game/state";
 import { MINUTE, hourOf } from "../game/time";
 import { tuning } from "../data/tuning";
-import { poseOffsets } from "./idle";
-import type { Mood, View } from "./idle";
+import { MEAL, eyesClosed, foodLeft, poseOffsets, snackCut } from "./idle";
+import type { Mood, Snack, View } from "./idle";
 import { POOP_SPOTS, ROOM } from "./layout";
+import { LIE_WIDTH, faceSprite } from "./face";
+import type { FaceKind } from "./face";
 import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
@@ -16,8 +18,8 @@ import { drawRoom } from "./room";
 // What the creature is looking like it feels, from the save. Used to steer the idle movement.
 export function moodOf(save: Save): Mood {
   const c = save.phase === "alive" ? save.creature : null;
-  if (!c) return { asleep: false, sad: false, sick: false };
-  return { asleep: c.sleep !== null, sad: c.stats.happiness < 30, sick: c.sick };
+  if (!c) return { asleep: false, sad: false, sick: false, dead: save.phase === "dead" };
+  return { asleep: c.sleep !== null, sad: c.stats.happiness < 30, sick: c.sick, dead: false };
 }
 
 const callIcon: Record<CallKind, IconName> = {
@@ -64,7 +66,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     const egg = save.egg;
     const progress = Math.min(1, ((gameNowMs - egg.startedAt) / MINUTE + egg.shavedMinutes) / tuning.egg.minutes);
     const sprite = spriteCanvas(eggSprite(egg.pattern), `egg:${egg.pattern}`);
-    const wobble = view.pose === "refuse" ? off.dx : Math.round(Math.sin(view.clock * (2 + progress * 6)) * progress * 1.4);
+    const wobble = view.pose === "wobble" ? off.dx : Math.round(Math.sin(view.clock * (2 + progress * 6)) * progress * 1.4);
     const x = ROOM.eggX + wobble;
     drawSprite(ctx, sprite, x, ROOM.eggY);
     if (progress > 0.6) drawCracks(ctx, x, ROOM.eggY, progress);
@@ -77,12 +79,19 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       : c.sick
         ? { color: "#7bdc6a", amount: 0.4 }
         : undefined;
-    const sprite = spriteCanvas({ rows: form.idle, palette: form.palette }, `form:${form.id}`, tint);
-    const squash = dead ? 5 : off.squash;
+    // Asleep or dead: lying flat with eyes shut. Asleep it breathes, one extra row in and out.
+    const lying = asleep || dead;
+    const breath = Math.floor(view.clock / 1.4) % 2 === 0 || dead ? 0 : 1;
+    const kind: FaceKind = lying ? (breath ? "lie1" : "lie0") : eyesClosed(view) ? "closed" : "open";
+    const sprite = spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}`, tint);
     const onBed = asleep && !dead;
     const x = dead ? ROOM.deadX : onBed ? ROOM.bedX : view.x + off.dx;
     const y = (onBed ? ROOM.bedY : ROOM.walkY) + (dead ? 0 : off.dy);
-    drawSprite(ctx, sprite, x, y, { flipX: view.facing === -1, height: sprite.height - squash });
+    // The lying picture is wider than the standing one, so it starts further left to stay centered.
+    const drawX = lying ? x - (LIE_WIDTH - ROOM.sprite) / 2 : x;
+    drawSprite(ctx, sprite, drawX, y, { flipX: view.facing === -1, height: sprite.height - (lying ? 0 : off.squash) });
+
+    if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
 
     if (dead) drawTombstone(ctx, x + 18, y + 4);
     else if (asleep) drawFloatingZ(ctx, view.clock, x, y);
@@ -107,6 +116,17 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     ctx.fillStyle = "rgba(15, 10, 50, 0.4)";
     ctx.fillRect(0, 0, ROOM.w, ROOM.h);
   }
+}
+
+// The food on the floor. It drops in, then loses a quarter in each bite, from the side the
+// creature is eating from.
+function drawSnack(ctx: CanvasRenderingContext2D, snack: Snack, poseTime: number, facing: 1 | -1): void {
+  const picture = icon(snack.food);
+  const left = foodLeft(poseTime);
+  const { from, columns, shift } = snackCut(picture.width, left, facing);
+  if (columns <= 0) return;
+  const fall = Math.round(14 * (1 - Math.min(1, poseTime / MEAL.drop)) ** 2); // pixels above the floor
+  ctx.drawImage(picture, from, 0, columns, picture.height, snack.x + shift, snack.y - fall, columns, picture.height);
 }
 
 function drawCracks(ctx: CanvasRenderingContext2D, x: number, y: number, progress: number): void {

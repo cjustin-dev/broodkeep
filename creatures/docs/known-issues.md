@@ -34,6 +34,15 @@
   return to the gear and do not block the page behind them. Fine for a phone game, worth doing in Phase 7.
 - **Dev "Hatch this form now" and "New egg" replace a living creature without asking.** Dev only.
 
+## Emotes (accepted for now)
+
+- **"Squash" is really a one pixel shift.** `drawSprite`'s `height` option drops whole rows, and these sprites have an
+  empty bottom row, so the awake breathing bob and the chewing bob are just the sprite moving down one pixel. Real squash
+  frames come with Phase 2 art. The lying-down picture is separate and is a true flat shape.
+- **One meal at a time.** Feeding again during a meal replaces the food on the floor and restarts the eating.
+- **Eyes only open or shut.** No half-closed eyes, no looking toward the food, no blinking yet.
+- **The lying creature has no blanket,** it rests on top of the bed.
+
 ## Backend (Phase 5)
 
 - **PBKDF2 iteration cap.** Workers is reported to cap PBKDF2 at 100,000, below the OWASP figure of 600,000 for SHA-256.

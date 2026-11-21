@@ -1,7 +1,7 @@
 // The big care buttons under the room: feed, clean, lights, medicine.
 // Icons only. The button that matches what the creature is asking for gently pulses.
 import { useEffect, useState } from "preact/hooks";
-import { addEffect, triggerPose } from "../art/idle";
+import { addEffect, startEating, triggerPose } from "../art/idle";
 import { ROOM } from "../art/layout";
 import { foodIds, foods } from "../data/foods";
 import { clean, feed, giveMedicine, toggleLights } from "../game/actions";
@@ -29,7 +29,7 @@ export function ActionBar({ game }: { game: Game }) {
   const onFood = (id: FoodId): void => {
     setTray(false);
     const result = game.act((s, now) => feed(s, id, now));
-    if (result === "ate") triggerPose(game.view, "eat");
+    if (result === "ate") startEating(game.view, id);
     else if (result === "full") triggerPose(game.view, "refuse");
   };
 
