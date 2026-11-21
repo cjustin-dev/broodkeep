@@ -8,6 +8,10 @@
 //                    yawning or happy, so a slumped creature never pops upright for those)
 //   lying down      (sleeping, and after death): squashed flat and wider
 //
+// A creature has two standing drawings: `idle` and, for every form but the two babies, `idle2` (a
+// second frame for idle and walking). The eye, blink, happy and yawn pictures are made from
+// whichever frame is showing; drooping and lying are always made from the first.
+//
 // The standing picture follows one rule so this works: each eye is a 2 x 2 block of
 //   WW
 //   WK     (white, white / white, dark pupil)
@@ -17,13 +21,13 @@
 import type { Form } from "../game/types";
 import { MEAL, YAWN, blinking, eyesClosed } from "./idle";
 import type { View } from "./idle";
+import { wideWidth } from "./layout";
 import type { Sprite } from "./pixel";
 
 export type FaceKind = "open" | "closed" | "half" | "up" | "happy" | "yawn" | "droop" | "droopClosed" | "droopYawn" | "droopHappy" | "lie0" | "lie1";
 
-// Pictures that are wider than the standing one (lying, drooping) are drawn on a canvas this
-// wide. The standing picture is 16.
-export const WIDE_WIDTH = 24;
+// Pictures that are wider than the standing one (lying, drooping) are drawn on a canvas that is
+// wideWidth(size) across (see layout.ts). The standing picture is `size` across.
 export const isWide = (kind: FaceKind): boolean => kind.startsWith("droop") || kind.startsWith("lie");
 
 // How much a drooping body is squashed, compared with 0.33 for lying flat.
@@ -83,7 +87,8 @@ export function halfEyes(sprite: Sprite): Sprite {
 //   K  K
 // The arch is dark (K) unless the body is too dark for that to show, then it takes the creature's
 // eye color (W), which is bright on those forms. Under the arch is the body color beside the eye
-// (the pixel above the eye can be outline). A foot only goes on a body pixel (outline, mouth and
+// (the pixel above the eye can be outline), taken from the side toward the middle of the picture so
+// that the two eyes of a face agree. A foot only goes on a body pixel (outline, mouth and
 // empty space are left alone, and an outline pixel already is dark, so it works as the foot).
 const MIN_ARCH_CONTRAST = 3;
 
@@ -102,8 +107,10 @@ function brightness(color: string | undefined): number | null {
 export function happyEyes(sprite: Sprite): Sprite {
   const { grid, set } = editable(sprite);
   const isBody = (letter: string | undefined): letter is string => letter !== undefined && !".KWM".includes(letter);
+  const middle = (sprite.rows[0]?.length ?? 0) / 2;
   for (const { x, y } of findEyes(sprite.rows)) {
-    const beside = [x - 1, x + 2].map((col) => sprite.rows[y + 1]?.[col]).find(isBody);
+    const sides = x + 1 < middle ? [x + 2, x - 1] : [x - 1, x + 2]; // the inner side first
+    const beside = sides.map((col) => sprite.rows[y + 1]?.[col]).find(isBody);
     const fill = beside ?? grid[y - 1]?.[x] ?? ".";
     const dark = brightness(sprite.palette.K);
     const body = brightness(sprite.palette[fill]);
@@ -164,10 +171,11 @@ export function openMouth(sprite: Sprite): Sprite {
 // same. The top and bottom outline rows and the two edge columns are never touched either. Rows
 // and columns are removed or doubled at even spacing, so the shape stays the same. breath 1 keeps one more row than breath 0, and
 // alternating the two looks like breathing. The bottom edge stays where it was, so a lying
-// creature rests on the same floor line.
+// creature rests on the same floor line. The picture grows to wideWidth(its width) columns.
 export function lieDown(sprite: Sprite, keepRows: number[], keepCols: number[], breath: 0 | 1, squish = 0.33): Sprite {
   const rows = sprite.rows;
   const height = rows.length;
+  const wide = wideWidth(rows[0]?.length ?? 0);
   const filled = rows.map((row) => /[^.]/.test(row));
   const top = filled.indexOf(true);
   const bottom = filled.lastIndexOf(true);
@@ -192,7 +200,7 @@ export function lieDown(sprite: Sprite, keepRows: number[], keepCols: number[], 
   // Which columns to double (never the two edge columns, so the outline stays one pixel thick).
   const spare: number[] = [];
   for (let x = 1; x < width - 1; x++) if (!keepCols.includes(left + x)) spare.push(x);
-  const extra = Math.min(Math.round(width * squish), WIDE_WIDTH - width, spare.length);
+  const extra = Math.min(Math.round(width * squish), wide - width, spare.length);
   const doubled = new Set<number>();
   for (let i = 0; i < extra; i++) doubled.add(spare[Math.floor(((i + 0.5) * spare.length) / extra)] as number);
 
@@ -207,11 +215,11 @@ export function lieDown(sprite: Sprite, keepRows: number[], keepCols: number[], 
     kept.push(line);
   }
 
-  const padLeft = Math.floor((WIDE_WIDTH - (width + extra)) / 2);
-  const blank = ".".repeat(WIDE_WIDTH);
+  const padLeft = Math.floor((wide - (width + extra)) / 2);
+  const blank = ".".repeat(wide);
   const out: string[] = [];
   for (let i = 0; i < bottom + 1 - kept.length; i++) out.push(blank); // empty rows above
-  for (const line of kept) out.push(".".repeat(padLeft) + line + ".".repeat(WIDE_WIDTH - padLeft - line.length));
+  for (const line of kept) out.push(".".repeat(padLeft) + line + ".".repeat(wide - padLeft - line.length));
   while (out.length < height) out.push(blank); // empty rows below
   return { rows: out, palette: sprite.palette };
 }
@@ -225,15 +233,18 @@ function slump(base: Sprite, eyeRows: number[], eyeCols: number[]): Sprite {
 
 const made = new Map<string, Sprite>();
 
-// The creature's picture for each look. Made once per form, then reused.
-export function faceSprite(form: Form, kind: FaceKind): Sprite {
-  const key = `${form.id}:${kind}`;
+// The creature's picture for each look. Made once per form, then reused. `frame` picks the
+// standing drawing (0 is `idle`, 1 is `idle2`) that the look is made from. Forms with no second
+// drawing, and the drooping and lying looks, always use the first.
+export function faceSprite(form: Form, kind: FaceKind, frame: 0 | 1 = 0): Sprite {
+  const rows = frame === 1 && form.idle2 && !isWide(kind) ? form.idle2 : form.idle;
+  const key = `${form.id}:${kind}:${rows === form.idle ? 0 : 1}`;
   const hit = made.get(key);
   if (hit) return hit;
 
-  const open: Sprite = { rows: form.idle, palette: form.palette };
-  const eyes = findEyes(form.idle);
-  const mouthRows = form.idle.flatMap((row, y) => (row.includes("M") ? [y] : []));
+  const open: Sprite = { rows, palette: form.palette };
+  const eyes = findEyes(rows);
+  const mouthRows = rows.flatMap((row, y) => (row.includes("M") ? [y] : []));
   const eyeCols = eyes.flatMap((eye) => [eye.x, eye.x + 1]);
   let sprite: Sprite;
   switch (kind) {

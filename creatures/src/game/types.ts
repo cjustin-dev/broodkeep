@@ -45,7 +45,8 @@ export interface Form {
   name: string;
   // Pixel art: each letter in a row picks a color from the palette. "." is see-through.
   palette: Record<string, string>;
-  idle: string[];
+  idle: string[]; // standing picture, a square grid: 16 (baby, in training), 22, 28 or 32 pixels (see art/layout.ts)
+  idle2?: string[]; // second drawing of the same size, swapped in while it stands, walks or hops. The two babies have none
   softLook: null; // scary forms get a soft look in Phase 5
   baseStats: { vit: number; str: number; def: number; spi: number; spd: number };
   evolvesTo: Evolution[];

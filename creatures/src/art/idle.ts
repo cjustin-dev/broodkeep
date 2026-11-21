@@ -4,7 +4,7 @@
 // or startEating. Feelings (sad, sick, hungry, sleepy) come in through the mood.
 
 import type { FoodId } from "../game/types";
-import { ROOM } from "./layout";
+import { ROOM, bedSpot, standY, walkMaxX } from "./layout";
 import type { Moment, Shown } from "./moment";
 
 // "refuse" is the creature saying no: eyes shut, slow gentle head shake.
@@ -39,6 +39,7 @@ export interface Snack {
 }
 
 export interface View {
+  size: number; // width and height of the creature's standing picture (16 to 32), set by updateView
   x: number; // left edge of the sprite
   facing: 1 | -1; // 1 = looking right
   pose: Pose;
@@ -87,6 +88,7 @@ export const MEAL = { drop: 0.35, bite: 0.4, bites: 4 };
 
 export function createView(): View {
   return {
+    size: ROOM.sprite,
     x: ROOM.eggX,
     facing: 1,
     pose: "idle",
@@ -117,14 +119,14 @@ export function triggerPose(view: View, pose: Pose): void {
 
 // Put a piece of food on the floor in front of the creature and start eating it.
 export function startEating(view: View, food: FoodId): void {
-  // The food goes on the side it is facing, unless the wall or the bed is in the way there.
-  const rightOk = view.x + 15 + 8 <= ROOM.bedLeft;
-  const leftOk = view.x - 7 >= 1;
+  // The food (8 pixels across) goes on the side it is facing, unless the wall or the bed is in the way there.
+  const rightOk = view.x + view.size + 8 <= ROOM.bedLeft;
+  const leftOk = view.x - 8 >= 0;
   if (view.facing === 1 && !rightOk) view.facing = -1;
   else if (view.facing === -1 && !leftOk) view.facing = 1;
   setPose(view, "eat");
   const x = Math.round(view.x); // whole pixels, like the creature, so the food lines up with it
-  view.snack = { food, x: x + (view.facing === 1 ? 15 : -7), y: ROOM.walkY + 8 };
+  view.snack = { food, x: x + (view.facing === 1 ? view.size : -8), y: ROOM.groundY - 8 };
 }
 
 // How much of the food is left, from 1 (all of it) to 0 (eaten).
@@ -156,8 +158,28 @@ export function addEffect(view: View, kind: Effect["kind"], x: number, y: number
   view.effects.push({ kind, x, y, age: 0, life: 1.1 });
 }
 
+// A heart just above the creature's head, left of the middle.
+export function addHeart(view: View): void {
+  addEffect(view, "heart", view.x + view.size / 4, standY(view.size) - 2);
+}
+
+// Sparkles at random spots over a standing creature's body.
+export function addSparkles(view: View, count: number, rand: () => number = Math.random): void {
+  for (let i = 0; i < count; i++) {
+    addEffect(view, "sparkle", view.x + 2 + rand() * (view.size - 4), standY(view.size) + 2 + rand() * (view.size * 0.6));
+  }
+}
+
+// Which of the two standing drawings to show: they swap every half second while it stands, hops or
+// is happy, and every quarter second while it walks (a step each). Every other pose uses the first.
+export function frameOf(view: View): 0 | 1 {
+  const period = view.pose === "walk" ? 0.25 : view.pose === "idle" || view.pose === "hop" || view.pose === "happy" ? 0.5 : 0;
+  return period > 0 && Math.floor(view.clock / period) % 2 === 1 ? 1 : 0;
+}
+
 // Move the view forward by dt seconds. "rand" gives numbers from 0 up to 1.
-export function updateView(view: View, dt: number, mood: Mood, rand: () => number): void {
+export function updateView(view: View, dt: number, mood: Mood, rand: () => number, size: number = view.size): void {
+  view.size = size;
   view.clock += dt;
   view.poseTime += dt;
   view.mood = mood;
@@ -194,11 +216,11 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
         if (view.pose === "eat") {
           // A full tummy makes it happy.
           setPose(view, "happy");
-          addEffect(view, "heart", view.x + 4, ROOM.walkY - 2);
+          addHeart(view);
         } else setPose(view, "idle", 1 + rand() * 2);
       }
   }
-  view.x = Math.min(ROOM.walkMaxX, Math.max(ROOM.walkMinX, view.x));
+  view.x = Math.min(walkMaxX(view.size), Math.max(ROOM.walkMinX, view.x));
 }
 
 function chooseNext(view: View, mood: Mood, rand: () => number): void {
@@ -230,15 +252,16 @@ function chooseNext(view: View, mood: Mood, rand: () => number): void {
 }
 
 function startWalk(view: View, rand: () => number): void {
-  view.targetX = Math.round(ROOM.walkMinX + rand() * (ROOM.walkMaxX - ROOM.walkMinX));
+  view.targetX = Math.round(ROOM.walkMinX + rand() * (walkMaxX(view.size) - ROOM.walkMinX));
   setPose(view, "walk");
 }
 
 function goToBed(view: View, dt: number): void {
-  const dx = ROOM.bedX - view.x;
+  const bedX = bedSpot(view.size).x;
+  const dx = bedX - view.x;
   const step = 20 * dt;
   if (Math.abs(dx) <= step) {
-    view.x = ROOM.bedX;
+    view.x = bedX;
     if (view.pose !== "sleep") setPose(view, "sleep");
   } else {
     view.x += Math.sign(dx) * step;

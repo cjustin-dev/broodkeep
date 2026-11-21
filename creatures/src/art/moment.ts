@@ -12,7 +12,7 @@ import type { EggPattern } from "../game/types";
 import { faceSprite } from "./face";
 import { addEffect, triggerPose } from "./idle";
 import type { View } from "./idle";
-import { ROOM } from "./layout";
+import { ROOM, standY, walkMaxX } from "./layout";
 import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite } from "./sprites";
 
@@ -53,6 +53,11 @@ export function stepMoment(view: View, save: Save, dt: number): void {
   } else if (before?.phase === "alive" && now.phase === "alive" && before.formId !== now.formId && save.creature?.sleep === null) {
     // (A creature that evolves in its sleep just changes: the scene stands it up, and it is in bed.)
     view.moment = { kind: "evolve", time: 0, from: before.formId };
+    // The new form may be a different size: keep the middle of the creature where it was, inside the walking area.
+    const was = getForm(before.formId).idle.length;
+    const size = getForm(now.formId).idle.length;
+    view.x = Math.min(walkMaxX(size), Math.max(ROOM.walkMinX, view.x + (was - size) / 2));
+    view.size = size;
     view.pose = "idle"; // stand still for the scene
     view.poseTime = 0;
     view.poseLength = EVOLVE.length;
@@ -67,8 +72,9 @@ export function stepMoment(view: View, save: Save, dt: number): void {
   if (was < turn && moment.time >= turn) {
     if (moment.kind === "hatch") view.x = ROOM.eggX; // it may have wandered while hidden
     triggerPose(view, "happy");
+    // (Spots around a 16 pixel creature, spread out to the size it has now.)
     for (const [dx, dy] of [[0, 6], [15, 4], [4, -2], [11, -2], [8, 12], [-2, 10], [17, 10]] as const) {
-      addEffect(view, "sparkle", view.x + dx, ROOM.walkY + dy);
+      addEffect(view, "sparkle", view.x + Math.round((dx * view.size) / 16), standY(view.size) + Math.round((dy * view.size) / 16));
     }
   }
   if (moment.time >= spec.length) view.moment = null;
@@ -104,7 +110,8 @@ export function drawMomentUnder(ctx: CanvasRenderingContext2D, view: View, newFo
     return true;
   }
 
-  const x = Math.round(view.x);
+  // The old form is drawn centered where the new one will stand, whatever its size.
+  const middle = Math.round(view.x) + view.size / 2;
   if (t < EVOLVE.swap) {
     // Flickers between its own colors and white, a little faster as it goes (2 to 5 times a second).
     const phase = 2 * t + (1.5 * t * t) / EVOLVE.swap;
@@ -112,7 +119,8 @@ export function drawMomentUnder(ctx: CanvasRenderingContext2D, view: View, newFo
     const form = getForm(moment.from ?? newFormId);
     const kind = "open" as const;
     const tint = white ? { color: "#ffffff", amount: 1 } : undefined;
-    drawSprite(ctx, spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}`, tint), x, ROOM.walkY, { flipX: view.facing === -1 });
+    const size = form.idle.length;
+    drawSprite(ctx, spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}:0`, tint), middle - size / 2, standY(size), { flipX: view.facing === -1 });
     return true;
   }
   if (t < EVOLVE.swap + EVOLVE.fade) {
@@ -121,7 +129,7 @@ export function drawMomentUnder(ctx: CanvasRenderingContext2D, view: View, newFo
     const form = getForm(newFormId);
     const kind = "open" as const;
     const tint = { color: "#ffffff", amount: steps };
-    drawSprite(ctx, spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}`, tint), x, ROOM.walkY, { flipX: view.facing === -1 });
+    drawSprite(ctx, spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}:0`, tint), middle - view.size / 2, standY(view.size), { flipX: view.facing === -1 });
     return true;
   }
   return false;
@@ -146,13 +154,14 @@ export function drawMomentOver(ctx: CanvasRenderingContext2D, view: View): void 
   }
 
   if (moment.kind === "evolve" && t < EVOLVE.swap) {
-    // Six sparkles circle the creature, closing in.
+    // Six sparkles circle the creature, closing in. (The ring is sized for a 16 pixel creature, and grows with the size.)
     const close = 1 - t / EVOLVE.swap;
+    const scale = view.size / 16;
     ctx.fillStyle = "#ffe066";
     for (let i = 0; i < 6; i++) {
       const angle = (i * Math.PI) / 3 + t * 5;
-      const sx = Math.round(view.x + 8 + Math.cos(angle) * (8 + 8 * close));
-      const sy = Math.round(ROOM.walkY + 8 + Math.sin(angle) * (6 + 7 * close));
+      const sx = Math.round(view.x + view.size / 2 + Math.cos(angle) * (8 + 8 * close) * scale);
+      const sy = Math.round(standY(view.size) + view.size / 2 + Math.sin(angle) * (6 + 7 * close) * scale);
       ctx.fillRect(sx, sy - 1, 1, 3);
       ctx.fillRect(sx - 1, sy, 3, 1);
     }

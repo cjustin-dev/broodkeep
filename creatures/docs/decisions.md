@@ -177,3 +177,48 @@ add hatch and evolve scenes on top of the derived emotes (no hand-drawn extra fr
   that still said "second project" and "old website" were fixed in the same change. The old Cloudflare project
   (`kharbranth`) was confirmed deleted by the owner on 2026-11-21.
 
+
+## 2026-11-21: creature redesign (owner: "looks so dopey and have no real character, I want real changes like in Digimon")
+
+The owner approved a concept sheet (a private page of all 20 creatures) before any code, answering three questions with the
+recommended options: full bodies that grow by stage, two drawings per creature, concept sheet first. This supersedes
+"keep every picture 16 x 16" from the Phase 2 decision. Drawing rules and per-creature notes are in
+[art-direction.md](art-direction.md).
+
+- **Sizes by stage:** baby 16, in training 16, rookie 22, champion 28, ultimate 32. The two babies were not redrawn. The
+  evolution tree and its numbers did not change.
+- **Two drawings per form:** `Form.idle` plus optional `Form.idle2` (every form but the two babies). The game swaps them
+  every 0.5 s while standing, hopping or happy, every 0.25 s while walking (`frameOf` in `idle.ts`), and uses the first
+  for every other pose. Shut eyes, lids, happy arches, looking up and a yawn are made from whichever drawing is showing,
+  so the face never jumps. The slumped and lying looks are made from the first drawing only. This keeps the art cost at
+  two grids per creature.
+- **Size is data, not a constant.** `layout.ts` has `standY`, `walkMaxX`, `bedSpot`, `deadX`, `stoneX` and `wideWidth`
+  taking the size. `ROOM.walkY`, `ROOM.walkMaxX`, `ROOM.bedX`, `ROOM.deadX` and `WIDE_WIDTH` are gone. A creature's feet
+  stand on the same floor line at every size (picture top at `72 - size`), so a 16 pixel creature stands exactly where it
+  did. `View.size` is set by `updateView`, whose caller passes `sizeOf(save)` (an optional fifth parameter, default the
+  last size). It is not a field of `Mood`, which is about feelings.
+- **Walking area:** the left edge goes from 6 to `76 - size`, so a bigger creature has less floor to walk on and often
+  stands in front of the bed (a 16 pixel one already did).
+- **Lying and slumped pictures are `min(size + 8, 32)` wide,** never wider than the 32 pixel bed, so the two biggest
+  stages only get flatter. The bed's middle moved from x 76 to x 78 (the bed spans 62 to 94), so a 28 or 32 pixel creature
+  lies exactly on it. A sleeping 16 pixel creature moved two pixels right.
+- **Scaled with the size:** the thought bubble (top right of the head), the sleeping "z", the tummy marks, the heart (left of
+  the middle, above the head), sparkles (over the whole body), the food on the floor (its near edge at the creature's
+  side, on the floor line), the tap hit box (a square of the creature's size plus 6 pixels of slack), the tombstone
+  (anchored to the floor, overlapping the lying creature by two pixels) and the evolve scene.
+- **The evolve scene keeps the creature's middle** when the form is a different size (clamped into the new walking area),
+  draws the old form centered on the same spot, and spreads the sparkle burst and ring to the new size.
+- **Every drawing keeps the eye rule,** and now also has a mouth letter `M` and an empty last row, enforced by
+  `tests/data.test.ts` on both drawings of all 20 forms. Dreadmaw and Hollowking had no `M`. They got two `M` pixels each,
+  colored like the pixels they replaced (the dark red of the jaw, the dark of the nose slit), so they look as drawn and
+  only a yawn opens a dark mouth.
+- **Happy arches fill from the inner side.** `happyEyes` took the body color under the arch from the first body pixel
+  beside the eye, left side first. On a face with cream cheeks outside the eyes (Thornback) the left eye filled cream and
+  the right eye green. It now looks at the side toward the middle of the picture first, so both eyes agree, and a test
+  checks that every form's two arches match. With the new colors four forms get the white arch: Dreadmaw, Hollowking,
+  Gloomtoad and Thornback (its green body is 2.8 to 1 against the outline).
+- **Gate added on purpose:** a test requires every drawing to follow the face rules, so a redrawn creature cannot break
+  an emote silently. The first version of the sleeping picture still needed a look: sizes that passed the tests had a
+  blanket slab hanging 5 pixels past the bed, found only by viewing the room, which is why the cap at the bed width exists.
+- **The drawing toolkit stays out of the repo** (a Python script set in the hub session's work area). The grids in the
+  form files are the source of truth. Offered to the owner to add under `creatures/tools/art/`.

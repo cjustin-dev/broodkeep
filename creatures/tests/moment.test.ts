@@ -2,7 +2,7 @@
 // looks only and is checked in the browser.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createView } from "../src/art/idle";
-import { ROOM } from "../src/art/layout";
+import { ROOM, walkMaxX } from "../src/art/layout";
 import { EVOLVE, HATCH, flashAlpha, shownOf, stepMoment } from "../src/art/moment";
 import { forceEvolve, forceHatch, killCreature, spawnEgg } from "../src/game/dev";
 import { newSave } from "../src/game/state";
@@ -143,6 +143,54 @@ describe("how a scene runs", () => {
     expect(view.effects).toHaveLength(7);
     run(view, save, EVOLVE.length);
     expect(view.moment).toBeNull();
+  });
+});
+
+describe("evolving into a different size", () => {
+  // A creature of one form standing at x, seen by the screen, then evolving into another form.
+  function evolveAt(from: string, to: string, x: number) {
+    const t0 = at(8);
+    const save = aliveSave(from, t0);
+    const view = createView();
+    stepMoment(view, save, FRAME);
+    view.x = x;
+    forceEvolve(save, to, t0 + 1000);
+    stepMoment(view, save, FRAME);
+    return { view, save };
+  }
+
+  it("keeps the middle of the creature where it was, and takes the new size", () => {
+    const { view } = evolveAt("fennix", "pyrefang", 30); // 22 wide, middle at 41, becomes 28 wide
+    expect(view.size).toBe(28);
+    expect(view.x).toBe(41 - 14);
+    const small = evolveAt("pip", "fennix", 30); // 16 wide, middle at 38, becomes 22 wide
+    expect(small.view.size).toBe(22);
+    expect(small.view.x).toBe(38 - 11);
+  });
+
+  it("stays inside the walking area when it was at either edge", () => {
+    const right = evolveAt("fennix", "pyrefang", walkMaxX(22)).view;
+    expect(right.x).toBe(walkMaxX(28)); // pushed back from the wall
+    const left = evolveAt("fennix", "pyrefang", ROOM.walkMinX).view;
+    expect(left.x).toBe(ROOM.walkMinX);
+  });
+
+  it("every sparkle of the burst lands inside the room, whatever the size", () => {
+    for (const [from, to] of [["pip", "fennix"], ["fennix", "pyrefang"], ["pyrefang", "solarion"]] as const) {
+      for (const x of [ROOM.walkMinX, 30, 80]) {
+        const { view, save } = evolveAt(from, to, x);
+        run(view, save, EVOLVE.swap + 0.1);
+        expect(view.effects, `${from} to ${to}`).toHaveLength(7);
+        const spread = Math.max(...view.effects.map((fx) => fx.x)) - Math.min(...view.effects.map((fx) => fx.x));
+        expect(spread, `${from} to ${to}: spread out to the size of the new form`).toBeGreaterThanOrEqual(view.size);
+        for (const fx of view.effects) {
+          expect(fx.x).toBeGreaterThanOrEqual(0);
+          expect(fx.x).toBeLessThanOrEqual(ROOM.w);
+          expect(fx.y).toBeGreaterThanOrEqual(0);
+          expect(fx.y).toBeLessThanOrEqual(ROOM.groundY);
+        }
+      }
+    }
   });
 });
 

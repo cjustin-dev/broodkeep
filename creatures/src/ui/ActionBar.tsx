@@ -1,8 +1,7 @@
 // The big care buttons under the room: feed, clean, lights, medicine.
 // Icons only. The button that matches what the creature is asking for gently pulses.
 import { useEffect, useState } from "preact/hooks";
-import { addEffect, startEating, triggerPose } from "../art/idle";
-import { ROOM } from "../art/layout";
+import { addSparkles, startEating, triggerPose } from "../art/idle";
 import { foodIds, foods } from "../data/foods";
 import { clean, feed, giveMedicine, toggleLights } from "../game/actions";
 import type { FoodId } from "../game/types";
@@ -20,12 +19,6 @@ export function ActionBar({ game }: { game: Game }) {
 
   if (!c) return null;
 
-  const sparkle = (): void => {
-    for (let i = 0; i < 4; i++) {
-      addEffect(game.view, "sparkle", game.view.x + 2 + Math.random() * 12, ROOM.walkY + 2 + Math.random() * 10);
-    }
-  };
-
   const onFood = (id: FoodId): void => {
     setTray(false);
     const result = game.act((s, now) => feed(s, id, now));
@@ -36,7 +29,7 @@ export function ActionBar({ game }: { game: Game }) {
   const onClean = (): void => {
     if (game.act((s, now) => clean(s, now)) === "cleaned") {
       triggerPose(game.view, "happy");
-      sparkle();
+      addSparkles(game.view, 4);
     }
   };
 
@@ -44,7 +37,7 @@ export function ActionBar({ game }: { game: Game }) {
     const result = game.act((s, now) => giveMedicine(s, now));
     if (result === "cured") {
       triggerPose(game.view, "happy");
-      sparkle();
+      addSparkles(game.view, 4);
     } else if (result === "not-sick") triggerPose(game.view, "refuse");
   };
 
