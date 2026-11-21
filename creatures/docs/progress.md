@@ -2,22 +2,33 @@
 
 Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Local clone: ~/broodkeep (hub).
 
-## State (2026-11-21)
+## State (2026-11-20)
 
-Scaffold is on `main` and LIVE at https://broodkeep.pages.dev (Cloudflare Pages project `broodkeep`, root dir `creatures`,
-build `npm run build`, output `dist`, builds from `main`). The old template site was removed from the repo root (PR #2,
-merge commit 33fc7a5). Repo root on `main` is now `.gitignore`, `LICENSE` and `creatures/`. No game code. Phase 1 not started.
+**Phase 1 is built and committed on branch `phase-1-single-creature`. Not pushed, not deployed, waiting on the owner's
+"push it" and then their merge of the pull request.** `main` is unchanged from the scaffold (live at
+https://broodkeep.pages.dev, Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output
+`dist`, builds from `main`).
 
-Checked on the live site: all security headers present on `/` and `/api/*` (`no-store`), and source files such as
-`/package.json` and `/wrangler.toml` return the placeholder page, not the real files. The placeholder D1 id did not
-break the deploy. After PR #2 the build passed and the site was unchanged.
+What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
+poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
+death and a new egg, idle behaviours, tap reactions (poke, pet, tickle), a settings panel (sleeping hours) and a dev panel
+(7 taps on the version line). Three placeholder forms: Blip, Pip, Fennix. One fixed room. Saves on the device only
+(IndexedDB). Design choices are in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
 
-Local checks: `npm run build`, `npm run typecheck` and `npm test` exit 0. `public/_headers` was verified by serving
-`dist` with `wrangler pages dev` (headers present, and absent when the file is removed). The built `index.html` has no
-inline script or style, so the CSP needs no exceptions.
+Checks run on the final code: `npm run typecheck`, `npm test` (103 tests, 7 files) and `npm run build` all exit 0. The
+bundle is 49 KB JS (18 KB gzip) and 5.6 KB CSS. 12 deliberate code mutations on the simulation were all caught by tests.
+The built game was driven in a headless phone browser (390 x 844, 3x, fake clock) through egg, hatch, reload, feeding,
+hungry call, night, death, new egg, settings, dev panel and a desktop view, with no console errors or CSP violations. The
+impeccable design detector reports nothing on the UI files. A cheap-model fresh-eyes review of the UI found 5 real
+defects, all fixed (see decisions.md). Two of them (second finger, failed read) have a browser check that fails on the old
+code and passes on the new.
+
+Not checked: a real phone, a real iOS Safari save-on-close, and whether a Cloudflare preview deployment appears for the
+branch (unverified, look in the dashboard).
 
 ## Open for the owner
 
+- Say "push it" to push `phase-1-single-creature`, then open and merge the pull request. Merging deploys it.
 - `LICENSE` at the repo root is the old template author's MIT notice. It could read as the game's license. Keep, replace
   or remove?
 - Plan sections 1 and 2 and the handoff notes still describe the old site and say "do not touch the repo root". Update
@@ -37,5 +48,6 @@ inline script or style, so the CSP needs no exceptions.
 
 ## Next
 
-1. Phase 1 (single local creature: egg, hatching, care, sleep, sickness, offline catch-up, dev mode), only on the owner's go-ahead.
+1. Owner tests Phase 1 on a phone and gives feedback. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
+   after that feedback.
    Work on a new branch, never push `main`, and the owner merges the pull request.
