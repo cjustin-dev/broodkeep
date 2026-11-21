@@ -48,6 +48,11 @@
 - **The feelings use fixed cut-offs** (hungry under 25, sleepy under 25, sad under 30), the same idea as the red part of the
   stat bars. They are in `moodOf` in `scene.ts`.
 - **The blanket sits on top of the bed,** it is a pink rectangle, not a drawing that follows the creature's shape.
+- **Happy eyes last only as long as the happy hop (0.8 s).** That is when the look shows, so after a meal, a pet, a
+  clean, a cure, a hatch or an evolve it is a short flash of joy, not a lasting mood. The hatch and evolve scenes draw
+  their own open-eyed picture, so the arches show after the pop, not during it. On a sad creature the happy look is
+  slumped and has no tears while it lasts (that is drawing code in `scene.ts`, so no test covers it). Checked as stills (all 20 forms, standing and slumped) and in a headless phone
+  browser after a meal, not on a real phone.
 
 ## Phase 2: forms, tree and scenes (accepted for now)
 

@@ -4,13 +4,21 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-21)
 
-**Phase 1 and the emotes are merged and LIVE at https://broodkeep.pages.dev** (PR #3, #4 and #5, `main` at c6cb54f). Cloudflare
-Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The owner deletes
-merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), then the request for more emotion
-(the emotes below). Nothing reported yet on how the emotes feel on a real phone.
+**Phase 1, the emotes and Phase 2 are merged and LIVE at https://broodkeep.pages.dev** (PR #3 to #6, `main` at c638d49).
+Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The
+owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), the request for
+more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
+evolutions are "the same circle like mass with some small affections", and the owner wants real changes like Digimon.
 
-**Phase 2 is built on branch `phase-2-forms` (not pushed).** All 20 forms, the full evolution tree, a dev tree viewer and
-the hatch and evolve scenes. See the Phase 2 section below.
+**Happy eyes are built on branch `happy-eyes` (pushed 2026-11-21, pull request for the owner to open and merge).** See the happy eyes section below.
+
+**Next big piece, agreed with the owner, not started in code:** redraw the creatures as full-body characters that grow by
+stage (about 16 pixels for the in-training blobs up to 32 for Champions and Ultimates; the two babies stay simple blobs),
+with two drawings each (standing and a second frame for idle and walk). Sleep, sad, blink and happy eyes stay derived from
+the standing picture, which needs engine work for other sizes. A concept sheet (a private page of every new creature, all 20 at one
+pixel scale with animated second frames, "was" insets, five evolution lines and a room-size check) was published on
+2026-11-21 and is waiting for the owner's reaction; only after their comments is it wired into the game. The drawing code
+lives in the hub session's work area, not in the repo, until the direction is approved.
 
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
 poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
@@ -22,7 +30,22 @@ Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that fou
 built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
 and iOS Safari save-on-close.
 
-## Phase 2: all 20 forms (branch `phase-2-forms`, not pushed)
+## Happy eyes (branch `happy-eyes`, pushed 2026-11-21)
+
+Owner request: "a happy eye emote for when positive things happen". Eyes become small arches (`^ ^`) during the 0.8 s happy
+hop, which already fires after a meal, petting, tickling, cleaning, a cure, a hatch and an evolve. A sad or sick creature
+gets a slumped version. The arch is dark, or the creature's own eye color when the body is too dark for dark to show (three
+forms: Dreadmaw, Hollowking, Gloomtoad). Design notes in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
+
+Checks: typecheck, 383 tests (10 files) and build exit 0, 27 deliberate code mutations all caught (two were first missed:
+one was a clause that turned out to be dead code and was removed, one exposed a weak test that was tightened), all 20 forms
+rendered standing and slumped, and a headless phone browser after a meal shows the arches during the hop and open eyes
+after it, with no console errors. A cheap-model review found 7 points, all fixed (the docs named six dark forms where it is
+three, a test expected the wrong thing for a white cell beside an eye, two tests had titles that promised more than they
+checked, a stale comment, and the no-tears rule is drawing code with no test, now written down). Not checked: a real phone, and a sad creature live in the browser (the slumped
+picture is tested and was rendered, but not captured live).
+
+## Phase 2: all 20 forms (merged in PR #6, live 2026-11-21)
 
 Owner answers: full tree now with later rules waiting, 16 x 16 pictures for every form, derived emotes plus hatch and
 evolve scenes.
@@ -84,9 +107,10 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Owner says "push it" for `phase-2-forms`, opens the pull request and merges it, then plays the new creatures and the
-   scenes (dev mode: Evolve to it, or the Hatch this form button, shows every form and the scenes).
-2. Collect the owner's feedback on the emotes and on Phase 2, and fix it. Tune the tree numbers after real play.
-3. Phase 3 (habitat, jobs, turn-based combat, coins, the Creature Book) only after that feedback. It makes most Champion
-   and Ultimate paths reachable.
+1. Owner opens the pull request for `happy-eyes` and merges it (pushed 2026-11-21), then plays on a phone: feed, pet or clean the creature and watch for the `^ ^` eyes.
+2. Concept sheet of the redesigned creatures (private page), owner comments, then wire the redesign into the game (variable
+   sprite sizes, two frames, derived emotes at every size) and write `docs/art-direction.md`.
+3. Collect the owner's feedback on the emotes, and tune the tree numbers after real play.
+4. Phase 3 (habitat, jobs, turn-based combat, coins, the Creature Book) only after that. It makes most Champion and
+   Ultimate paths reachable.
    Work on a new branch, never push `main`, and the owner merges the pull request.

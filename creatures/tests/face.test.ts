@@ -1,6 +1,6 @@
 // Closed eyes, lying down and eating: the shapes behind the sleeping and feeding pictures.
 import { describe, expect, it } from "vitest";
-import { WIDE_WIDTH, blanketBox, closeEyes, eyeSpots, faceSprite, findEyes, halfEyes, isWide as isWideKind, lieDown, lookUp, openMouth, pickFace } from "../src/art/face";
+import { WIDE_WIDTH, blanketBox, closeEyes, eyeSpots, faceSprite, findEyes, halfEyes, happyEyes, isWide as isWideKind, lieDown, lookUp, openMouth, pickFace } from "../src/art/face";
 import { BLINK, MEAL, YAWN, blinking, createView, eyesClosed, foodLeft, poseOffsets, snackCut, startEating, triggerPose, updateView } from "../src/art/idle";
 import { ROOM } from "../src/art/layout";
 import { makeRng } from "../src/game/rng";
@@ -256,6 +256,81 @@ describe("other eye and mouth looks", () => {
   });
 });
 
+describe("happy eyes", () => {
+  // How well two palette colors show against each other (1 = not at all, 21 = black on white).
+  const shade = (hex: string): number => {
+    const n = parseInt(hex.slice(1), 16);
+    const lin = (v: number): number => ((v / 255) <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  };
+  const contrast = (a: string, b: string): number => (Math.max(shade(a), shade(b)) + 0.05) / (Math.min(shade(a), shade(b)) + 0.05);
+
+  for (const form of all) {
+    it(`${form.id}: each eye becomes a small arch that shows against the body, with nothing else touched`, () => {
+      const open = { rows: form.idle, palette: form.palette };
+      const eyes = findEyes(form.idle);
+      const happy = happyEyes(open).rows;
+      expect(happy).toHaveLength(form.idle.length);
+      for (const { x, y } of eyes) {
+        const arch = happy[y]?.[x] ?? "?";
+        expect(["K", "W"]).toContain(arch);
+        expect(happy[y]?.[x + 1]).toBe(arch); // the top of the arch, two pixels
+        const fill = happy[y + 1]?.[x] ?? "?";
+        expect(".KWM").not.toContain(fill); // open underneath: a body color, not outline or white
+        expect(happy[y + 1]?.[x + 1]).toBe(fill);
+        expect(contrast(form.palette[arch]!, form.palette[fill]!), `${form.id} arch against its body`).toBeGreaterThanOrEqual(3);
+        for (const foot of [x - 1, x + 2]) {
+          const was = form.idle[y + 1]?.[foot] ?? ".";
+          expect(happy[y + 1]?.[foot], `foot at ${foot},${y + 1}`).toBe(".KWM".includes(was) ? was : arch);
+        }
+      }
+      expect(findEyes(happy)).toHaveLength(0); // no round eye is left behind
+      expect(count(happy, "M")).toBe(count(form.idle, "M")); // the mouth is not touched
+      expect(filledRows(happy)).toEqual(filledRows(form.idle)); // same silhouette
+      form.idle.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) {
+          if (row[x] === ".") expect(happy[y]?.[x]).toBe(".");
+          const nearEye = eyes.some((eye) => x >= eye.x - 1 && x <= eye.x + 2 && (y === eye.y || y === eye.y + 1));
+          if (!nearEye) expect(happy[y]?.[x], `col ${x} row ${y}`).toBe(row[x]); // changes stay around the eyes
+        }
+      });
+    });
+  }
+
+  it("a picture with no eyes is left alone", () => {
+    const rows = ["....", ".BB.", "...."];
+    expect(happyEyes({ rows, palette: {} }).rows).toEqual(rows);
+  });
+
+  it("a foot goes on a body pixel only, never on empty space, a mouth pixel, or off the edge", () => {
+    const happy = (row3: string): string[] =>
+      happyEyes({ rows: ["KKKKKKKKKK", "KBBBBBBBBK", "KBBWWBBBBK", row3, "KBBBBBBBBK"], palette: {} }).rows;
+    expect(happy("KBBWKBBBBK")[3]).toBe("KBKBBKBBBK"); // two body pixels: both feet painted
+    expect(happy("KB.WKMBBBK")[3]).toBe("KB.BBMBBBK"); // empty space and a mouth pixel stay
+    expect(happy("KBKWKKBBBK")[3]).toBe("KBKBBKBBBK"); // outline already dark: unchanged
+    expect(happy("KBBWKBBBBK")[2]).toBe("KBBKKBBBBK"); // the top of the arch
+    const edge = happyEyes({ rows: ["BBBB", "WWBB", "WKBB", "BBBB"], palette: {} }).rows; // eye against the left edge
+    expect(edge).toEqual(["BBBB", "KKBB", "BBKB", "BBBB"]);
+  });
+
+  it("under the arch is the body beside the eye, even when the eye sits right under the outline", () => {
+    const rows = ["KKKKKKKK", "KTWWTTTK", "KTWKTTTK", "KTTTTTTK"];
+    expect(happyEyes({ rows, palette: {} }).rows).toEqual(["KKKKKKKK", "KTKKTTTK", "KKTTKTTK", "KTTTTTTK"]); // the fill is T, although the pixel above the eye is outline
+  });
+
+  it("the arch is dark, but takes the eye color when the body is too dark for dark to show", () => {
+    const rows = ["KKKKKKKKKK", "KBBBBBBBBK", "KBBWWBBBBK", "KBBWKBBBBK", "KBBBBBBBBK"];
+    const light = happyEyes({ rows, palette: { K: "#1a1020", B: "#e8a86b", W: "#ffffff" } }).rows;
+    expect(light[2]).toBe("KBBKKBBBBK");
+    expect(light[3]).toBe("KBKBBKBBBK");
+    const dark = happyEyes({ rows, palette: { K: "#1a1020", B: "#3a2f4f", W: "#ffe45a" } }).rows;
+    expect(dark[2]).toBe("KBBWWBBBBK"); // the glowing eye color
+    expect(dark[3]).toBe("KBWBBWBBBK");
+    const unknown = happyEyes({ rows, palette: { K: "dark", B: "red", W: "white" } }).rows; // colors that cannot be measured
+    expect(unknown[2]).toBe("KBBKKBBBBK");
+  });
+});
+
 describe("drooping", () => {
   for (const form of all) {
     it(`${form.id} slumps a little, between standing and lying flat, and keeps both halves of its eyes`, () => {
@@ -300,6 +375,40 @@ describe("drooping with shut eyes or a yawn", () => {
     expect(count(wide, "W")).toBe(count(rows, "W"));
     expect(count(wide, "K")).toBe(count(rows, "K"));
   });
+});
+
+describe("drooping and happy", () => {
+  for (const form of all) {
+    it(`${form.id} can be slumped with happy eyes, and both arches survive whole, feet included`, () => {
+      const standing = filledRows(form.idle).length;
+      const flat = filledRows(faceSprite(form, "lie0").rows).length;
+      const rows = faceSprite(form, "droopHappy").rows;
+      for (const row of rows) expect(row).toHaveLength(WIDE_WIDTH);
+      const slumped = filledRows(rows).length;
+      expect(slumped).toBeLessThan(standing);
+      expect(slumped).toBeGreaterThan(flat);
+
+      // Each arch is four columns wide (its two pixels and a foot either side) and two rows tall. Neither a row nor a
+      // column of it may be removed or doubled, so the standing arch is found again in the slumped picture, and the
+      // columns beside it are the standing neighbours (a doubled foot would show up there as a copy of the foot).
+      const happy = faceSprite(form, "happy").rows;
+      const eyes = findEyes(form.idle);
+      eyes.forEach(({ x, y }, k) => {
+        const top = happy[y]?.slice(x - 1, x + 3);
+        const bottom = happy[y + 1]?.slice(x - 1, x + 3);
+        const hits: Array<{ r: number; i: number }> = [];
+        rows.forEach((row, r) => {
+          for (let i = 0; i + 4 <= row.length; i++) if (row.slice(i, i + 4) === top && rows[r + 1]?.slice(i, i + 4) === bottom) hits.push({ r, i });
+        });
+        expect(hits.length, `arch at ${x},${y}`).toBeGreaterThanOrEqual(1);
+        const hit = hits.length === eyes.length ? hits[k]! : hits[0]!; // two eyes that look alike: first to first
+        for (const [was, now] of [[x - 2, hit.i - 1], [x + 3, hit.i + 4]] as const) {
+          if (was < 0 || now < 0 || was >= form.idle[y]!.length || now >= WIDE_WIDTH) continue;
+          expect(`${rows[hit.r]?.[now]}${rows[hit.r + 1]?.[now]}`, `beside the arch at ${x},${y}`).toBe(`${happy[y]?.[was]}${happy[y + 1]?.[was]}`);
+        }
+      });
+    });
+  }
 });
 
 describe("the blanket", () => {
@@ -426,6 +535,48 @@ describe("feelings", () => {
     expect(face({ sad: true, sick: true })).toBe("droop");
     expect(face({ sleepy: true })).toBe("half");
     expect(face({ hungry: true })).toBe("open"); // hunger shows as a growling tummy and a bubble
+  });
+
+  it("shows happy eyes during the happy hop, and goes back to normal after it", () => {
+    expect(face({}, "happy")).toBe("happy");
+    expect(face({ sleepy: true }, "happy")).toBe("happy"); // beats heavy lids
+    expect(face({ hungry: true }, "happy")).toBe("happy");
+    expect(face({ sad: true }, "happy")).toBe("droopHappy"); // a slumped creature stays slumped
+    expect(face({ sick: true }, "happy")).toBe("droopHappy");
+    expect(isWideKind("droopHappy")).toBe(true);
+    expect(isWideKind("happy")).toBe(false);
+
+    const view = createView();
+    view.nextBlink = 1000;
+    triggerPose(view, "happy");
+    expect(pickFace(view, false, false)).toBe("happy");
+    view.nextBlink = view.clock; // a blink is due right now: the happy eyes still win
+    expect(blinking(view)).toBe(true);
+    expect(pickFace(view, false, false)).toBe("happy");
+    view.nextBlink = 1000;
+    const rng = makeRng(3);
+    for (let i = 0; i < 20; i++) updateView(view, 0.05, awake, rng.next); // past the 0.8 s hop
+    expect(view.pose).not.toBe("happy");
+    expect(pickFace(view, false, false)).toBe("open");
+  });
+
+  it("sleep and death still beat happy eyes", () => {
+    const view = createView();
+    view.nextBlink = 1000;
+    triggerPose(view, "happy");
+    expect(pickFace(view, true, false)).toMatch(/^lie/);
+    expect(pickFace(view, false, true)).toBe("lie0");
+  });
+
+  it("a meal ends with happy eyes and the heart", () => {
+    const view = createView();
+    view.nextBlink = 1000;
+    const rng = makeRng(5);
+    startEating(view, "berry");
+    for (let i = 0; i < 50; i++) updateView(view, 0.05, awake, rng.next); // 2.5 s: the meal is over, the hop has begun
+    expect(view.pose).toBe("happy");
+    expect(pickFace(view, false, false)).toBe("happy");
+    expect(view.effects.some((fx) => fx.kind === "heart")).toBe(true);
   });
 
   it("lying wins over everything, and a dead creature does not breathe", () => {
