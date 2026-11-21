@@ -1,0 +1,17 @@
+# Cloudflare Pages settings for the Broodkeep game.
+# This file is committed to git, so it must never hold secrets.
+# Secrets go in .dev.vars (local) and the Cloudflare dashboard (live).
+
+name = "broodkeep"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-11-01"
+
+# D1 database (cloud saves). Used from Phase 5.
+#
+# >>> PLACEHOLDER: this database does not exist yet. <<<
+# In Phase 5 we run "npx wrangler d1 create broodkeep" and paste the real
+# database_id over the zeros below. A database id is not a secret.
+[[d1_databases]]
+binding = "DB"
+database_name = "broodkeep"
+database_id = "00000000-0000-0000-0000-000000000000" # PLACEHOLDER, replace in Phase 5

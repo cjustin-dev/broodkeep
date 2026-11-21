@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    // Language level and where the code runs (a browser, plus Cloudflare Functions).
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+
+    // Preact components (.tsx) use the Preact JSX runtime.
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+
+    // Strict mode: catches most beginner mistakes before the game runs.
+    "strict": true,
+
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src", "tests", "functions", "vite.config.ts"]
+}
