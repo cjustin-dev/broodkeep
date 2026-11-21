@@ -147,6 +147,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Facts that are easy to get wrong
 
+- Anything stored in the save as an absolute time (a job's finishing time, stage starts) can end up hours ahead if the device clock is set back by more than an hour, because the game then starts again from the new time. Jobs clamp their finishing time to their own length; other stored times (egg start, stage start) do not.
 - Pages `_headers` does not apply to Functions responses, so `functions/_lib/response.ts` must set headers itself.
 - Workers may cap PBKDF2 at 100,000 iterations (reported, not confirmed in primary docs). Check before Phase 5.
 - Unknown paths return `index.html` with 200 (SPA fallback). Once Functions exist, unknown API routes should return a JSON 404.
