@@ -9,7 +9,7 @@ import { combatTuning } from "../src/data/combat";
 import { getForm } from "../src/data/forms";
 import { newBattle, newFighter, playRound } from "../src/game/combat/battle";
 import type { Battle, BattleEvent } from "../src/game/combat/battle";
-import { forceEvolve, killCreature } from "../src/game/dev";
+import { forceEvolve, killCreature, spawnEgg } from "../src/game/dev";
 import { Game } from "../src/ui/game";
 import type { Save } from "../src/game/state";
 import type { CombatStat } from "../src/game/types";
@@ -49,10 +49,16 @@ describe("laying a round out in time", () => {
     expect(playback(events, true).length).toBeCloseTo(playback(events, false).length + FX.down, 9);
   });
 
-  it("keeps the lunge inside the time its blow takes", () => {
+  it("keeps the lunge and the recoil inside the time a blow takes, so everyone is back in place when a round has played", () => {
     expect(FX.hitAt).toBeGreaterThan(0);
     expect(FX.hitAt).toBeLessThan(FX.strike);
-    expect(FX.recoil).toBeLessThanOrEqual(FX.strike - FX.hitAt + FX.strike); // a hit is over before the blow after the next one
+    expect(FX.hitAt + FX.recoil).toBeLessThanOrEqual(FX.strike); // the last blow's recoil ends with its time slot
+    for (const events of [[strike("me")], [strike("foe")], [strike("me"), strike("foe")], [guard("me"), strike("foe"), strike("me")]]) {
+      const play = playback(events, false);
+      for (const side of ["me", "foe"] as const) {
+        expect(fighterPlace(side, 16, play, play.length).x, `${events.length} events, ${side}`).toBe(fighterPlace(side, 16, null, 0).x);
+      }
+    }
   });
 });
 
@@ -292,11 +298,17 @@ describe("holding a fight", () => {
   });
 
   it("an egg or a death sends any screen back to the room, and the arena does not show for them even before that", () => {
-    const game = gameWith("nubbin");
-    killCreature(game.save, game.now());
-    expect(game.atArena).toBe(false); // the screen has not been told yet
-    game.changed();
-    expect(game.screen).toBe("room");
-    expect(game.atArena).toBe(false);
+    const ends: Array<[string, (game: Game) => void]> = [
+      ["a death", (game) => killCreature(game.save, game.now())],
+      ["an egg", (game) => spawnEgg(game.save, game.now())],
+    ];
+    for (const [name, end] of ends) {
+      const game = gameWith("nubbin");
+      end(game);
+      expect(game.atArena, name).toBe(false); // the screen has not been told yet
+      game.changed();
+      expect(game.screen, name).toBe("room");
+      expect(game.atArena, name).toBe(false);
+    }
   });
 });

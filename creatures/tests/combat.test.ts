@@ -126,7 +126,7 @@ describe("resting", () => {
     expect(gain((c) => { c.sleep = "nap"; c.stats.hunger = 0; })).toBeCloseTo(awake * tune.asleepFactor * tune.neglectFactor, 9);
   });
 
-  it("goes on while the app is closed: a hurt creature is whole again a day later", () => {
+  it("goes on while the app is closed: a hurt creature is whole again an hour later", () => {
     const save = hatched("fennix");
     setHpPercent(save, 10);
     simulateTo(save, DAY + 60 * MINUTE);
