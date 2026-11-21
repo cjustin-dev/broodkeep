@@ -11,7 +11,7 @@ owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes o
 more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
 evolutions are "the same circle like mass with some small affections", and the owner wants real changes like Digimon.
 
-**The creature redesign is built on branch `creature-redesign` (local, not pushed, waiting for "push it").** The owner
+**The creature redesign is built on branch `creature-redesign` (pushed 2026-11-21, pull request for the owner to open and merge).** The owner
 approved the concept sheet on 2026-11-21. See the redesign section below and [art-direction.md](art-direction.md).
 
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
@@ -24,7 +24,7 @@ Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that fou
 built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
 and iOS Safari save-on-close.
 
-## Creature redesign (branch `creature-redesign`, built 2026-11-21, not pushed)
+## Creature redesign (branch `creature-redesign`, built and pushed 2026-11-21)
 
 Owner: "they look so dopey and have no real character, I want real changes like in Digimon". After a private concept sheet
 the owner approved ("i approve the creature sheet for redesign"). All 18 non-baby creatures are redrawn as full-body
@@ -110,7 +110,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Open for the owner
 
-- Say "push it" for `creature-redesign`, open and merge the pull request, then play on a phone and report what feels wrong
+- Open and merge the pull request for `creature-redesign` (https://github.com/cjustin-dev/broodkeep/pull/new/creature-redesign), then play on a phone and report what feels wrong
   (how the creatures look, whether the two-drawing animation pace feels right, the happy eyes). Dev mode (gear, tap the
   version line 7 times) skips the waits and can hatch any form.
 - Decide whether the Python drawing toolkit goes into the repo (`creatures/tools/art/`). It is not there now.
@@ -128,7 +128,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Owner pushes and merges `creature-redesign`, then plays on a phone and reports. Fix what feels wrong (pace of the second
+1. Owner opens and merges the `creature-redesign` pull request, then plays on a phone and reports. Fix what feels wrong (pace of the second
    drawing, a bigger bed or blanket, creatures that still look dopey, shut eyes on dark bodies).
 2. Collect the owner's feedback on the emotes and the redesign, and tune the tree numbers after real play.
 3. Phase 3 (habitat, jobs, turn-based combat, coins, the Creature Book) only after that. It makes most Champion and
