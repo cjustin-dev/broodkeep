@@ -9,6 +9,7 @@ export const ROOM = {
   walkMinX: 6, // furthest left and right the creature walks (left edge of the sprite)
   walkMaxX: 60,
   walkY: 56, // top of the sprite while standing on the floor
+  bedLeft: 62, // the left edge of the bed (room.ts draws it there), so nothing else is put on it
   bedX: 68, // where the creature sleeps
   bedY: 54,
   deadX: 24, // where a dead creature lies, clear of the bed (the tombstone goes beside it)

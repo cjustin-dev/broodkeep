@@ -116,7 +116,7 @@ export function Stage({ game }: { game: Game }) {
     const save = game.save;
     if (save.phase === "egg") {
       const result = game.act((s, now) => tapEgg(s, now));
-      triggerPose(game.view, "refuse"); // the egg wobbles
+      triggerPose(game.view, "wobble"); // the egg wiggles
       if (result === "hatched") {
         sparkles(8);
         triggerPose(game.view, "happy");

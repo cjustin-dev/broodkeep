@@ -34,6 +34,22 @@
   return to the gear and do not block the page behind them. Fine for a phone game, worth doing in Phase 7.
 - **Dev "Hatch this form now" and "New egg" replace a living creature without asking.** Dev only.
 
+## Emotes (accepted for now)
+
+- **"Squash" is really a one pixel shift.** `drawSprite`'s `height` option drops whole rows, and these sprites have an
+  empty bottom row, so the awake breathing bob and the chewing bob are just the sprite moving down one pixel. Real squash
+  frames come with Phase 2 art. The lying-down picture is separate and is a true flat shape.
+- **One meal at a time.** Feeding again during a meal replaces the food on the floor and restarts the eating.
+- **The mouth only changes for a yawn.** A sad creature has the same small mouth as a happy one, the sadness is in the
+  heavy eyelids, the slump and the tears. Eyes only look up (at falling food) or stay as drawn, there is no looking around.
+- **The slumped yawn mouth is a wide red oval** (the mouth grows with the widened body), and reads as a small plus sign at
+  a glance. Hand-drawn Phase 2 frames would fix it.
+- **Sick shows as droop, green tint and sway.** There is no separate "sick" face, and a sad and sick creature look alike
+  apart from the tears.
+- **The feelings use fixed cut-offs** (hungry under 25, sleepy under 25, sad under 30), the same idea as the red part of the
+  stat bars. They are in `moodOf` in `scene.ts`.
+- **The blanket sits on top of the bed,** it is a pink rectangle, not a drawing that follows the creature's shape.
+
 ## Backend (Phase 5)
 
 - **PBKDF2 iteration cap.** Workers is reported to cap PBKDF2 at 100,000, below the OWASP figure of 600,000 for SHA-256.

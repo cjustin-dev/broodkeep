@@ -4,10 +4,11 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-20)
 
-**Phase 1 is built and committed on branch `phase-1-single-creature`. Not pushed, not deployed, waiting on the owner's
-"push it" and then their merge of the pull request.** `main` is unchanged from the scaffold (live at
-https://broodkeep.pages.dev, Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output
-`dist`, builds from `main`).
+**Phase 1 is merged (PR #3, `main` at d94c749) and LIVE at https://broodkeep.pages.dev.** The live page serves the same
+asset file names as the local build (`index-CbvsJsE3.js`, `index-C5ifZwfL.css`). Cloudflare Pages project `broodkeep`,
+root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The owner deleted the merged branches on
+GitHub; `main` is the only branch there. Owner feedback so far: on a PC browser and an Android browser the egg shakes when
+tapped. Nothing else reported yet.
 
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
 poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
@@ -23,12 +24,32 @@ impeccable design detector reports nothing on the UI files. A cheap-model fresh-
 defects, all fixed (see decisions.md). Two of them (second finger, failed read) have a browser check that fails on the old
 code and passes on the new.
 
-Not checked: a real phone, a real iOS Safari save-on-close, and whether a Cloudflare preview deployment appears for the
-branch (unverified, look in the dashboard).
+Not checked by me: hatching, feeding and the other screens on a real phone, and iOS Safari save-on-close.
+
+## Emotes (branch `creature-emotes`, not pushed)
+
+Owner feedback after the first playtest: more visible emotion for small children. Built in two rounds, both committed on
+this branch:
+
+1. Eating (food drops in, four bites, eyes shut while chewing, then a heart and a hop), lying flat with eyes shut when
+   asleep or dead, and a slow gentle "no" (eyes shut, slow sway) instead of a rattle. The quick rattle stays for a tapped
+   egg.
+2. On the owner's go-ahead, the rest: blinking, sad (slumped, heavy lids, tears), sick (slump, sway), hungry (tummy
+   rumble), sleepy (heavy lids, yawn), a pink blanket over the sleeping creature, and pupils that look up at falling food.
+
+Design notes in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
+
+Checks (round 2, on top of round 1): typecheck, 147 tests and build exit 0. 41 deliberate code mutations of the emote code
+were all caught (several tests were first too weak and were tightened). The built game was driven in a headless phone
+browser for every feeling (time-lapse close-ups of eating, hungry, tired, sad, sad and tired, sick, asleep with the
+blanket) with no console errors, and the earlier two-finger and failed-read browser checks still pass. Both rounds had a
+cheap-model review; round 1 found 3 real issues and round 2 found 5, all fixed (a sad creature now stays slumped while
+yawning, chewing or saying no, tears line up with the eyes, the wander roll is spread correctly after the growl and yawn
+chances). Not checked: a real phone, and the motion as motion (tests cover sizes and timing, the pictures are stills).
 
 ## Open for the owner
 
-- Say "push it" to push `phase-1-single-creature`, then open and merge the pull request. Merging deploys it.
+- Play Phase 1 on a phone and report what feels wrong. Dev mode (gear, tap the version line 7 times) skips the waits.
 - `LICENSE` at the repo root is the old template author's MIT notice. It could read as the game's license. Keep, replace
   or remove?
 - Plan sections 1 and 2 and the handoff notes still describe the old site and say "do not touch the repo root". Update
@@ -48,6 +69,8 @@ branch (unverified, look in the dashboard).
 
 ## Next
 
-1. Owner tests Phase 1 on a phone and gives feedback. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
+1. Owner says "push it" for `creature-emotes` (it carries the emotes and the `notes-phase-1-live` notes commit), opens the
+   pull request, merges, and plays it. Feedback on how the emotes feel on a real phone comes next.
+2. Collect the owner's Phase 1 feedback and fix it. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
    after that feedback.
    Work on a new branch, never push `main`, and the owner merges the pull request.
