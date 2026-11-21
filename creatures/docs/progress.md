@@ -10,7 +10,7 @@ owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes o
 more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
 evolutions are "the same circle like mass with some small affections", and the owner wants real changes like Digimon.
 
-**Happy eyes are built on branch `happy-eyes` (not pushed).** See the happy eyes section below.
+**Happy eyes are built on branch `happy-eyes` (pushed 2026-11-21, pull request for the owner to open and merge).** See the happy eyes section below.
 
 **Next big piece, agreed with the owner, not started in code:** redraw the creatures as full-body characters that grow by
 stage (about 16 pixels for the in-training blobs up to 32 for Champions and Ultimates; the two babies stay simple blobs),
@@ -30,7 +30,7 @@ Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that fou
 built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
 and iOS Safari save-on-close.
 
-## Happy eyes (branch `happy-eyes`, not pushed)
+## Happy eyes (branch `happy-eyes`, pushed 2026-11-21)
 
 Owner request: "a happy eye emote for when positive things happen". Eyes become small arches (`^ ^`) during the 0.8 s happy
 hop, which already fires after a meal, petting, tickling, cleaning, a cure, a hatch and an evolve. A sad or sick creature
@@ -111,7 +111,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Owner says "push it" for `happy-eyes` (fetch first, check it is not already merged), opens the pull request and merges it.
+1. Owner opens the pull request for `happy-eyes` and merges it (pushed 2026-11-21), then plays on a phone: feed, pet or clean the creature and watch for the `^ ^` eyes.
 2. Concept sheet of the redesigned creatures (private page), owner comments, then wire the redesign into the game (variable
    sprite sizes, two frames, derived emotes at every size) and write `docs/art-direction.md`.
 3. Collect the owner's feedback on the emotes, and tune the tree numbers after real play.
