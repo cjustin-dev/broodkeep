@@ -1,0 +1,15 @@
+# Security headers for the Broodkeep game.
+# Cloudflare Pages applies this file to static files only. It does NOT apply to
+# responses from Pages Functions, so functions/_lib/response.ts must set its own.
+
+# Every route.
+/*
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-Frame-Options: DENY
+
+# API responses must never be cached.
+/api/*
+  Cache-Control: no-store

@@ -12,7 +12,7 @@
 - Keep code commented enough for a beginner to follow.
 - Owner preference: plain, direct writing. No em dashes, no corporate phrasing.
 
-## 1. What's in the kharbranth repo today
+## 1. What's in the broodkeep repo today
 
 - It's the unmodified "cloudflare-pages-template": plain static HTML, Bootstrap CSS, a few JS libraries and images, all at the repo root.
 - There is no build step, no `package.json` and no `wrangler.toml`. Cloudflare Pages is connected to the repo through Git and just serves the root folder as-is.
@@ -25,7 +25,7 @@ I recommend a **second Cloudflare Pages project** built from a new `creatures/` 
 
 Why:
 - The game needs a build step (TypeScript, bundling, PWA files) and backend functions. Adding those to the existing project means changing its build settings, which is exactly how you'd break the current site.
-- A separate project gets its own URL (something like `kharbranth-creatures.pages.dev`), its own D1 database binding and its own deploy logs. If a game deploy fails, your main site doesn't notice.
+- A separate project gets its own URL (something like `broodkeep.pages.dev`), its own D1 database binding and its own deploy logs. If a game deploy fails, your main site doesn't notice.
 - A PWA works best when it owns the whole origin (its own home-screen icon, offline cache and cookies), not a subpath of another site.
 - You can still link to it from the main site, or give it a subdomain later if you add a custom domain.
 
@@ -54,7 +54,7 @@ One side effect: the existing project serves everything in the repo root, so the
 ## 4. Folder layout
 
 ```
-kharbranth/
+broodkeep/
   index.html, css/, js/ ...      <- existing site, untouched
   creatures/                     <- root of the new Pages project
     package.json, vite.config.ts, wrangler.toml

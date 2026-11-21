@@ -1,0 +1,10 @@
+# Placeholder names only. This file is committed to git, so never put real values in it.
+#
+# Real values go in two places:
+#   1. A local file named .dev.vars (copy this file, then edit the copy).
+#      .dev.vars is in .gitignore and must never be committed.
+#   2. The Cloudflare dashboard, under Settings > Variables and Secrets.
+#
+# Nothing reads these yet. The names below are examples for Phase 5 (accounts), which
+# decides what is really needed.
+SESSION_SECRET=change-me
