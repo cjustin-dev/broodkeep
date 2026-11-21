@@ -2,7 +2,7 @@
 // If the browser blocks storage (some private windows do), the game still runs,
 // but progress is lost when the page closes. Settings shows a warning in that case.
 
-import { isSave } from "../game/state";
+import { migrateSave } from "../game/state";
 import type { Save } from "../game/state";
 
 const DB_NAME = "broodkeep";
@@ -56,7 +56,8 @@ export async function loadSave(): Promise<Save | null> {
   try {
     const raw = await get("save");
     if (raw === undefined) return null;
-    if (isSave(raw)) return raw;
+    const save = migrateSave(raw);
+    if (save) return save;
     await put("save-unreadable", raw);
     return null;
   } catch {

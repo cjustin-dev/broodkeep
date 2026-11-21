@@ -45,8 +45,9 @@ export function DevTree({ game }: { game: Game }) {
       <fieldset>
         <legend>Numbers for later systems</legend>
         <p class="hint">
-          Training, battles, jobs and trained stats are not in the game yet, so these stay at 0. Set them here to test the paths
-          that need them. They reset at each evolution. Discipline is a stat: use its slider under Creature.
+          Training, battles and trained stats are not in the game yet, so these stay at 0. Jobs are counted for real, and the
+          number here is the total the tree reads. Set them here to test the paths that need them. They reset at each
+          evolution. Discipline is a stat: use its slider under Creature.
         </p>
         {laterMetrics.map((metric) => (
           <label class="slider">

@@ -7,6 +7,7 @@ import { eggPatterns, hatchTable } from "../data/eggs";
 import { getForm } from "../data/forms";
 import { tuning } from "../data/tuning";
 import { stepCare } from "./care";
+import { stepJob } from "./habitat/jobs";
 import { chooseEvolution } from "./evolution";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
@@ -48,7 +49,10 @@ function stepMinute(save: Save, rng: Rng, t: number): void {
     hatchIfReady(save, rng, t);
   } else if (save.phase === "alive" && save.creature) {
     stepCare(save, rng, t);
-    if (save.phase === "alive") evolveIfReady(save, t);
+    if (save.phase === "alive") {
+      stepJob(save, rng, t); // before evolving, so a job finished this minute counts toward the next form
+      evolveIfReady(save, t);
+    }
   }
 }
 
