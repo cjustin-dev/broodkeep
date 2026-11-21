@@ -1,0 +1,473 @@
+/* Broodkeep screen styles. Phone first: one column, big touch targets. */
+
+:root {
+  color-scheme: dark;
+
+  /* A cozy dusk palette. Text on every surface is well above 4.5:1. */
+  --bg: #231a38;
+  --bg-lift: #2c2145;
+  --panel: #3a2c5e;
+  --panel-hi: #4d3b7d;
+  --line: #62509a;
+  --ink: #f8f0e4;
+  --ink-soft: #d9ccef;
+  --accent: #ffd25a;
+  --good: #67d88a;
+  --ok: #f4b942;
+  --low: #ff6f7f;
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --lift: 0 6px 14px rgba(8, 4, 20, 0.45);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1); /* fast start, soft landing */
+
+  font-family: ui-rounded, "SF Pro Rounded", Nunito, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  color: var(--ink);
+  background: var(--bg) radial-gradient(120% 70% at 50% 0%, #3b2b66 0%, var(--bg) 62%) no-repeat;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.pic {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* ---------- layout ---------- */
+
+.app {
+  max-width: 480px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.top {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.dock {
+  min-height: 120px; /* the same height with or without buttons, so nothing jumps */
+}
+
+/* On a tall screen the room takes the spare space and the buttons sit at the bottom, in thumb reach. */
+.stage {
+  flex: 1;
+}
+
+/* ---------- stats ---------- */
+
+.stats {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  transition: opacity 0.3s var(--ease);
+}
+
+.stats[data-dim="true"] {
+  opacity: 0.4;
+}
+
+.stat {
+  padding: 8px 6px 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel);
+  border-radius: var(--radius-md);
+}
+
+.bar {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* The fill is always full width and slides left to show less, so it animates without relayout. */
+.fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--good);
+  transition: transform 0.6s var(--ease);
+}
+
+.stat[data-level="ok"] .fill {
+  background: var(--ok);
+}
+
+.stat[data-level="low"] .fill {
+  background: var(--low);
+}
+
+/* ---------- the room ---------- */
+
+.stage {
+  display: grid;
+  place-items: center;
+}
+
+.room {
+  display: block;
+  border-radius: var(--radius-md);
+  background: #000;
+  box-shadow: 0 10px 28px rgba(8, 4, 20, 0.5);
+  image-rendering: pixelated;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  appearance: none;
+  border: 0;
+  min-height: 76px;
+  display: grid;
+  place-items: center;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition:
+    transform 0.14s var(--ease),
+    background 0.14s;
+}
+
+.btn:hover {
+  background: var(--panel-hi);
+}
+
+.btn:active {
+  transform: translateY(2px) scale(0.97);
+}
+
+.btn:focus-visible,
+.version:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+
+.btn[aria-pressed="true"],
+.btn[aria-expanded="true"] {
+  background: var(--panel-hi);
+  box-shadow: var(--lift), inset 0 0 0 2px var(--accent);
+}
+
+.gear {
+  min-height: 0;
+  width: 46px;
+  border-radius: var(--radius-md);
+}
+
+/* The button that matches what the creature is asking for pulses softly. */
+.btn[data-attention="true"] {
+  animation: nudge 1.8s ease-in-out infinite;
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    box-shadow: var(--lift), inset 0 0 0 3px rgba(255, 210, 90, 0);
+  }
+  50% {
+    box-shadow: var(--lift), inset 0 0 0 3px rgba(255, 210, 90, 0.85);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.care,
+.tray {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.tray {
+  animation: rise 0.2s var(--ease) both;
+}
+
+.btn.food {
+  min-height: 64px;
+  background: var(--panel-hi);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- after a death ---------- */
+
+.death {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  background: var(--panel);
+  border-radius: var(--radius-lg);
+}
+
+.death-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.btn.wide {
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: var(--panel-hi);
+}
+
+/* ---------- settings and dev panels ---------- */
+
+.panel {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow: auto;
+  background: #120c20;
+  animation: fade 0.2s ease-out both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.panel-body {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 16px calc(28px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+fieldset {
+  margin: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+legend {
+  padding: 0 6px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+select {
+  min-height: 44px;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg-lift);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+
+.check {
+  justify-content: flex-start;
+  min-height: 44px;
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr 2.5rem;
+}
+
+.slider select {
+  grid-column: 2 / 4;
+}
+
+output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn.small {
+  min-height: 44px;
+  padding: 0 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  box-shadow: none;
+  background: var(--panel);
+}
+
+.btn.small[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.btn.danger {
+  background: #7a2b3c;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.notice {
+  margin: 0;
+  padding: 12px 14px;
+  background: #5c2a3b;
+  border-radius: 12px;
+}
+
+.version {
+  align-self: center;
+  padding: 14px;
+  font: inherit;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+}
+
+.facts dt {
+  color: var(--ink-soft);
+}
+
+.facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.log {
+  margin: 0;
+  padding: 0;
+  max-height: 40vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.log time {
+  margin-right: 6px;
+  color: var(--ink-soft);
+}
+
+/* ---------- motion preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

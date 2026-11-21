@@ -4,44 +4,50 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-20)
 
-Scaffold is MERGED to `main` (PR #1, merge commit 389934e) and LIVE at https://broodkeep.pages.dev (second Pages project,
-root dir `creatures`, built from `main`). No game code. Phase 1 not started.
-Live check 2026-11-21: all security headers present on `/` and `/api/*` (`no-store`), and source files such as
-`/package.json` and `/wrangler.toml` return the placeholder page, not the real files. The placeholder D1 id did not
-break the deploy.
-Local branch `remove-old-site` (not pushed) holds the root-site deletion plus the notes-only commits that are not on `main`.
-Pages gotcha seen: "Retry deployment" rebuilds the OLD commit. After a merge, look for the new deployment instead.
-Dashboard gotcha seen: the Workers setup flow shows a "Deploy command" box; the Pages flow does not. Use the Pages flow.
+**Phase 1 is built and committed on branch `phase-1-single-creature`. Not pushed, not deployed, waiting on the owner's
+"push it" and then their merge of the pull request.** `main` is unchanged from the scaffold (live at
+https://broodkeep.pages.dev, Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output
+`dist`, builds from `main`).
 
-Verified locally: `npm run build`, `npm run typecheck` and `npm test` exit 0. `public/_headers` was checked
-by serving `dist` with `wrangler pages dev` (headers present on `/`, `/api/*` and assets, absent when the
-file is removed). The built `index.html` has no inline script or style, so the CSP needs no exceptions.
+What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
+poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
+death and a new egg, idle behaviours, tap reactions (poke, pet, tickle), a settings panel (sleeping hours) and a dev panel
+(7 taps on the version line). Three placeholder forms: Blip, Pip, Fennix. One fixed room. Saves on the device only
+(IndexedDB). Design choices are in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
 
-## Open decisions for the owner
+Checks run on the final code: `npm run typecheck`, `npm test` (103 tests, 7 files) and `npm run build` all exit 0. The
+bundle is 49 KB JS (18 KB gzip) and 5.6 KB CSS. 12 deliberate code mutations on the simulation were all caught by tests.
+The built game was driven in a headless phone browser (390 x 844, 3x, fake clock) through egg, hatch, reload, feeding,
+hungry call, night, death, new egg, settings, dev panel and a desktop view, with no console errors or CSP violations. The
+impeccable design detector reports nothing on the UI files. A cheap-model fresh-eyes review of the UI found 5 real
+defects, all fixed (see decisions.md). Two of them (second finger, failed read) have a browser check that fails on the old
+code and passes on the new.
 
-- DECIDED 2026-11-20: the owner said the old Cloudflare project (`kharbranth`) is disposable (just made, nothing depends on
-  it). Plan: delete it, then create one new Pages project `broodkeep` (root dir `creatures`). That makes the root
-  `_redirects` rule, the build watch paths and the old-connection test unnecessary. Kept for reference if the old
-  project is ever kept: a 404 rule in `_redirects` is not supported (tested: silently ignored), and `/creatures/* / 302`
-  works (tested on a scratch copy).
-- Old site files are deleted on branch `remove-old-site` (37 files incl. the template README; not on `main` until that
-  PR is merged). Kept: `LICENSE` (the template author's MIT notice, which could read as the game's license; owner's call)
-  and the root `.gitignore`. Plan sections 1 and 2 and the handoff notes still describe the old site; left as written.
-- Placeholder D1 `database_id` in wrangler.toml: unknown whether the first Pages deploy accepts it.
-  If the first build fails with a D1 error, comment out the `[[d1_databases]]` block until Phase 5.
+Not checked: a real phone, a real iOS Safari save-on-close, and whether a Cloudflare preview deployment appears for the
+branch (unverified, look in the dashboard).
+
+## Open for the owner
+
+- Say "push it" to push `phase-1-single-creature`, then open and merge the pull request. Merging deploys it.
+- `LICENSE` at the repo root is the old template author's MIT notice. It could read as the game's license. Keep, replace
+  or remove?
+- Plan sections 1 and 2 and the handoff notes still describe the old site and say "do not touch the repo root". Update
+  the plan to match, or leave as history?
+- Add GitHub branch protection on `main`. The hub's deploy key can push any branch.
+- Confirm the old Cloudflare project (`kharbranth`) is deleted. It is disposable.
 
 ## Facts that are easy to get wrong
 
 - Pages `_headers` does not apply to Functions responses, so `functions/_lib/response.ts` must set headers itself.
 - Workers may cap PBKDF2 at 100,000 iterations (reported, not confirmed in primary docs). Check before Phase 5.
-- plan section 2 still says `kharbranth.pages.dev` (old site URL, left as written) and "harmless" (outdated once the
-  redirect rule is added).
-- The hub pushes with a repo-scoped GitHub deploy key (write access). It can push any branch, so protect `main` on GitHub.
+- Unknown paths return `index.html` with 200 (SPA fallback). Once Functions exist, unknown API routes should return a JSON 404.
+- Pages "Retry deployment" rebuilds the OLD commit. After a merge, look for the new deployment instead.
+- The Workers setup flow shows a "Deploy command" box; the Pages flow does not. This project is Pages.
+- `SESSION_SECRET` in `.dev.vars.example` is only an example name. Phase 5 decides what is really needed.
+- More in [known-issues.md](known-issues.md) and [decisions.md](decisions.md).
 
 ## Next
 
-1. Owner: confirm the old Cloudflare project is deleted (or leave it; it is disposable).
-2. Owner: say "push" so `remove-old-site` goes to GitHub, then merge its PR. It carries the notes-only commits too.
-3. Phase 1 (single local creature), only on the owner's go-ahead.
-4. Phase 5 note: the host falls back to `index.html` with 200 for unknown paths, so `/api/typo` returns 200 HTML today.
-   Once Functions exist, unknown API routes should return a JSON 404.
+1. Owner tests Phase 1 on a phone and gives feedback. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
+   after that feedback.
+   Work on a new branch, never push `main`, and the owner merges the pull request.
