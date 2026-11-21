@@ -15,8 +15,10 @@ evolutions are "the same circle like mass with some small affections", and the o
 **Next big piece, agreed with the owner, not started in code:** redraw the creatures as full-body characters that grow by
 stage (about 16 pixels for the in-training blobs up to 32 for Champions and Ultimates; the two babies stay simple blobs),
 with two drawings each (standing and a second frame for idle and walk). Sleep, sad, blink and happy eyes stay derived from
-the standing picture, which needs engine work for other sizes. A concept sheet (a private page of every new creature) goes
-to the owner first, and only after their comments is it wired into the game.
+the standing picture, which needs engine work for other sizes. A concept sheet (a private page of every new creature, all 20 at one
+pixel scale with animated second frames, "was" insets, five evolution lines and a room-size check) was published on
+2026-11-21 and is waiting for the owner's reaction; only after their comments is it wired into the game. The drawing code
+lives in the hub session's work area, not in the repo, until the direction is approved.
 
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
 poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
