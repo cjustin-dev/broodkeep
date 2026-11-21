@@ -2,9 +2,10 @@
 //   closed eyes     (sleeping, saying no, chewing, blinking)
 //   heavy eyelids   (tired, sad, sick)
 //   eyes looking up (watching food fall)
+//   happy eyes      (a little arch each, the way a smiling face shuts its eyes: for joyful moments)
 //   open mouth      (yawning)
-//   drooping        (sad or sick: slumped and a bit wider, with heavy eyelids, or with eyes shut or
-//                    yawning, so a slumped creature never pops upright for those)
+//   drooping        (sad or sick: slumped and a bit wider, with heavy eyelids, or with eyes shut,
+//                    yawning or happy, so a slumped creature never pops upright for those)
 //   lying down      (sleeping, and after death): squashed flat and wider
 //
 // The standing picture follows one rule so this works: each eye is a 2 x 2 block of
@@ -18,7 +19,7 @@ import { MEAL, YAWN, blinking, eyesClosed } from "./idle";
 import type { View } from "./idle";
 import type { Sprite } from "./pixel";
 
-export type FaceKind = "open" | "closed" | "half" | "up" | "yawn" | "droop" | "droopClosed" | "droopYawn" | "lie0" | "lie1";
+export type FaceKind = "open" | "closed" | "half" | "up" | "happy" | "yawn" | "droop" | "droopClosed" | "droopYawn" | "droopHappy" | "lie0" | "lie1";
 
 // Pictures that are wider than the standing one (lying, drooping) are drawn on a canvas this
 // wide. The standing picture is 16.
@@ -72,6 +73,47 @@ export function halfEyes(sprite: Sprite): Sprite {
   for (const { x, y } of findEyes(sprite.rows)) {
     set(x, y, "K");
     set(x + 1, y, "K");
+  }
+  return rebuild(grid, sprite);
+}
+
+// Happy eyes: each eye becomes a small arch, two pixels on the top row of the eye with a foot one
+// pixel out on each side of the row below:
+//    KK
+//   K  K
+// The arch is dark (K) unless the body is too dark for that to show, then it takes the creature's
+// eye color (W), which is bright on those forms. Under the arch is the body color beside the eye
+// (the pixel above the eye can be outline). A foot only goes on a body pixel (outline, mouth and
+// empty space are left alone, and an outline pixel already is dark, so it works as the foot).
+const MIN_ARCH_CONTRAST = 3;
+
+// Brightness of a "#rrggbb" color from 0 (black) to 1 (white), or null for any other format.
+function brightness(color: string | undefined): number | null {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color ?? "");
+  if (!hex) return null;
+  const n = parseInt(hex[1]!, 16);
+  const channel = (value: number): number => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
+}
+
+export function happyEyes(sprite: Sprite): Sprite {
+  const { grid, set } = editable(sprite);
+  const isBody = (letter: string | undefined): letter is string => letter !== undefined && !".KWM".includes(letter);
+  for (const { x, y } of findEyes(sprite.rows)) {
+    const beside = [x - 1, x + 2].map((col) => sprite.rows[y + 1]?.[col]).find(isBody);
+    const fill = beside ?? grid[y - 1]?.[x] ?? ".";
+    const dark = brightness(sprite.palette.K);
+    const body = brightness(sprite.palette[fill]);
+    const showsDark = dark === null || body === null || (Math.max(dark, body) + 0.05) / (Math.min(dark, body) + 0.05) >= MIN_ARCH_CONTRAST;
+    const arch = showsDark ? "K" : "W";
+    set(x, y, arch);
+    set(x + 1, y, arch);
+    set(x, y + 1, fill);
+    set(x + 1, y + 1, fill);
+    for (const foot of [x - 1, x + 2]) if (isBody(sprite.rows[y + 1]?.[foot])) set(foot, y + 1, arch);
   }
   return rebuild(grid, sprite);
 }
@@ -207,6 +249,9 @@ export function faceSprite(form: Form, kind: FaceKind): Sprite {
     case "up":
       sprite = lookUp(open);
       break;
+    case "happy":
+      sprite = happyEyes(open);
+      break;
     case "yawn":
       sprite = openMouth(closeEyes(open));
       break;
@@ -219,6 +264,9 @@ export function faceSprite(form: Form, kind: FaceKind): Sprite {
     case "droopYawn":
       sprite = slump(openMouth(closeEyes(open)), eyes.map((eye) => eye.y + 1), eyeCols);
       break;
+    case "droopHappy": // both rows of each arch stay, and the columns of its feet are never doubled
+      sprite = slump(happyEyes(open), eyes.flatMap((eye) => [eye.y, eye.y + 1]), [...eyeCols, ...eyes.flatMap((eye) => [eye.x - 1, eye.x + 2])]);
+      break;
     default: // lying: the shut-eye line and the mouth stay
       sprite = lieDown(closeEyes(open), [...eyes.map((eye) => eye.y + 1), ...mouthRows], eyeCols, kind === "lie1" ? 1 : 0);
   }
@@ -227,7 +275,7 @@ export function faceSprite(form: Form, kind: FaceKind): Sprite {
 }
 
 // Which picture to draw this frame. A sad or sick creature stays slumped whatever it is doing
-// (yawning, chewing, saying no), and does not blink.
+// (yawning, chewing, saying no, being happy), and does not blink.
 export function pickFace(view: View, asleep: boolean, dead: boolean): FaceKind {
   if (dead || asleep) return !dead && Math.floor(view.clock / 1.4) % 2 === 1 ? "lie1" : "lie0";
   const slumped = view.mood.sick || view.mood.sad;
@@ -236,6 +284,7 @@ export function pickFace(view: View, asleep: boolean, dead: boolean): FaceKind {
     return slumped ? "droopClosed" : "closed";
   }
   if (eyesClosed(view)) return slumped ? "droopClosed" : "closed";
+  if (view.pose === "happy") return slumped ? "droopHappy" : "happy"; // fed, petted, cleaned, cured, hatched, evolved
   if (view.pose === "eat" && view.poseTime < MEAL.drop * 0.6 && !slumped) return "up"; // watching the food fall
   if (slumped) return "droop";
   if (blinking(view)) return "closed";

@@ -108,6 +108,27 @@ yawning, a blanket, and eyes that follow food. All visual only, never saved, dri
 - **The blanket** covers a sleeping creature from the mouth down and a pixel wider each side, so the eyes show. A dead
   creature has none.
 
+## 2026-11-21: happy eyes (owner request: "a happy eye emote for when positive things happen")
+
+- **One look, tied to the existing happy hop.** `triggerPose(view, "happy")` already fires for a meal's end, petting,
+  tickling, cleaning, curing, and the hatch and evolve pop, so happy eyes show while that 0.8 s pose lasts and nothing
+  else needed a hook. `pickFace` returns `happy` (or `droopHappy` for a sad or sick creature, so it never stands up
+  straight). Order: lying and the yawn and shut eyes (chewing, "no") still win, happy beats a blink, heavy lids and
+  hunger.
+- **The shape is a small arch,** `^ ^` as drawn on a smiling face: the eye's top row becomes two pixels, the row under
+  it body color, and a one pixel foot goes on each side of that row (on body pixels only). It is derived from the one
+  standing picture like every other look, so all 20 forms have it with no new art.
+- **The arch is dark, except on dark bodies.** A dark arch on Dreadmaw, Hollowking and Gloomtoad was close to invisible
+  (contrast 1.4 to 2.5 to 1 against the body). Below 3 to 1 the arch (and its feet) takes the creature's own eye color
+  (`W`): yellow on Dreadmaw, pale green on Hollowking, white on Gloomtoad. The other 17 keep the dark arch.
+  `MIN_ARCH_CONTRAST` is 3. A test requires every form's arch to show at 3 to 1 or better. A white arch counts as eye
+  for the tear spot finder, which is harmless because tears are only drawn for the plain slumped picture (`kind ===
+  "droop"` in `scene.ts`), and that gating is drawing code with no test.
+- **The fill under the arch comes from the body beside the eye,** not from the pixel above it, because Shellby and Bastion
+  have their eyes right under the outline and the arch would have filled black.
+- **The closed eyes (sleep, blink, chewing) are unchanged,** and are still dark lines that are hard to see on those same
+  dark bodies. Left alone on purpose: shut eyes being quiet is fine, a happy look being invisible was not.
+
 ## 2026-11-21: Phase 2, all 20 forms, the tree and the scenes
 
 The owner chose three things when asked: build the full tree now with later rules waiting, keep every picture 16 x 16, and
