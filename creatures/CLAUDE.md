@@ -85,6 +85,7 @@ broodkeep/                       <- the repo root: only .gitignore and creatures
       audio/       synthesized sound effects
       sync/        local save + cloud sync
     tests/
+    tools/art/                   <- Python drawing tools for the creatures (not part of the build or the tests)
 ```
 
 A creature file will look roughly like this, so adding one later is mostly copy, paste and draw:
