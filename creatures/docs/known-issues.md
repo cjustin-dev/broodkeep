@@ -103,8 +103,6 @@
 - **A sleeping creature's tap area is the standing square** at the bed spot, bigger than the lying body. A tap above the
   lying creature still counts.
 - **The two babies have no second drawing,** so they only bob. They were not redrawn.
-- **The drawing toolkit is not in the repo.** Editing a 32 x 32 grid by hand is slow. Say so if it should move into
-  `creatures/tools/art/`.
 
 ## Backend (Phase 5)
 
