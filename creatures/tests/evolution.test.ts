@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { forms } from "../src/data/forms";
-import { chooseEvolution, happinessAverage, needMet } from "../src/game/evolution";
-import { freshCounters } from "../src/game/state";
+import { chooseEvolution, needMet } from "../src/game/evolution";
+import { happinessAverage } from "../src/game/metrics";
+import { makeCreature } from "../src/game/sim";
 import { HOUR } from "../src/game/time";
 import type { Form } from "../src/game/types";
 import { aliveSave, at } from "./helpers";
@@ -23,12 +24,12 @@ afterEach(() => {
 
 describe("needMet", () => {
   it("passes with no requirements", () => {
-    expect(needMet({}, freshCounters())).toBe(true);
+    expect(needMet({}, makeCreature("blip", 0))).toBe(true);
   });
 
   it("checks care mistakes at both ends", () => {
-    const c = freshCounters();
-    c.careMistakes = 2;
+    const c = makeCreature("blip", 0);
+    c.counters.careMistakes = 2;
     expect(needMet({ careMistakesMax: 2 }, c)).toBe(true);
     expect(needMet({ careMistakesMax: 1 }, c)).toBe(false);
     expect(needMet({ careMistakesMin: 2 }, c)).toBe(true);
@@ -36,10 +37,10 @@ describe("needMet", () => {
   });
 
   it("checks average happiness, and treats no data as 50", () => {
-    const c = freshCounters();
-    expect(happinessAverage(c)).toBe(50);
-    c.happinessSum = 80 * 10;
-    c.happinessMinutes = 10;
+    const c = makeCreature("blip", 0);
+    expect(happinessAverage(c.counters)).toBe(50);
+    c.counters.happinessSum = 80 * 10;
+    c.counters.happinessMinutes = 10;
     expect(needMet({ happinessAvgMin: 80 }, c)).toBe(true);
     expect(needMet({ happinessAvgMin: 81 }, c)).toBe(false);
   });
@@ -53,7 +54,7 @@ describe("chooseEvolution", () => {
   });
 
   it("returns nothing for a form with no next stage", () => {
-    const save = aliveSave("fennix", at(8));
+    const save = aliveSave("hollowking", at(8));
     expect(chooseEvolution(save.creature!, at(8) + 500 * HOUR)).toBeNull();
   });
 

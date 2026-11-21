@@ -5,6 +5,7 @@ import {
   forceHatch,
   killCreature,
   resetAll,
+  setLaterCounter,
   setPoop,
   setStat,
   skipAhead,
@@ -91,5 +92,24 @@ describe("dev tools", () => {
     const fresh = resetAll(save, t0, 99);
     expect(fresh.phase).toBe("egg");
     expect(fresh.settings.sleepStartHour).toBe(22);
+  });
+
+  it("sets the numbers of later systems, whole and between 0 and 999, and they reset at evolution", () => {
+    const t0 = at(8);
+    const save = aliveSave("fennix", t0);
+    setLaterCounter(save, "strength", 40.6);
+    setLaterCounter(save, "wins", -3);
+    setLaterCounter(save, "battles", 5000);
+    setLaterCounter(save, "chores", Number.NaN);
+    expect(save.creature?.counters.later).toEqual({ strength: 41, wins: 0, battles: 999, chores: 0 });
+    forceEvolve(save, "pyrefang", t0 + HOUR);
+    expect(save.creature?.counters.later ?? {}).toEqual({});
+  });
+
+  it("setting later numbers with no creature does nothing", () => {
+    const save = aliveSave("fennix", at(8));
+    save.creature = null;
+    setLaterCounter(save, "strength", 5);
+    expect(save.creature).toBeNull();
   });
 });

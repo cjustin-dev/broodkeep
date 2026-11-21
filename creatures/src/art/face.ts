@@ -11,7 +11,7 @@
 //   WW
 //   WK     (white, white / white, dark pupil)
 // and the mouth is the letter M. A creature with no such blocks simply keeps its standing look.
-// Phase 2's real art can follow the same rules, or later get hand-drawn frames of its own.
+// All 20 creatures follow these rules (a test checks it), so every emote works on every form.
 
 import type { Form } from "../game/types";
 import { MEAL, YAWN, blinking, eyesClosed } from "./idle";

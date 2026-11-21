@@ -107,3 +107,41 @@ yawning, a blanket, and eyes that follow food. All visual only, never saved, dri
 - **Blink: 0.16 s every 2.5 to 5.5 s** while awake.
 - **The blanket** covers a sleeping creature from the mouth down and a pixel wider each side, so the eyes show. A dead
   creature has none.
+
+## 2026-11-21: Phase 2, all 20 forms, the tree and the scenes
+
+The owner chose three things when asked: build the full tree now with later rules waiting, keep every picture 16 x 16, and
+add hatch and evolve scenes on top of the derived emotes (no hand-drawn extra frames).
+
+- **The whole tree is data, in the form files.** Each form lists `evolvesTo` paths in the order they are tried, with a
+  rule (`need`) each, and ends with one path that has no rule (the fallback). Several forms have a ruled path and the
+  fallback to the same form. That is deliberate: the rule documents the plan, the fallback guarantees the creature always
+  grows. A test requires exactly one fallback, listed last.
+- **Rules are `<metric>Min` and `<metric>Max` keys** (`Need` in `types.ts`), for 16 metrics. `metrics.ts` says how each is
+  read from a creature. Seven of them (training, battles, wins, chores, strength, defense, spirit) belong to systems that
+  do not exist yet, and discipline has no way to rise yet. They read 0 from `counters.later`, which only dev mode writes.
+  `later` is optional, so a save from before this change still loads (a test covers a creature with no `later`). Like every
+  counter it resets at each evolution, which is a stand-in until Phase 3 makes strength, defense and spirit real
+  creature stats that carry over.
+- **A test checks that no path is dead.** For every ruled path it builds a creature sitting exactly on the rule and checks
+  that this path wins, so an earlier, looser rule cannot hide a later one. It found nothing wrong in the first tree, and
+  catches the mistake when a rule is loosened to `{}`.
+- **Stage lengths from the plan, per path:** 6 hours (baby), 24 (training), 72 (rookie), 120 (champion). The numbers in
+  the rules are first guesses and are meant to be tuned. The `need` for the fallback is empty on purpose.
+- **Eggs:** speckled hatches Blip, striped hatches Drip, swirled hatches either (random from the seed).
+- **Dev tree viewer** (`DevTree.tsx`): for the living creature, every path with its rules as pass or fail, which path would
+  win if the time were up, and hours so far. Rules that need a system not in the game yet say so. Under it, number inputs
+  for those systems, so every path can be tested. `describePaths`, `describeNeed` and `ruleText` do the work, in
+  `evolution.ts`, so they are unit tested without the screen.
+- **Pictures:** 17 new creatures, each drawn as the left half of a 16 x 16 grid and mirrored (a script in the work area, not
+  in the repo; the grids in the form files are the source of truth). The eye rule from the emotes still holds and a test
+  enforces it on all 20: exactly two 2 x 2 eyes, and the letter `W` used for nothing but eyes. A palette letter can be any
+  color, so Dreadmaw's `W` is yellow and Hollowking's is pale green (hollow glowing eyes). Teeth, horns and highlights use
+  other letters. Row 15 stays empty on every form (the bob moves the picture down one pixel).
+- **Scenes are looks only** (`moment.ts`, state in `View`, never saved). The screen notices the save changed (egg to
+  creature, or one form to another) and plays: hatch, 2.6 s: the egg shakes harder with every crack showing, one flash,
+  the shell halves fly apart and the baby hops out with sparkles. Evolve, 3.0 s: the old form flickers white (2 to 5
+  times a second) with sparkles circling in, one flash, the new form fades in from white in four steps and hops. One flash
+  per scene at 80% white, which stays well below the usual limit of three flashes a second. `Game`'s constructor records
+  what was on screen before the catch-up, so an evolution that happened while the app was closed still plays.
+

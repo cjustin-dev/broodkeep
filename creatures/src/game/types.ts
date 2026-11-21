@@ -5,17 +5,32 @@ export type FoodId = "berry" | "meat" | "fish" | "candy";
 
 export type EggPattern = "speckled" | "striped" | "swirled";
 
-// Life stages, from youngest to oldest. Phase 1 only uses the first three.
+// Life stages, from youngest to oldest.
 export type Stage = "baby" | "training" | "rookie" | "champion" | "ultimate";
 
-// Conditions a creature must meet to take an evolution path.
-// Every field is optional. A missing field means "no requirement".
-// Later phases add more (strength, battles, jobs), so new fields go here.
-export interface Need {
-  careMistakesMax?: number;
-  careMistakesMin?: number;
-  happinessAvgMin?: number; // average happiness (0 to 100) while awake in this stage
-}
+// The numbers an evolution rule can look at (see src/game/metrics.ts for what each one means).
+export type Metric =
+  | "careMistakes"
+  | "happinessAvg"
+  | "neglectHours"
+  | "discipline"
+  | "food"
+  | "berries"
+  | "meat"
+  | "fish"
+  | "candy"
+  | "training"
+  | "battles"
+  | "wins"
+  | "chores"
+  | "strength"
+  | "defense"
+  | "spirit";
+
+// Conditions a creature must meet to take an evolution path. Every field is optional, and a
+// missing field means "no requirement". For each metric there is a Min and a Max key, so
+// { strengthMin: 40, careMistakesMax: 3 } means strength at least 40 and at most 3 care mistakes.
+export type Need = { [K in Metric as `${K}Min`]?: number } & { [K in Metric as `${K}Max`]?: number };
 
 // One arrow in the evolution tree.
 export interface Evolution {

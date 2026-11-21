@@ -13,9 +13,10 @@ import {
   skipAhead,
   spawnEgg,
 } from "../game/dev";
-import { happinessAverage } from "../game/evolution";
+import { happinessAverage } from "../game/metrics";
 import type { Stats } from "../game/state";
 import { HOUR } from "../game/time";
+import { DevTree } from "./DevTree";
 import type { Game } from "./game";
 
 const speeds = [1, 10, 100, 1000];
@@ -162,6 +163,8 @@ export function DevPanel({ game, onClose }: { game: Game; onClose: () => void })
             </button>
           </div>
         </fieldset>
+
+        <DevTree game={game} />
 
         <fieldset>
           <legend>Erase everything</legend>

@@ -89,12 +89,29 @@ describe("egg", () => {
   it("hatches into a baby after 30 minutes", () => {
     const t0 = at(8);
     const save = newSave(t0, 5);
+    save.egg!.pattern = "speckled";
     simulateTo(save, t0 + 29 * MINUTE);
     expect(save.phase).toBe("egg");
     simulateTo(save, t0 + 30 * MINUTE);
     expect(save.phase).toBe("alive");
     expect(save.creature?.formId).toBe("blip");
     expect(save.egg).toBeNull();
+  });
+
+  it("each egg pattern hatches the baby the table says, and a swirled egg can be either", () => {
+    const hatched = (pattern: "speckled" | "striped" | "swirled", seed: number): string | undefined => {
+      const t0 = at(8);
+      const save = newSave(t0, seed);
+      save.egg!.pattern = pattern;
+      simulateTo(save, t0 + 30 * MINUTE);
+      return save.creature?.formId;
+    };
+    for (let seed = 1; seed <= 30; seed++) {
+      expect(hatched("speckled", seed)).toBe("blip");
+      expect(hatched("striped", seed)).toBe("drip");
+    }
+    const swirled = new Set(Array.from({ length: 30 }, (_, i) => hatched("swirled", i + 1)));
+    expect(swirled).toEqual(new Set(["blip", "drip"]));
   });
 
   it("hatches sooner with taps, but taps can only save so much", () => {
@@ -237,11 +254,12 @@ describe("good care", () => {
     const save = aliveSave("blip", t0);
     careForUntil(save, t0, t0 + 7 * 24 * HOUR);
     expect(save.phase).toBe("alive");
-    expect(save.creature?.formId).toBe("fennix"); // baby after 6 hours, then training for 24 hours
+    expect(save.creature?.formId).toBe("lumiwing"); // baby 6 h, training 24 h, rookie 72 h, then a champion
     expect(save.creature?.counters.careMistakes).toBeLessThanOrEqual(3);
     expect(save.creature?.stats.wellness).toBeGreaterThan(50);
-    expect(save.log.some((entry) => entry.text.includes("evolved into Pip"))).toBe(true);
-    expect(save.log.some((entry) => entry.text.includes("evolved into Fennix"))).toBe(true);
+    for (const name of ["Pip", "Fennix", "Lumiwing"]) {
+      expect(save.log.some((entry) => entry.text.includes(`evolved into ${name}`)), name).toBe(true);
+    }
   });
 
   it("evolves from a baby to Pip after 6 hours and Pip to Fennix 24 hours later", () => {

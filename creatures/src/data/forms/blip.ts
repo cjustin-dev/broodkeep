@@ -1,4 +1,4 @@
-// Blip: round jelly blob with big eyes. PLACEHOLDER ART (Phase 2 draws the real set).
+// Blip: round jelly blob with big eyes.
 import type { Form } from "../../game/types";
 
 export const blip: Form = {
@@ -26,6 +26,10 @@ export const blip: Form = {
   ],
   softLook: null,
   baseStats: { vit: 5, str: 3, def: 3, spi: 4, spd: 4 },
-  // Only one path exists in Phase 1, so Pip is the fallback.
-  evolvesTo: [{ to: "pip", minHours: 6 }],
+  evolvesTo: [
+    { to: "smudge", minHours: 6, need: { careMistakesMin: 3 } }, // neglected
+    { to: "nubbin", minHours: 6, need: { foodMin: 5 } }, // lots of feeding
+    { to: "nubbin", minHours: 6, need: { trainingMin: 3 } }, // lots of training
+    { to: "pip", minHours: 6 }, // few mistakes (fallback)
+  ],
 };

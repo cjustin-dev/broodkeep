@@ -2,6 +2,7 @@
 // and saves to the device. The screens read from here and call act() to do things.
 
 import { createView } from "../art/idle";
+import { shownOf } from "../art/moment";
 import type { View } from "../art/idle";
 import { advanceClock } from "../game/dev";
 import { simulateTo } from "../game/sim";
@@ -19,6 +20,7 @@ export class Game {
 
   constructor(save: Save) {
     this.save = save;
+    this.view.shown = shownOf(save); // so a hatch or evolution that happens during the catch-up still plays
     this.tick(); // catch up on any time the app was closed
   }
 
@@ -55,6 +57,8 @@ export class Game {
 
   replaceSave(save: Save): void {
     this.save = save;
+    this.view.moment = null; // a scene belongs to the old game
+    this.view.shown = shownOf(save);
     this.lastReal = Date.now();
     this.devSpeed = 1;
     this.changed();

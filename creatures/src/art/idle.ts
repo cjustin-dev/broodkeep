@@ -5,6 +5,7 @@
 
 import type { FoodId } from "../game/types";
 import { ROOM } from "./layout";
+import type { Moment, Shown } from "./moment";
 
 // "refuse" is the creature saying no: eyes shut, slow gentle head shake.
 // "wobble" is the quick wiggle of a tapped egg.
@@ -49,6 +50,8 @@ export interface View {
   snack: Snack | null; // food being eaten, only while the pose is "eat"
   mood: Mood; // how it feels right now, copied in by updateView
   nextBlink: number; // clock time of the next blink
+  moment: Moment | null; // a hatch or evolve scene that is playing (see moment.ts)
+  shown: Shown | null; // what the screen last saw of the save, to notice a hatch or an evolution
 }
 
 export interface Mood {
@@ -95,6 +98,8 @@ export function createView(): View {
     snack: null,
     mood: { asleep: false, sad: false, sick: false },
     nextBlink: 2,
+    moment: null,
+    shown: null,
   };
 }
 

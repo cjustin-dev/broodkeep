@@ -1,4 +1,4 @@
-// Pip: hoppy blob with leaf ears (the good-care branch). PLACEHOLDER ART.
+// Pip: hoppy blob with leaf ears (the good-care branch).
 import type { Form } from "../../game/types";
 
 export const pip: Form = {
@@ -26,6 +26,9 @@ export const pip: Form = {
   ],
   softLook: null,
   baseStats: { vit: 8, str: 5, def: 5, spi: 6, spd: 6 },
-  // Only one path exists in Phase 1, so Fennix is the fallback.
-  evolvesTo: [{ to: "fennix", minHours: 24 }],
+  evolvesTo: [
+    { to: "shellby", minHours: 24, need: { berriesMin: 4, choresMin: 3 } }, // berries and chores
+    { to: "mothlet", minHours: 24, need: { happinessAvgMin: 75 } }, // high happiness
+    { to: "fennix", minHours: 24 }, // balanced (fallback)
+  ],
 };

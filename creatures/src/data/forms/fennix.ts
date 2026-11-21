@@ -1,4 +1,4 @@
-// Fennix: fox pup with an ember tail (balanced, well cared). PLACEHOLDER ART.
+// Fennix: fox pup with an ember tail (balanced, well cared).
 import type { Form } from "../../game/types";
 
 export const fennix: Form = {
@@ -26,6 +26,9 @@ export const fennix: Form = {
   ],
   softLook: null,
   baseStats: { vit: 12, str: 9, def: 8, spi: 8, spd: 10 },
-  // No further forms until Phase 2 adds the Champion stage.
-  evolvesTo: [],
+  evolvesTo: [
+    { to: "pyrefang", minHours: 72, need: { strengthMin: 20, winsMin: 5 } }, // strength and battles
+    { to: "lumiwing", minHours: 72, need: { spiritMin: 15, happinessAvgMin: 70 } }, // spirit and happiness
+    { to: "lumiwing", minHours: 72 }, // fallback
+  ],
 };
