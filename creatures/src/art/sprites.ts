@@ -48,7 +48,11 @@ export type IconName =
   | "fiber"
   | "herb"
   | "wood"
-  | "stone";
+  | "stone"
+  | "swords"
+  | "sword"
+  | "shield"
+  | "spark";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -312,6 +316,47 @@ export const icons: Record<IconName, Sprite> = {
     "SSSSSSKS",
     ".KKKKKK.",
     "........",
+  ]),
+  // The arena: crossed swords (the place, and the start of a fight), then one sword (attack), a shield (guard) and a spark (special).
+  swords: icon([
+    "K......K",
+    "KS....SK",
+    ".KS..SK.",
+    "..KSSK..",
+    "..KSSK..",
+    ".YK..KY.",
+    "NY....YN",
+    "N......N",
+  ]),
+  sword: icon([
+    "......KK",
+    ".....KWK",
+    "....KWK.",
+    "K..KWK..",
+    "KKKWK...",
+    ".KYK....",
+    "KNKYK...",
+    "KK.KK...",
+  ]),
+  shield: icon([
+    "KKKKKKKK",
+    "KBBYYBBK",
+    "KBLYYBBK",
+    "KBLYYBBK",
+    "KBBYYBBK",
+    ".KBYYBK.",
+    "..KBBK..",
+    "...KK...",
+  ]),
+  spark: icon([
+    "...YY...",
+    "...YY...",
+    "Y..YY..Y",
+    ".YYWWYY.",
+    ".YYWWYY.",
+    "Y..YY..Y",
+    "...YY...",
+    "...YY...",
   ]),
 };
 

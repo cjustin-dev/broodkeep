@@ -6,6 +6,9 @@ import { foods } from "../data/foods";
 import { spots } from "../data/habitat";
 import type { SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
+import { beginFight, fightRefusal, finishFight } from "./combat/fight";
+import type { FightRefusal, FightResult } from "./combat/fight";
+import type { Battle } from "./combat/battle";
 import { beginJob, jobRefusal } from "./habitat/jobs";
 import type { JobRefusal } from "./habitat/jobs";
 import { hatchIfReady, simulateTo } from "./sim";
@@ -184,4 +187,23 @@ export function callBack(save: Save, nowMs: number): CallBackResult {
 // The player has seen the oldest finished job. Returns false if there was none.
 export function dismissHaul(save: Save): boolean {
   return save.hauls.shift() !== undefined;
+}
+
+export type StartFightResult = { status: "started"; battle: Battle } | { status: FightRefusal | "unavailable" };
+
+// Send the creature into a fight against a wild creature. The fight itself is not saved: it lives in the screen,
+// and endFight puts its result into the save. Leaving without ending it costs the energy and nothing else.
+export function startFight(save: Save, nowMs: number): StartFightResult {
+  const c = aliveOrAway(save, nowMs);
+  if (!c) return { status: "unavailable" };
+  const refusal = fightRefusal(c);
+  if (refusal) return { status: refusal };
+  return { status: "started", battle: beginFight(save, c, nowMs) };
+}
+
+// Put a finished fight into the save. Returns what it paid, or null if the fight is not over or the creature is gone.
+export function endFight(save: Save, battle: Battle, nowMs: number): FightResult | null {
+  const c = aliveOrAway(save, nowMs);
+  if (!c) return null;
+  return finishFight(save, c, battle, nowMs);
 }

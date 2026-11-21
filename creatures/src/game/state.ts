@@ -6,7 +6,7 @@ import type { MaterialId, SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
 import { makeRng } from "./rng";
 import type { LaterMetric } from "./metrics";
-import type { EggPattern, FoodId } from "./types";
+import type { CombatStat, EggPattern, FoodId } from "./types";
 
 export type Phase = "egg" | "alive" | "dead";
 export type CallKind = "sick" | "hungry" | "dirty" | "sad" | "sleepy";
@@ -31,6 +31,8 @@ export interface Counters {
   happinessMinutes: number; // ...and count the minutes, to get the average
   later?: Partial<Record<LaterMetric, number>>;
   chores?: number; // jobs finished in this stage (optional so older saves still load)
+  battles?: number; // fights fought in this stage, won or lost (optional so older saves still load)
+  wins?: number; // fights won in this stage (optional so older saves still load)
 }
 
 // A creature out working at a habitat spot. It is back when game time reaches endsAt.
@@ -65,6 +67,9 @@ export interface Creature {
   affection: { windowStart: number; gained: number };
   counters: Counters;
   job?: Job | null; // set while the creature is away working (optional so older saves still load)
+  hp?: number; // battle HP right now; missing means full (it recovers by resting, see game/combat/recovery.ts)
+  trained?: Partial<Record<CombatStat, number>>; // points won in fights, on top of the form's base stats
+  rung?: number; // the next rung of the opponent ladder to fight (1 when missing); starts again at each evolution
 }
 
 export interface Egg {
@@ -102,6 +107,8 @@ export function freshCounters(): Counters {
     happinessSum: 0,
     happinessMinutes: 0,
     chores: 0,
+    battles: 0,
+    wins: 0,
   };
 }
 

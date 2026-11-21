@@ -126,6 +126,33 @@
   spot covered at home, the lock). How it looks was checked in a headless phone browser, not on a real phone.
 - **Dev mode cannot set chores below the real count** (it stores the difference above it).
 
+## Phase 3 slice 2: combat and the arena (accepted for now)
+
+- **A fight is not saved.** Closing the app, reloading or tapping Run away in the middle of one forgets it. The energy spent to
+  start it stays spent and nothing else changes (no coins, no HP lost, no `battles` count).
+- **The checks are made once, when the fight starts.** A creature that falls asleep or sick in the middle of a fight keeps
+  fighting. Only a death or an evolution ends it.
+- **The boss is close to out of reach untrained, and trained to the cap everything is easy.** Simulated win rate by rung for an
+  untrained creature at full HP is 97 to 100%, 79 to 91%, 52 to 68%, 13 to 21% and 1 to 5% for the boss; with the three stats at
+  the stage cap it is 98 to 100% at every rung (see decisions.md). All numbers are first guesses.
+- **The only way to train a stat is to win fights** (1 point a win, 2 for the boss, in the stat of the action used most). There is
+  no Train action, so the `training` evolution metric still reads 0 and the paths that need it (Blip and Drip to Nubbin, Smudge
+  to Gruntle) are not reachable without dev mode.
+- **Discipline never rises,** so the sulk rule (a creature ignoring a command) is dormant at the starting 50, and the paths that
+  need discipline 60 (Thornback and Bastion to Citadrake) are not reachable without dev mode.
+- **The wild creature can be the same form as the player's** (a mirror match). Its picture is the same, flipped, with a red tint
+  on the boss.
+- **A material from a fight is always 1 of a kind** the creature's stage can gather. Like coins, nothing uses it yet.
+- **The picture says HP and the meter with bars and pips only,** no numbers, and the screen-reader text gives each side's HP
+  percent when the screen next redraws (after a round, not during its blows).
+- **An evolve scene is not drawn on the arena or habitat screen,** so a creature that evolves while the player is there changes
+  form without the scene.
+- **The result is paid when the last round is played,** a moment before the picture finishes showing the last blow. Closing the
+  app in that moment keeps the result.
+- **The drawing code is only tested for the timeline and the placement** (`tests/arena.test.ts`: the order and timing of a round,
+  the HP replay, the fighters inside the picture and never overlapping). How it looks and moves was checked in a headless phone
+  browser as still frames, not on a real phone, and the pace has not been judged as motion.
+
 ## Backend (Phase 5)
 
 - **PBKDF2 iteration cap.** Workers is reported to cap PBKDF2 at 100,000, below the OWASP figure of 600,000 for SHA-256.

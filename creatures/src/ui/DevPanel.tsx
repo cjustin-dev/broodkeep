@@ -1,13 +1,18 @@
 // Developer mode: bend time and rules so the whole game can be tested in minutes.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { combatTuning } from "../data/combat";
 import { forms } from "../data/forms";
 import { startNewEgg } from "../game/actions";
 import {
   forceEvolve,
   forceHatch,
+  hpPercent,
   killCreature,
   resetAll,
+  rungNumber,
+  setHpPercent,
   setPoop,
+  setRung,
   setSick,
   setStat,
   skipAhead,
@@ -117,6 +122,28 @@ export function DevPanel({ game, onClose }: { game: Game; onClose: () => void })
                   <output>{Math.round(c.stats[stat])}</output>
                 </label>
               ))}
+              <label class="slider">
+                <span>battle HP %</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={hpPercent(save)}
+                  onInput={(e) => act((s) => setHpPercent(s, Number(e.currentTarget.value)))}
+                />
+                <output>{hpPercent(save)}</output>
+              </label>
+              <label class="slider">
+                <span>fight rung (5 = boss)</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={combatTuning.ladder.length}
+                  value={rungNumber(save)}
+                  onInput={(e) => act((s) => setRung(s, Number(e.currentTarget.value)))}
+                />
+                <output>{rungNumber(save)}</output>
+              </label>
               <label class="check">
                 <input type="checkbox" checked={c.sick} onChange={(e) => act((s) => setSick(s, e.currentTarget.checked))} />
                 Sick

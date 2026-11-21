@@ -7,7 +7,7 @@ import type { Game } from "./game";
 const hours = Array.from({ length: 24 }, (_, h) => h);
 const hourLabel = (h: number): string => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;
 
-export const VERSION = "0.3 (Phase 3a)";
+export const VERSION = "0.4 (Phase 3b)";
 
 interface Props {
   game: Game;

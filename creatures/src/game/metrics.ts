@@ -1,11 +1,12 @@
 // The numbers evolution rules are written in. Each one is read from the creature right now.
 // "tracked" metrics are counted by the game today. The others belong to systems that come in
-// later phases (training, battles, trained stats). They read as 0 until then, and dev
-// mode can set them (counters.later) so every path in the tree can still be tested. Dev mode
-// can also add to a counted one (jobs); the number shown is the real count plus what it added.
+// later phases (training today). They read as 0 until then, and dev mode can set them
+// (counters.later) so every path in the tree can still be tested. Dev mode can also add to a
+// counted one (jobs, battles, stats); the number shown is the real count plus what it added.
 // Discipline is the exception: it is a real stat that nothing raises yet, so it is read from the
 // stat and dev mode sets it with the Discipline slider.
 
+import { statTotal } from "./combat/stats";
 import type { Creature } from "./state";
 import type { Metric } from "./types";
 
@@ -20,20 +21,36 @@ export const METRICS: Record<Metric, { label: string; tracked: boolean }> = {
   fish: { label: "fish eaten", tracked: true },
   candy: { label: "candy eaten", tracked: true },
   training: { label: "training sessions", tracked: false },
-  battles: { label: "battles fought", tracked: false },
-  wins: { label: "battles won", tracked: false },
+  battles: { label: "battles fought", tracked: true },
+  wins: { label: "battles won", tracked: true },
   chores: { label: "chores and jobs done", tracked: true },
-  strength: { label: "strength", tracked: false },
-  defense: { label: "defense", tracked: false },
-  spirit: { label: "spirit", tracked: false },
+  strength: { label: "strength", tracked: true },
+  defense: { label: "defense", tracked: true },
+  spirit: { label: "spirit", tracked: true },
 };
 
 export type LaterMetric = "training" | "battles" | "wins" | "chores" | "strength" | "defense" | "spirit";
 export const laterMetrics: LaterMetric[] = ["training", "battles", "wins", "chores", "strength", "defense", "spirit"];
 
-// What the game really counted for a metric, before dev mode adds anything. Only jobs are counted so far.
+// What the game really counted for a metric, before dev mode adds anything. Only training is not counted yet.
 export function countedValue(creature: Creature, metric: Metric): number {
-  return metric === "chores" ? (creature.counters.chores ?? 0) : 0;
+  const c = creature.counters;
+  switch (metric) {
+    case "chores":
+      return c.chores ?? 0;
+    case "battles":
+      return c.battles ?? 0;
+    case "wins":
+      return c.wins ?? 0;
+    case "strength":
+      return statTotal(creature, "str"); // the form's base plus what it trained
+    case "defense":
+      return statTotal(creature, "def");
+    case "spirit":
+      return statTotal(creature, "spi");
+    default:
+      return 0;
+  }
 }
 
 // Average happiness while awake in this stage. A stage with no awake time counts as 50.

@@ -11,6 +11,8 @@ import {
   skipAhead,
   spawnEgg,
 } from "../src/game/dev";
+import { forms } from "../src/data/forms";
+import { metricValue } from "../src/game/metrics";
 import { simulateTo } from "../src/game/sim";
 import { HOUR, gameNow } from "../src/game/time";
 import { aliveSave, at } from "./helpers";
@@ -101,7 +103,10 @@ describe("dev tools", () => {
     setLaterCounter(save, "wins", -3);
     setLaterCounter(save, "battles", 5000);
     setLaterCounter(save, "chores", Number.NaN);
-    expect(save.creature?.counters.later).toEqual({ strength: 41, wins: 0, battles: 999, chores: 0 });
+    // The number the tree reads is the typed total. Strength is a real stat now, so what is stored is the part above it.
+    const totals = () => (["strength", "wins", "battles", "chores"] as const).map((m) => metricValue(save.creature!, m));
+    expect(totals()).toEqual([41, 0, 999, 0]);
+    expect(save.creature?.counters.later).toEqual({ strength: 41 - forms.fennix.baseStats.str, wins: 0, battles: 999, chores: 0 });
     forceEvolve(save, "pyrefang", t0 + HOUR);
     expect(save.creature?.counters.later ?? {}).toEqual({});
   });

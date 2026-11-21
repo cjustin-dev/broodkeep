@@ -3,6 +3,7 @@
 //   tap the creature   -> it startles (3 quick taps = tickle)
 //   hold the creature  -> petting
 import { useEffect, useRef, useState } from "preact/hooks";
+import { drawArena } from "../art/arena";
 import { addHeart, addSparkles, triggerPose, updateView } from "../art/idle";
 import { ROOM, bedSpot, standY } from "../art/layout";
 import { stepMoment } from "../art/moment";
@@ -23,14 +24,23 @@ const callWords: Record<CallKind, string> = {
 };
 
 // A sentence for screen readers, since the picture itself has no text.
-function describe(save: Save, atHabitat: boolean): string {
+function describe(save: Save, game: Game): string {
   if (save.phase === "egg") return "An egg. Tap it to help it hatch.";
   if (!save.creature) return "";
   const name = getForm(save.creature.formId).name;
   if (save.phase === "dead") return `${name} has passed away.`;
   const job = save.creature.job;
   if (job) return `${name} is out working at the ${spots[job.spot].name}.`;
-  if (atHabitat) return `The habitat. ${name} is at home.`;
+  if (game.atArena) {
+    const b = game.arena?.battle;
+    if (!b) return save.creature.sleep ? `The arena. ${name} is asleep.` : `The arena. ${name} is ready to fight.`;
+    const foe = `the wild ${getForm(b.foe.formId).name}`;
+    const percent = (f: { hp: number; maxHp: number }): number => Math.round((100 * f.hp) / f.maxHp);
+    if (b.over === "won") return `${name} won against ${foe}.`;
+    if (b.over === "lost") return `${name} lost to ${foe} and needs a rest.`;
+    return `${name} is fighting ${foe}. ${name} has ${percent(b.me)} percent health, and ${foe} has ${percent(b.foe)} percent.`;
+  }
+  if (game.atHabitat) return `The habitat. ${name} is at home.`;
   if (save.creature.sleep) return `${name} is asleep.`;
   return save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`;
 }
@@ -80,7 +90,10 @@ export function Stage({ game }: { game: Game }) {
       ctx.setTransform(size.k, 0, 0, size.k, 0, 0); // draw in game pixels, scaled up
       ctx.imageSmoothingEnabled = false;
       if (game.atHabitat) drawHabitat(ctx, game.save, game.view, game.now());
-      else drawScene(ctx, game.save, game.view, game.now());
+      else if (game.atArena) {
+        const arena = game.arena;
+        drawArena(ctx, game.save, game.now(), game.view.clock, arena ? { battle: arena.battle, play: arena.play, t: game.arenaTime() } : null);
+      } else drawScene(ctx, game.save, game.view, game.now());
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -148,7 +161,7 @@ export function Stage({ game }: { game: Game }) {
 
   const onPointerDown = (e: PointerEvent): void => {
     if (e.pointerType === "mouse" && e.button !== 0) return; // only the main mouse button
-    if (game.atHabitat || game.save.creature?.job) return; // nothing to pet: the habitat has its own buttons, and an away creature is not in the room
+    if (game.atHabitat || game.atArena || game.save.creature?.job) return; // nothing to pet: the habitat and arena have their own buttons, and an away creature is not in the room
     if (!isOnTarget(e)) return;
     endHold(); // a second finger replaces the first, so no petting timer is left running
     canvasRef.current?.setPointerCapture(e.pointerId);
@@ -184,7 +197,7 @@ export function Stage({ game }: { game: Game }) {
         width={ROOM.w * size.k}
         height={ROOM.h * size.k}
         role="img"
-        aria-label={describe(game.save, game.atHabitat)}
+        aria-label={describe(game.save, game)}
         style={{ width: `${size.css}px`, height: `${size.css}px` }}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
