@@ -41,8 +41,12 @@ describe("the spot data", () => {
     for (const id of spotIds) expect(stageOrder.indexOf(spots[id].minStage)).toBeLessThanOrEqual(stageOrder.indexOf("champion"));
   });
 
-  it("can be started by a creature at full energy, whatever the spot", () => {
-    for (const id of spotIds) expect(100 - spots[id].energyCost).toBeGreaterThanOrEqual(habitatTuning.energyFloor);
+  it("can be started by a grown creature at full energy, whatever the spot", () => {
+    for (const id of spotIds) {
+      const save = hatched("solarion");
+      expect(save.creature!.stats.energy, id).toBe(100);
+      expect(startJob(save, id, DAY), id).toBe("started");
+    }
   });
 });
 
@@ -171,12 +175,38 @@ describe("coming home", () => {
     expect(save.coins).toBeGreaterThan(0);
   });
 
-  it("still pays when night falls on the way, and while the creature sleeps", () => {
+  it("still pays when night falls on the way, and the creature is already asleep when it gets home", () => {
     const save = aliveSave("blip", at(19, 58));
     startJob(save, "meadow", at(19, 58)); // back at 20:01, after the 20:00 bedtime
+    simulateTo(save, at(20, 0));
+    expect(save.creature!.sleep).toBe("night"); // bedtime came while it was out
+    expect(save.creature!.job).not.toBeNull();
     simulateTo(save, at(20, 30));
     expect(save.creature!.job).toBeNull();
     expect(save.coins).toBeGreaterThan(0);
+  });
+
+  it("is back soon after the device clock is set back, not at the old finishing time", () => {
+    const save = hatched("blip");
+    startJob(save, "meadow", DAY);
+    const earlier = DAY - 4 * 60 * MINUTE;
+    simulateTo(save, earlier); // a big step back: the game carries on from the new time
+    expect(save.creature!.job).not.toBeNull();
+    simulateTo(save, earlier + min(spots.meadow.minutes + 1));
+    expect(save.creature!.job).toBeNull();
+    expect(save.hauls).toHaveLength(1);
+    expect(save.hauls[0]!.at).toBeLessThanOrEqual(earlier + min(spots.meadow.minutes + 1));
+  });
+
+  it("gives the creature its full time out after a small step back of the clock", () => {
+    const save = hatched("blip");
+    startJob(save, "meadow", DAY);
+    simulateTo(save, DAY + min(1));
+    simulateTo(save, DAY + min(1) - min(30)); // under an hour back: ignored, time carries on once the clock catches up
+    simulateTo(save, DAY + min(spots.meadow.minutes - 1));
+    expect(save.creature!.job).not.toBeNull();
+    simulateTo(save, DAY + min(spots.meadow.minutes));
+    expect(save.creature!.job).toBeNull();
   });
 
   it("pays nothing if the creature dies before it gets home", () => {
@@ -254,17 +284,21 @@ describe("the welcome-back cards", () => {
     const save = hatched("solarion");
     const jobs = habitatTuning.unseenHaulsMax + 2;
     let t = DAY;
+    let earned = 0; // the coins on the card of every job, counted as each one comes home
     for (let i = 0; i < jobs; i++) {
       save.creature!.stats.energy = 100; // keep it from getting tired: this test is about the cards
       startJob(save, "meadow", t);
       t += min(spots.meadow.minutes);
       simulateTo(save, t);
+      earned += save.hauls.at(-1)!.coins;
     }
     expect(save.creature!.counters.chores).toBe(jobs);
     expect(save.hauls).toHaveLength(habitatTuning.unseenHaulsMax);
+    const kept = save.hauls.reduce((sum, h) => sum + h.coins, 0);
     expect(save.hauls.at(-1)?.at).toBe(t); // the newest is kept
     expect(save.hauls[0]!.at).toBe(t - min(spots.meadow.minutes) * (habitatTuning.unseenHaulsMax - 1)); // the oldest kept is the one just inside the limit
-    expect(save.coins).toBeGreaterThanOrEqual(jobs * spots.meadow.coins[0]); // coins were never forgotten
+    expect(save.coins).toBeGreaterThanOrEqual(kept + (jobs - habitatTuning.unseenHaulsMax) * spots.meadow.coins[0]); // the forgotten jobs' coins are still in the purse
+    expect(save.coins).toBe(earned); // nothing was lost when the oldest cards were forgotten
   });
 });
 

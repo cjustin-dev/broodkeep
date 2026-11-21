@@ -104,6 +104,28 @@
   lying creature still counts.
 - **The two babies have no second drawing,** so they only bob. They were not redrawn.
 
+## Phase 3 slice 1: the habitat (accepted for now)
+
+- **Coins and materials have no use yet.** Coins first buy habitat upgrades in slice 3; materials are used by crafting in
+  Phase 4. They are only collected and shown in the bag.
+- **A job pays up to a minute after its bar fills,** because the simulation moves in whole game minutes and a job can start
+  between two of them.
+- **A creature out at night looks awake and working** in the habitat even though care has put it to sleep, and it pays when
+  it gets home. A creature at home at night is not drawn outside: a bubble says it is in bed.
+- **A job already out is not stopped** by night or sickness (the checks are made at set-off, and a job is at most 8 minutes).
+  A creature that dies on the way pays nothing and the job stays on the dead creature.
+- **A welcome-back card that was never dismissed** can show later on an egg or after a death. The coins are already banked.
+- **The habitat's night tint follows the clock** (night is 8 pm to 5 am, like the room window), not the sleeping hours in
+  Settings.
+- **A big creature covers the spot it works at** (a 32 pixel creature is a third of the picture). The progress bar sits on top.
+- **Tapping the habitat picture does nothing;** the spots are the buttons under it. The picture has a text description for
+  screen readers, but not per spot.
+- **The creature's calls are not shown in the habitat,** and while it is out a hungry or dirty creature cannot be cared for
+  (call it back). A job is at most 8 minutes against a call patience of 60.
+- **The drawing code is only tested for placement** (`tests/habitat-art.test.ts`: boxes inside the picture, no overlaps, no
+  spot covered at home, the lock). How it looks was checked in a headless phone browser, not on a real phone.
+- **Dev mode cannot set chores below the real count** (it stores the difference above it).
+
 ## Backend (Phase 5)
 
 - **PBKDF2 iteration cap.** Workers is reported to cap PBKDF2 at 100,000, below the OWASP figure of 600,000 for SHA-256.

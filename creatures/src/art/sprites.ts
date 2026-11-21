@@ -40,7 +40,15 @@ export type IconName =
   | "zzz"
   | "cloud"
   | "sick"
-  | "poop";
+  | "poop"
+  | "house"
+  | "tree"
+  | "coin"
+  | "lock"
+  | "fiber"
+  | "herb"
+  | "wood"
+  | "stone";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -224,6 +232,86 @@ export const icons: Record<IconName, Sprite> = {
     "NNNNNNNN",
     "NNNNNNNN",
     ".DDDDDD.",
+  ]),
+  house: icon([
+    "...RR...",
+    "..RRRR..",
+    ".RRRRRR.",
+    "RRRRRRRR",
+    ".CBCCBC.",
+    ".CCCCCC.",
+    ".CCDDCC.",
+    ".CCDDCC.",
+  ]),
+  tree: icon([
+    "..GGGG..",
+    ".GGGGGG.",
+    "GGGGGGGG",
+    "GGGGGGGG",
+    ".GGGGGG.",
+    "...NN...",
+    "...NN...",
+    "..NNNN..",
+  ]),
+  coin: icon([
+    "..KKKK..",
+    ".KYYYYK.",
+    "KYWOOOYK",
+    "KYWOYYYK",
+    "KYWOYYYK",
+    "KYYOOOYK",
+    ".KYYYYK.",
+    "..KKKK..",
+  ]),
+  lock: icon([
+    "..KKKK..",
+    ".KSSSSK.",
+    ".KS..SK.",
+    ".KS..SK.",
+    "KKKKKKKK",
+    "KYYYYYYK",
+    "KYYKKYYK",
+    "KKKKKKKK",
+  ]),
+  fiber: icon([
+    "..PPPP..",
+    ".PPWPPP.",
+    "PPWPPPPP",
+    "PPPPRRPP",
+    "PPPRRPPP",
+    ".PPPPPP.",
+    "..PPPP.R",
+    "......RR",
+  ]),
+  herb: icon([
+    "......GG",
+    "....GGGG",
+    "..GGGGG.",
+    ".GGGGG..",
+    "GGGGG...",
+    ".NGG....",
+    "N.......",
+    "........",
+  ]),
+  wood: icon([
+    "........",
+    ".NNNNNN.",
+    "NNCCCCNN",
+    "NCCDDCCN",
+    "NCCDDCCN",
+    "NNCCCCNN",
+    ".NNNNNN.",
+    "........",
+  ]),
+  stone: icon([
+    "........",
+    "....SS..",
+    "..SSSSS.",
+    ".SWSSSSS",
+    "SSSSSSSS",
+    "SSSSSSKS",
+    ".KKKKKK.",
+    "........",
   ]),
 };
 

@@ -6,8 +6,10 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { addHeart, addSparkles, triggerPose, updateView } from "../art/idle";
 import { ROOM, bedSpot, standY } from "../art/layout";
 import { stepMoment } from "../art/moment";
+import { drawHabitat } from "../art/habitat";
 import { drawScene, moodOf, sizeOf } from "../art/scene";
 import { getForm } from "../data/forms";
+import { spots } from "../data/habitat";
 import { tapEgg, touch } from "../game/actions";
 import type { CallKind, Save } from "../game/state";
 import type { Game } from "./game";
@@ -21,11 +23,14 @@ const callWords: Record<CallKind, string> = {
 };
 
 // A sentence for screen readers, since the picture itself has no text.
-function describe(save: Save): string {
+function describe(save: Save, atHabitat: boolean): string {
   if (save.phase === "egg") return "An egg. Tap it to help it hatch.";
   if (!save.creature) return "";
   const name = getForm(save.creature.formId).name;
   if (save.phase === "dead") return `${name} has passed away.`;
+  const job = save.creature.job;
+  if (job) return `${name} is out working at the ${spots[job.spot].name}.`;
+  if (atHabitat) return `The habitat. ${name} is at home.`;
   if (save.creature.sleep) return `${name} is asleep.`;
   return save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`;
 }
@@ -74,7 +79,8 @@ export function Stage({ game }: { game: Game }) {
       updateView(game.view, dt, moodOf(game.save), Math.random, sizeOf(game.save));
       ctx.setTransform(size.k, 0, 0, size.k, 0, 0); // draw in game pixels, scaled up
       ctx.imageSmoothingEnabled = false;
-      drawScene(ctx, game.save, game.view, game.now());
+      if (game.atHabitat) drawHabitat(ctx, game.save, game.view, game.now());
+      else drawScene(ctx, game.save, game.view, game.now());
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -142,6 +148,7 @@ export function Stage({ game }: { game: Game }) {
 
   const onPointerDown = (e: PointerEvent): void => {
     if (e.pointerType === "mouse" && e.button !== 0) return; // only the main mouse button
+    if (game.atHabitat || game.save.creature?.job) return; // nothing to pet: the habitat has its own buttons, and an away creature is not in the room
     if (!isOnTarget(e)) return;
     endHold(); // a second finger replaces the first, so no petting timer is left running
     canvasRef.current?.setPointerCapture(e.pointerId);
@@ -177,7 +184,7 @@ export function Stage({ game }: { game: Game }) {
         width={ROOM.w * size.k}
         height={ROOM.h * size.k}
         role="img"
-        aria-label={describe(game.save)}
+        aria-label={describe(game.save, game.atHabitat)}
         style={{ width: `${size.css}px`, height: `${size.css}px` }}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}

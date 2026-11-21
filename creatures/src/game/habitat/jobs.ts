@@ -36,8 +36,16 @@ export function beginJob(save: Save, c: Creature, spotId: SpotId, nowMs: number)
 export function stepJob(save: Save, rng: Rng, t: number): void {
   const c = save.creature;
   const job = c?.job;
-  if (!c || !job || t < job.endsAt) return;
+  if (!c || !job) return;
   const spot = spots[job.spot];
+  // A job is never more than its own length away. If the device clock was set back far enough for the game to start
+  // again from the new time (see simulateTo), its old finishing time would be hours or years ahead and keep the creature out.
+  const latest = t + spot.minutes * MINUTE;
+  if (job.endsAt > latest) {
+    job.endsAt = latest;
+    job.startedAt = latest - spot.minutes * MINUTE;
+  }
+  if (t < job.endsAt) return;
   const coins = rng.int(spot.coins[0], spot.coins[1]);
   const amount = rng.int(spot.amount[0], spot.amount[1]);
   save.coins += coins;
