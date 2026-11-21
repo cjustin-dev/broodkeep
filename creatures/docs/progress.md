@@ -4,28 +4,47 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-21)
 
-**Phase 1 plus the emotes are merged (PR #3, then PR #4, `main` at b2ccad8) and LIVE at https://broodkeep.pages.dev.**
-The live page serves the same asset file names as the local build (`index-DlVcX8n5.js`, `index-C5ifZwfL.css`, checked
-2026-11-21). Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from
-`main`. The owner deletes merged branches on GitHub. Owner feedback so far: on a PC browser and an Android browser the
-egg shakes when tapped, and then the request for more emotion in the creature (the emotes below). Nothing reported yet
-on how the emotes feel.
+**Phase 1 and the emotes are merged and LIVE at https://broodkeep.pages.dev** (PR #3, #4 and #5, `main` at c6cb54f). Cloudflare
+Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The owner deletes
+merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), then the request for more emotion
+(the emotes below). Nothing reported yet on how the emotes feel on a real phone.
+
+**Phase 2 is built on branch `phase-2-forms` (not pushed).** All 20 forms, the full evolution tree, a dev tree viewer and
+the hatch and evolve scenes. See the Phase 2 section below.
 
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
 poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
 death and a new egg, idle behaviours, tap reactions (poke, pet, tickle), a settings panel (sleeping hours) and a dev panel
-(7 taps on the version line). Three placeholder forms: Blip, Pip, Fennix. One fixed room. Saves on the device only
-(IndexedDB). Design choices are in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
+(7 taps on the version line). One fixed room. Saves on the device only (IndexedDB). Design choices are in
+[decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
 
-Checks run on the final code: `npm run typecheck`, `npm test` (103 tests, 7 files) and `npm run build` all exit 0. The
-bundle is 49 KB JS (18 KB gzip) and 5.6 KB CSS. 12 deliberate code mutations on the simulation were all caught by tests.
-The built game was driven in a headless phone browser (390 x 844, 3x, fake clock) through egg, hatch, reload, feeding,
-hungry call, night, death, new egg, settings, dev panel and a desktop view, with no console errors or CSP violations. The
-impeccable design detector reports nothing on the UI files. A cheap-model fresh-eyes review of the UI found 5 real
-defects, all fixed (see decisions.md). Two of them (second finger, failed read) have a browser check that fails on the old
-code and passes on the new.
+Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that found 5 real defects (all fixed), and the
+built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
+and iOS Safari save-on-close.
 
-Not checked by me: hatching, feeding and the other screens on a real phone, and iOS Safari save-on-close.
+## Phase 2: all 20 forms (branch `phase-2-forms`, not pushed)
+
+Owner answers: full tree now with later rules waiting, 16 x 16 pictures for every form, derived emotes plus hatch and
+evolve scenes.
+
+- **20 forms** (2 babies, 3 in training, 5 rookies, 5 champions, 5 ultimates), 17 of them new. Eggs: speckled gives Blip,
+  striped gives Drip, swirled gives either.
+- **The full tree** is data in `src/data/forms/`. Rules that need training, battles, jobs, strength, defense, spirit or
+  discipline read 0 until Phase 3, so today only care, feeding and happiness rules and the fallbacks can fire. All numbers
+  are first guesses.
+- **Dev tree viewer** (dev panel): each path from the current form with its rules as pass or fail, the path that would win,
+  and number inputs for the systems that do not exist yet.
+- **Hatch and evolve scenes**, looks only, never saved.
+
+Checks: typecheck, 336 tests (10 files) and build exit 0. 35 deliberate code mutations of the new code were all caught
+(30 on the first pass, 5 more for the review fixes). A cheap-model review found 12 points: 10 fixed (Drip had an extra path
+the plan does not have, the evolve scene ignored the facing direction and ran while asleep, the scene was not cleared when
+the game was replaced or the creature died, the egg tap made its own burst before the pop, a duplicate CSS rule, a stale
+comment, a misleading test name, rule text rounding 69.96 up to 70.0, number inputs now select on focus), 1 documented (dev
+Hatch on a dead creature plays no scene) and 1 kept on purpose (discipline reads the stat, with a hint in the dev panel).
+The built game was driven in a headless phone browser: both scenes frame by frame, all 20 forms standing, sad and asleep
+in the room, a real tap-hatch, and the dev viewer, with no console errors. Not checked: a real phone, and the drawing code
+has no automated tests.
 
 ## Emotes (merged in PR #4, live 2026-11-21)
 
@@ -56,7 +75,6 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 - Plan sections 1 and 2 and the handoff notes still describe the old site and say "do not touch the repo root". Update
   the plan to match, or leave as history?
 - Add GitHub branch protection on `main`. The hub's deploy key can push any branch.
-- Confirm the old Cloudflare project (`kharbranth`) is deleted. It is disposable.
 
 ## Facts that are easy to get wrong
 
@@ -70,9 +88,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Owner plays the live emotes on a real phone (dev mode sets hunger, happiness, energy or sickness to see each feeling)
-   and reports what feels wrong. The stale remote branch `creature-emotes` (recreated by a push after the merge) can be
-   deleted on GitHub.
-2. Collect the owner's Phase 1 feedback and fix it. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
-   after that feedback.
+1. Owner says "push it" for `phase-2-forms`, opens the pull request and merges it, then plays the new creatures and the
+   scenes (dev mode: Evolve to it, or the Hatch this form button, shows every form and the scenes).
+2. Collect the owner's feedback on the emotes and on Phase 2, and fix it. Tune the tree numbers after real play.
+3. Phase 3 (habitat, jobs, turn-based combat, coins, the Creature Book) only after that feedback. It makes most Champion
+   and Ultimate paths reachable.
    Work on a new branch, never push `main`, and the owner merges the pull request.

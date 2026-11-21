@@ -444,6 +444,61 @@ output {
   font-variant-numeric: tabular-nums;
 }
 
+.paths,
+.paths ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.paths > li {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.paths > li.leading {
+  border-color: var(--accent);
+}
+
+.paths ul {
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.paths .pass {
+  color: var(--good);
+}
+
+.paths .fail {
+  color: var(--ink-soft);
+}
+
+.tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.slider input[type="number"] {
+  grid-column: 2 / 4;
+  justify-self: end;
+  width: 6rem;
+  min-height: 44px;
+  padding: 6px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg-lift);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
 .log {
   margin: 0;
   padding: 0;

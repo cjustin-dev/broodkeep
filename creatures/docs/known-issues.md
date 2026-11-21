@@ -27,7 +27,6 @@
 - **The egg has no visible "tap me" hint.** Only the screen reader label says it. Easy to add if testers do not find it.
 - **Desktop shows the phone column** (480 px max). Real desktop layout is Phase 7 in the plan.
 - **The call bubble blinks** (hidden half a second in every two). Intended. Ask testers whether it feels nagging.
-- **`foodEaten` and `neglectMinutes` counters are kept but unused.** They are for the Phase 2 evolution rules.
 - **Not usable without touch or a mouse (accessibility, reported by the review, not built).** In the egg phase the only
   way to help it hatch is a pointer on the canvas. Petting and tickling also need a pointer. The food tray comes before
   the Feed button in tab order and focus does not move into it. Settings and Dev panels have no Escape key, no focus
@@ -38,17 +37,43 @@
 
 - **"Squash" is really a one pixel shift.** `drawSprite`'s `height` option drops whole rows, and these sprites have an
   empty bottom row, so the awake breathing bob and the chewing bob are just the sprite moving down one pixel. Real squash
-  frames come with Phase 2 art. The lying-down picture is separate and is a true flat shape.
+  frames would need hand-drawn pictures, which Phase 2 did not add (the emotes stay derived from one picture per form). The lying-down picture is separate and is a true flat shape.
 - **One meal at a time.** Feeding again during a meal replaces the food on the floor and restarts the eating.
 - **The mouth only changes for a yawn.** A sad creature has the same small mouth as a happy one, the sadness is in the
   heavy eyelids, the slump and the tears. Eyes only look up (at falling food) or stay as drawn, there is no looking around.
 - **The slumped yawn mouth is a wide red oval** (the mouth grows with the widened body), and reads as a small plus sign at
-  a glance. Hand-drawn Phase 2 frames would fix it.
+  a glance. Hand-drawn frames would fix it.
 - **Sick shows as droop, green tint and sway.** There is no separate "sick" face, and a sad and sick creature look alike
   apart from the tears.
 - **The feelings use fixed cut-offs** (hungry under 25, sleepy under 25, sad under 30), the same idea as the red part of the
   stat bars. They are in `moodOf` in `scene.ts`.
 - **The blanket sits on top of the bed,** it is a pink rectangle, not a drawing that follows the creature's shape.
+
+## Phase 2: forms, tree and scenes (accepted for now)
+
+- **Most Champion and Ultimate paths cannot fire in normal play yet.** Their rules use training, battles, jobs and trained
+  stats (strength, defense, spirit) and discipline, which do not exist until Phase 3 and later, so those numbers read 0.
+  Today a creature takes the rules that use care mistakes, feeding and happiness, and otherwise the fallback path. Dev mode
+  can set the missing numbers (Dev panel, "Numbers for later systems"). The tree viewer marks every such rule "not in the
+  game yet".
+- **A fully attentive player gets the same few forms.** With care alone: Blip or Drip, Pip, then Fennix or Mothlet,
+  then Lumiwing, then Aurelith. The other branches need Phase 3 or neglect.
+- **All numbers in the tree are first guesses** (thresholds, and 6, 24, 72, 120 hours per stage from the plan). Example: a
+  baby can only eat about 3 to 4 foods in 6 hours without candy, so "lots of feeding" (5 foods) needs a little candy.
+  Tune them in the form files after real play.
+- **Discipline has no way to rise.** The stat exists and the tree reads it (Citadrake), but nothing changes it, so it sits
+  at 50 unless dev mode moves it.
+- **Some pictures are plain.** Thornback's spikes are small, Smudge reads as a grumpy blob more than smoke, and Bastion and
+  Citadrake have blocky towers. Checked as stills only. All 20 were also checked standing, sad and asleep in the room.
+- **The hatch and evolve scenes have no automated drawing tests.** The timing and state are tested, the drawing was checked
+  by eye on frames from a headless phone browser, not on a real phone. They do not stop for `prefers-reduced-motion`, like
+  the rest of the canvas motion. The flash is one fade at 80% white, and the old form flickers 2 to 5 times a second.
+- **An evolution while the app was closed plays its scene when the app opens,** from the form on screen when it was last
+  open to the form it is now. If it grew through two stages while away, the scene shows the first form turning into the last.
+- **A creature that evolves in its sleep gets no scene,** it simply is the new form when it wakes. Dev "Hatch this form
+  now" and "Evolve to it" play the scenes (handy for looking at them), except "Hatch" on a dead creature.
+- **Drip reaches Nubbin only through training** (the plan's line for Drip), so until Phase 3 a Drip becomes Pip or Smudge.
+  Blip can also reach Nubbin by lots of feeding.
 
 ## Backend (Phase 5)
 

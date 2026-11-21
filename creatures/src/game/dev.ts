@@ -3,6 +3,7 @@
 
 import { eggPatterns } from "../data/eggs";
 import { getForm } from "../data/forms";
+import type { LaterMetric } from "./metrics";
 import { makeCreature, evolveTo, simulateTo } from "./sim";
 import { clamp, logEvent, newEgg, newSave } from "./state";
 import type { Save, Stats } from "./state";
@@ -25,6 +26,14 @@ export function advanceClock(save: Save, realDeltaMs: number, multiplier: number
 
 export function setStat(save: Save, stat: keyof Stats, value: number): void {
   if (save.creature) save.creature.stats[stat] = clamp(value);
+}
+
+// Set one of the numbers of a system that is not in the game yet (training, battles, jobs, strength
+// and so on), so the evolution paths that need them can be tested. They reset at each evolution.
+export function setLaterCounter(save: Save, metric: LaterMetric, value: number): void {
+  if (!save.creature) return;
+  const whole = Number.isFinite(value) ? Math.max(0, Math.min(999, Math.round(value))) : 0;
+  save.creature.counters.later = { ...save.creature.counters.later, [metric]: whole };
 }
 
 export function setSick(save: Save, sick: boolean): void {

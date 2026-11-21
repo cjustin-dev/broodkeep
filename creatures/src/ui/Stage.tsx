@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { addEffect, triggerPose, updateView } from "../art/idle";
 import { ROOM } from "../art/layout";
+import { stepMoment } from "../art/moment";
 import { drawScene, moodOf } from "../art/scene";
 import { getForm } from "../data/forms";
 import { tapEgg, touch } from "../game/actions";
@@ -69,6 +70,7 @@ export function Stage({ game }: { game: Game }) {
     const frame = (now: number): void => {
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
+      stepMoment(game.view, game.save, dt);
       updateView(game.view, dt, moodOf(game.save), Math.random);
       ctx.setTransform(size.k, 0, 0, size.k, 0, 0); // draw in game pixels, scaled up
       ctx.imageSmoothingEnabled = false;
@@ -115,12 +117,8 @@ export function Stage({ game }: { game: Game }) {
   const tap = (): void => {
     const save = game.save;
     if (save.phase === "egg") {
-      const result = game.act((s, now) => tapEgg(s, now));
-      triggerPose(game.view, "wobble"); // the egg wiggles
-      if (result === "hatched") {
-        sparkles(8);
-        triggerPose(game.view, "happy");
-      }
+      game.act((s, now) => tapEgg(s, now));
+      triggerPose(game.view, "wobble"); // the egg wiggles (a last tap that hatches it starts the hatch scene)
       return;
     }
     if (save.phase !== "alive" || save.creature?.sleep) return;

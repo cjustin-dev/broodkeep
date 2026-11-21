@@ -4,6 +4,7 @@
 import { eggPatterns } from "../data/eggs";
 import { tuning } from "../data/tuning";
 import { makeRng } from "./rng";
+import type { LaterMetric } from "./metrics";
 import type { EggPattern, FoodId } from "./types";
 
 export type Phase = "egg" | "alive" | "dead";
@@ -15,18 +16,19 @@ export interface Stats {
   energy: number;
   hygiene: number;
   wellness: number; // low wellness means sickness (not the same as battle HP)
-  discipline: number; // not used by any rule yet (Phase 3 combat)
+  discipline: number; // nothing raises it yet; only the evolution rules read it (Phase 3 combat will use it)
 }
 
 // Counters for the current stage. They reset at each evolution and decide the next form.
-// Phase 1 data only needs careMistakes. foodEaten and neglectMinutes are collected now
-// because the Phase 2 evolution tree reads them, and past play cannot be recounted later.
+// `later` holds the numbers of systems that do not exist yet (training, battles, jobs, trained
+// stats). Nothing but dev mode writes to it. It is optional so saves made before Phase 2 still load.
 export interface Counters {
   careMistakes: number;
   foodEaten: Record<FoodId, number>;
   neglectMinutes: number;
   happinessSum: number; // add the happiness of every awake minute...
   happinessMinutes: number; // ...and count the minutes, to get the average
+  later?: Partial<Record<LaterMetric, number>>;
 }
 
 export interface Creature {

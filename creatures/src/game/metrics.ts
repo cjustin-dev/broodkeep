@@ -1,0 +1,63 @@
+// The numbers evolution rules are written in. Each one is read from the creature right now.
+// "tracked" metrics are counted by the game today. The others belong to systems that come in
+// later phases (training, battles, jobs, trained stats). They read as 0 until then, and dev
+// mode can set them (counters.later) so every path in the tree can still be tested.
+// Discipline is the exception: it is a real stat that nothing raises yet, so it is read from the
+// stat and dev mode sets it with the Discipline slider.
+
+import type { Creature } from "./state";
+import type { Metric } from "./types";
+
+export const METRICS: Record<Metric, { label: string; tracked: boolean }> = {
+  careMistakes: { label: "care mistakes", tracked: true },
+  happinessAvg: { label: "average happiness", tracked: true },
+  neglectHours: { label: "hours with a call unanswered", tracked: true },
+  discipline: { label: "discipline", tracked: false },
+  food: { label: "food eaten", tracked: true },
+  berries: { label: "berries eaten", tracked: true },
+  meat: { label: "meat eaten", tracked: true },
+  fish: { label: "fish eaten", tracked: true },
+  candy: { label: "candy eaten", tracked: true },
+  training: { label: "training sessions", tracked: false },
+  battles: { label: "battles fought", tracked: false },
+  wins: { label: "battles won", tracked: false },
+  chores: { label: "chores and jobs done", tracked: false },
+  strength: { label: "strength", tracked: false },
+  defense: { label: "defense", tracked: false },
+  spirit: { label: "spirit", tracked: false },
+};
+
+export type LaterMetric = "training" | "battles" | "wins" | "chores" | "strength" | "defense" | "spirit";
+export const laterMetrics: LaterMetric[] = ["training", "battles", "wins", "chores", "strength", "defense", "spirit"];
+
+// Average happiness while awake in this stage. A stage with no awake time counts as 50.
+export function happinessAverage(counters: Creature["counters"]): number {
+  return counters.happinessMinutes === 0 ? 50 : counters.happinessSum / counters.happinessMinutes;
+}
+
+// The value of one metric for this creature right now.
+export function metricValue(creature: Creature, metric: Metric): number {
+  const c = creature.counters;
+  switch (metric) {
+    case "careMistakes":
+      return c.careMistakes;
+    case "happinessAvg":
+      return happinessAverage(c);
+    case "neglectHours":
+      return c.neglectMinutes / 60;
+    case "discipline":
+      return creature.stats.discipline;
+    case "food":
+      return c.foodEaten.berry + c.foodEaten.meat + c.foodEaten.fish + c.foodEaten.candy;
+    case "berries":
+      return c.foodEaten.berry;
+    case "meat":
+      return c.foodEaten.meat;
+    case "fish":
+      return c.foodEaten.fish;
+    case "candy":
+      return c.foodEaten.candy;
+    default:
+      return c.later?.[metric] ?? 0; // not counted yet, unless dev mode set it
+  }
+}

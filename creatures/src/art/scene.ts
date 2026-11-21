@@ -13,6 +13,7 @@ import { WIDE_WIDTH, blanketBox, eyeSpots, faceSprite, isWide, pickFace } from "
 import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
+import { drawMomentOver, drawMomentUnder } from "./moment";
 import { drawRoom } from "./room";
 
 // What the creature is looking like it feels, from the save. Used to steer the idle movement.
@@ -81,36 +82,41 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     const form = getForm(c.formId);
     const asleep = c.sleep !== null;
     const dead = save.phase === "dead";
-    const tint = dead
-      ? { color: "#8a8a8a", amount: 0.75 }
-      : c.sick
-        ? { color: "#7bdc6a", amount: 0.4 }
-        : undefined;
-    // Asleep or dead: lying flat with eyes shut. Sad or sick: slumped. Otherwise the picture
-    // follows what it is doing and feeling (blinking, yawning, tired eyes, and so on).
-    const lying = asleep || dead;
-    const kind = pickFace(view, asleep, dead);
-    const sprite = spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}`, tint);
-    const onBed = asleep && !dead;
-    const x = Math.round(dead ? ROOM.deadX : onBed ? ROOM.bedX : view.x + off.dx); // whole pixels, so the tears and marks line up
-    const y = (onBed ? ROOM.bedY : ROOM.walkY) + (dead ? 0 : off.dy);
-    // The lying and slumped pictures are wider than the standing one, so they start further left to stay centered.
-    const wide = isWide(kind);
-    const flip = view.facing === -1;
-    const drawX = wide ? x - (WIDE_WIDTH - ROOM.sprite) / 2 : x;
-    drawSprite(ctx, sprite, drawX, y, { flipX: flip, height: sprite.height - (lying ? 0 : off.squash) });
+    // A hatch or evolve scene replaces the picture (and the usual extras) while it plays.
+    if (!dead && drawMomentUnder(ctx, view, form.id)) {
+      // drawn by the scene
+    } else {
+      const tint = dead
+        ? { color: "#8a8a8a", amount: 0.75 }
+        : c.sick
+          ? { color: "#7bdc6a", amount: 0.4 }
+          : undefined;
+      // Asleep or dead: lying flat with eyes shut. Sad or sick: slumped. Otherwise the picture
+      // follows what it is doing and feeling (blinking, yawning, tired eyes, and so on).
+      const lying = asleep || dead;
+      const kind = pickFace(view, asleep, dead);
+      const sprite = spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}`, tint);
+      const onBed = asleep && !dead;
+      const x = Math.round(dead ? ROOM.deadX : onBed ? ROOM.bedX : view.x + off.dx); // whole pixels, so the tears and marks line up
+      const y = (onBed ? ROOM.bedY : ROOM.walkY) + (dead ? 0 : off.dy);
+      // The lying and slumped pictures are wider than the standing one, so they start further left to stay centered.
+      const wide = isWide(kind);
+      const flip = view.facing === -1;
+      const drawX = wide ? x - (WIDE_WIDTH - ROOM.sprite) / 2 : x;
+      drawSprite(ctx, sprite, drawX, y, { flipX: flip, height: sprite.height - (lying ? 0 : off.squash) });
 
-    if (onBed) drawBlanket(ctx, faceSprite(form, kind), drawX, y, flip);
-    // The body is drawn one row lower on a sigh frame, so the tears move down with it.
-    if (kind === "droop" && c.sick === false) drawTears(ctx, faceSprite(form, kind), drawX, y + (lying ? 0 : off.squash), flip, view.clock);
-    if (view.pose === "rumble" && !lying) drawRumble(ctx, x, y, view.poseTime);
+      if (onBed) drawBlanket(ctx, faceSprite(form, kind), drawX, y, flip);
+      // The body is drawn one row lower on a sigh frame, so the tears move down with it.
+      if (kind === "droop" && c.sick === false) drawTears(ctx, faceSprite(form, kind), drawX, y + (lying ? 0 : off.squash), flip, view.clock);
+      if (view.pose === "rumble" && !lying) drawRumble(ctx, x, y, view.poseTime);
 
-    if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
+      if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
 
-    if (dead) drawTombstone(ctx, x + 18, y + 4);
-    else if (asleep) drawFloatingZ(ctx, view.clock, x, y);
-    else if (c.call && Math.floor(view.clock * 2) % 4 !== 3) {
-      drawBubble(ctx, callIcon[c.call], x + 14, y - 12);
+      if (dead) drawTombstone(ctx, x + 18, y + 4);
+      else if (asleep) drawFloatingZ(ctx, view.clock, x, y);
+      else if (c.call && Math.floor(view.clock * 2) % 4 !== 3) {
+        drawBubble(ctx, callIcon[c.call], x + 14, y - 12);
+      }
     }
   }
 
@@ -130,6 +136,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     ctx.fillStyle = "rgba(15, 10, 50, 0.4)";
     ctx.fillRect(0, 0, ROOM.w, ROOM.h);
   }
+
+  drawMomentOver(ctx, view); // the flash goes over everything
 }
 
 // The food on the floor. It drops in, then loses a quarter in each bite, from the side the
