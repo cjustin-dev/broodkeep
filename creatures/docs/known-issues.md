@@ -7,7 +7,7 @@
 - **Unknown paths return `index.html` with status 200.** Seen live: `/api/anything` returns the placeholder page. Once
   Functions exist, unknown API routes should return a JSON 404.
 - **"Retry deployment" rebuilds the OLD commit.** After merging a fix, look for the new deployment for the merge commit.
-  Retrying the failed row fails the same way (seen 2026-11-21: `Cannot find cwd: /opt/buildhome/repo/creatures`).
+  Retrying the failed row fails the same way (seen 2026-11-20: `Cannot find cwd: /opt/buildhome/repo/creatures`).
 - **Two setup flows.** The Workers flow shows a "Deploy command" box (`npx wrangler deploy`). The Pages flow does not.
   This project is Pages. If you see a deploy command, you are in the wrong flow.
 - **The project builds from `main`.** `creatures/` must be on `main` before the first build can pass.
