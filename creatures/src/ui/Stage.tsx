@@ -3,10 +3,10 @@
 //   tap the creature   -> it startles (3 quick taps = tickle)
 //   hold the creature  -> petting
 import { useEffect, useRef, useState } from "preact/hooks";
-import { addEffect, triggerPose, updateView } from "../art/idle";
-import { ROOM } from "../art/layout";
+import { addHeart, addSparkles, triggerPose, updateView } from "../art/idle";
+import { ROOM, bedSpot, standY } from "../art/layout";
 import { stepMoment } from "../art/moment";
-import { drawScene, moodOf } from "../art/scene";
+import { drawScene, moodOf, sizeOf } from "../art/scene";
 import { getForm } from "../data/forms";
 import { tapEgg, touch } from "../game/actions";
 import type { CallKind, Save } from "../game/state";
@@ -71,7 +71,7 @@ export function Stage({ game }: { game: Game }) {
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
       stepMoment(game.view, game.save, dt);
-      updateView(game.view, dt, moodOf(game.save), Math.random);
+      updateView(game.view, dt, moodOf(game.save), Math.random, sizeOf(game.save));
       ctx.setTransform(size.k, 0, 0, size.k, 0, 0); // draw in game pixels, scaled up
       ctx.imageSmoothingEnabled = false;
       drawScene(ctx, game.save, game.view, game.now());
@@ -81,11 +81,13 @@ export function Stage({ game }: { game: Game }) {
     return () => cancelAnimationFrame(raf);
   }, [game, size.k]);
 
-  // Where the creature (or egg) is, as a box in room pixels.
-  const targetBox = (): { x: number; y: number } => {
+  // Where the creature (or egg) is, as a square box in room pixels (top left corner and side).
+  const targetBox = (): { x: number; y: number; size: number } => {
     const save = game.save;
-    if (save.phase === "egg") return { x: ROOM.eggX, y: ROOM.eggY };
-    return save.creature?.sleep ? { x: ROOM.bedX, y: ROOM.bedY } : { x: game.view.x, y: ROOM.walkY };
+    if (save.phase === "egg") return { x: ROOM.eggX, y: ROOM.eggY, size: ROOM.sprite };
+    const side = sizeOf(save);
+    if (save.creature?.sleep) return { ...bedSpot(side), size: side };
+    return { x: game.view.x, y: standY(side), size: side };
   };
 
   const isOnTarget = (e: PointerEvent): boolean => {
@@ -95,15 +97,8 @@ export function Stage({ game }: { game: Game }) {
     const x = ((e.clientX - rect.left) / rect.width) * ROOM.w;
     const y = ((e.clientY - rect.top) / rect.height) * ROOM.h;
     const box = targetBox();
-    const pad = 6; // a bit of slack, because fingers are bigger than 16 pixels
-    return x >= box.x - pad && x <= box.x + ROOM.sprite + pad && y >= box.y - pad && y <= box.y + ROOM.sprite + pad;
-  };
-
-  const sparkles = (count: number): void => {
-    const box = targetBox();
-    for (let i = 0; i < count; i++) {
-      addEffect(game.view, "sparkle", box.x + 2 + Math.random() * 12, box.y + 2 + Math.random() * 10);
-    }
+    const pad = 6; // a bit of slack, because fingers are bigger than a few pixels
+    return x >= box.x - pad && x <= box.x + box.size + pad && y >= box.y - pad && y <= box.y + box.size + pad;
   };
 
   const pet = (h: Hold): void => {
@@ -111,7 +106,7 @@ export function Stage({ game }: { game: Game }) {
     const result = game.act((s, now) => touch(s, "pet", now));
     if (result.asleep) return;
     triggerPose(game.view, "happy");
-    if (result.gained > 0) addEffect(game.view, "heart", game.view.x + 4, ROOM.walkY - 2);
+    if (result.gained > 0) addHeart(game.view);
   };
 
   const tap = (): void => {
@@ -129,7 +124,7 @@ export function Stage({ game }: { game: Game }) {
       taps.current = [];
       game.act((s, t) => touch(s, "tickle", t));
       triggerPose(game.view, "happy");
-      sparkles(4);
+      addSparkles(game.view, 4);
     } else {
       triggerPose(game.view, "startle");
     }

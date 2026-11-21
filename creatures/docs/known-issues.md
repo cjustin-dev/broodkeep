@@ -80,6 +80,32 @@
 - **Drip reaches Nubbin only through training** (the plan's line for Drip), so until Phase 3 a Drip becomes Pip or Smudge.
   Blip can also reach Nubbin by lots of feeding.
 
+## Creature redesign (accepted for now)
+
+- **Big creatures look small in bed.** The bed is 32 wide and a lying Champion or Ultimate fills it. The pink blanket starts
+  at the mouth row, so on the tall designs it covers most of the body and only the head, ears, horns or wings show. Fine for
+  a sleeping monster, but a bigger bed or a blanket that follows the body would look better (Phase 4 redecorates the room).
+- **Big creatures have less floor.** A 32 pixel creature walks over 38 pixels of the 96 wide room and often stands in front
+  of the bed. Food is still an 8 pixel icon on the floor beside it, which reads small next to an Ultimate.
+- **Lying and slumped are squashed copies.** `lieDown` drops rows and doubles columns at even spacing, so detailed designs
+  (Citadrake's towers, Aurelith's wings, Hollowking's staff) get flatter and a little distorted. All 20 were checked on a
+  contact sheet in every look. Hand-drawn lying pictures would fix it.
+- **Shut eyes can be hard to see.** Only the happy arch has a contrast rule. By a rough measure (the dark shut-eye line
+  against the pixel above it) seven forms are under 3 to 1: Shellby, Mothlet, Pyrefang, Thornback, Citadrake, Dreadmaw and
+  Hollowking. On Shellby, Mothlet and Hollowking that pixel is outline, so the shut eye merges into it. Not looked at in
+  the room beyond the contact sheet.
+- **Dreadmaw and Hollowking yawn into a dark oval,** because their `M` pixels are colored like the surface they sit on. It
+  showed as a dark oval on the contact sheet (not looked at in the room).
+- **No automated test covers the drawing.** `scene.ts` and the drawing parts of `moment.ts` were checked by eye in a
+  headless phone browser (all 20 forms standing, sad, asleep, plus hungry, eating, petting, sick and dead for five), not on
+  a real phone. The motion itself (two drawings swapping every half second, a step each quarter second) is untested as
+  motion: the owner should judge whether the pace feels right.
+- **A sleeping creature's tap area is the standing square** at the bed spot, bigger than the lying body. A tap above the
+  lying creature still counts.
+- **The two babies have no second drawing,** so they only bob. They were not redrawn.
+- **The drawing toolkit is not in the repo.** Editing a 32 x 32 grid by hand is slow. Say so if it should move into
+  `creatures/tools/art/`.
+
 ## Backend (Phase 5)
 
 - **PBKDF2 iteration cap.** Workers is reported to cap PBKDF2 at 100,000, below the OWASP figure of 600,000 for SHA-256.
