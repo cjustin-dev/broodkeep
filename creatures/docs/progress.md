@@ -4,8 +4,9 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-21)
 
-**Phase 1, the emotes, Phase 2, happy eyes, the creature redesign and the drawing toolkit are merged** (PR #3 to #6, #8, #9 and
-#11, `main` at 5015162; the first four are confirmed live at https://broodkeep.pages.dev, the deploys after that were not checked).
+**Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slice 1 are merged** (PR #3 to
+#6, #8, #9, #11 and #12, `main` at ea04bb8; the first four are confirmed live at https://broodkeep.pages.dev, and so is slice 1
+(the page shows the version label "0.3 (Phase 3a)"), the deploys in between were not checked).
 Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The
 owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), the request for
 more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
@@ -15,8 +16,9 @@ evolutions are "the same circle like mass with some small affections", and the o
 redesign section below and [art-direction.md](art-direction.md).
 
 **Phase 3 is being built in four slices** (the owner chose the order and that food stays unlimited): 1) habitat jobs, coins and
-the bag (built, pushed on branch `phase-3a-habitat` 2026-11-21, pull request not merged yet), 2) turn-based combat with HP, 3) garden plots, standing chores and
-habitat upgrades, 4) the Creature Book and the legacy shelf. See "Phase 3 slice 1" below.
+the bag (merged in PR #12, live), 2) turn-based combat with HP (built and reviewed on branch `phase-3b-combat` from `main` ea04bb8,
+4 commits, not pushed yet, see "Phase 3 slice 2" below), 3) garden plots, standing chores and habitat upgrades, 4) the Creature Book and the legacy
+shelf.
 
 **Branch protection is on for `main`** (owner set it 2026-11-21: pull request required, 0 approvals because GitHub has no 0 option
 to pick, force pushes and deletions not allowed; the public API reports `protected: true`). Not tested: whether the hub's deploy
@@ -40,7 +42,7 @@ Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that fou
 built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
 and iOS Safari save-on-close.
 
-## Phase 3 slice 1: the habitat (built and pushed 2026-11-21, branch `phase-3a-habitat`, waiting for the owner to merge)
+## Phase 3 slice 1: the habitat (merged in PR #12, live 2026-11-21)
 
 What it adds: a habitat screen (switch with the house and tree buttons) with five gathering spots. The player taps a spot, the
 creature works there for 3 to 8 real minutes (also while the app is closed) and comes home with coins and a material, shown on
@@ -54,6 +56,30 @@ rewritten after a mutation survived), a headless phone browser run of the whole 
 creature sizes, night, a refused tap, a job, the room while away, the welcome-back card, calling back, and a death on the
 habitat screen followed by a new egg), and a cheap-model review that found 9 points (6 fixed, 2 written down, 1 left alone on
 purpose). Not checked: a real phone, and the drawing code beyond its placement tests.
+
+## Phase 3 slice 2: combat and the arena (built 2026-11-21, branch `phase-3b-combat`, not pushed)
+
+What it adds: a third nav button (crossed swords) opens the arena. The creature (from the in-training stage up) fights a wild
+creature of its own stage, turn by turn: Attack, Guard or Special (Special needs a full three-pip meter). Wins pay coins, now and
+then a material, and one trained stat point; they climb a five-rung ladder whose last rung is a boss. A loss leaves it at a
+quarter HP and tired. HP rests back over real time (also with the app closed). A fight is never saved: closing the app in
+one forgets it and costs only the energy already spent. `battles`, `wins`, `strength`, `defense` and `spirit` are now counted
+evolution metrics. The dev panel has battle HP and fight rung sliders. Version label "0.4 (Phase 3b)". Design notes and the
+numbers are in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
+
+Checks: typecheck and build exit 0, 665 tests (15 files; 593 in 13 before). 97 deliberate code mutations of the combat, arena
+and `Game` code were all caught (the first pass caught 63 of 64 and 28 of 31, the 4 that survived were test gaps, each fixed
+and re-run; 2 more were run for the review fixes). Four older tests that assumed strength reads 0 were updated. The built game was driven in a headless phone
+browser with no console problems: an idle arena, a refused tap for each reason (too young, tired, asleep, sick, away), a whole
+fight with frames of the first round, guard until the special is ready and then the special, all four creature sizes, the
+boss rung at low HP (a loss), the result strips, run away, a death and an evolution in the middle of a fight, a reload in a
+fight, and night. The look found one problem, the picture jumped between states because the dock changed height (fixed).
+A cheap-model review found 3 points, all fixed (a test titled "a day later" that checked an hour, a test titled "an egg or a
+death" with no egg case, and a recoil bound that held for almost any value). Not checked: a real phone, the pace of the
+animations as motion, and the drawing code beyond its timeline and placement tests.
+
+Simulated difficulty (first-guess numbers): an untrained creature at full HP wins 97 to 100% on rung 1, 13 to 21% on rung 4
+and 1 to 5% against the boss; trained to the stage cap it wins 98 to 100% on every rung (details in decisions.md).
 
 ## Creature redesign (merged in PR #9, 2026-11-21)
 
@@ -141,9 +167,16 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Open for the owner
 
-- When slice 1 is on the live site: play the habitat on a phone and report what feels wrong (is 3 to 8 minutes of work about
+- Slice 1 is on the live site: play the habitat on a phone and report what feels wrong (is 3 to 8 minutes of work about
   right, are the coins and bag worth having before anything can be bought, does the empty room while it is away feel ok). Dev
   mode (gear, tap the version line 7 times) skips the waits and can hatch any form.
+
+- Slice 2 is on its branch only: when it is live, play a few fights on a phone and report what feels wrong (is the ladder too
+  steep or too easy, are the blows readable, do the buttons feel right, is the arena worth a nav button). Dev mode has the HP
+  and rung sliders.
+- Proposed, not built (needs your OK, scope beyond the plan's slice 2): a Train action (the `training` metric, which Blip and
+  Drip to Nubbin and Smudge to Gruntle need) and a way for discipline to rise (Thornback and Bastion to Citadrake need 60,
+  and the sulk rule needs it below 50).
 
 ## Facts that are easy to get wrong
 
@@ -158,9 +191,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. The owner opens and merges the pull request for `phase-3a-habitat` (github.com/cjustin-dev/broodkeep/pull/new/phase-3a-habitat), then plays the habitat.
-2. Phase 3 slice 2: turn-based combat (HP and recovery, wild creature ladders, stat gains that feed `battles`, `wins`,
-   `strength`, `defense` and `spirit`). Then slice 3 (garden plots, standing chores, habitat upgrades: the first thing coins
-   buy) and slice 4 (the Creature Book and the legacy shelf). Phase 3 makes most Champion and Ultimate paths reachable.
-3. Tune the tree and job numbers after real play.
+1. Phase 3 slice 2 (combat) is built, checked and reviewed on `phase-3b-combat`: the owner says "push it" (first `git fetch origin`
+   and check it is not already merged), then merges the pull request.
+2. Then slice 3 (garden plots, standing chores, habitat upgrades: the first thing coins buy) and slice 4 (the Creature Book and
+   the legacy shelf). Phase 3 makes most Champion and Ultimate paths reachable.
+3. Tune the tree, job and fight numbers after real play.
    Work on a new branch, never push `main`, and the owner merges the pull request.

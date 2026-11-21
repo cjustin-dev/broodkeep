@@ -298,3 +298,69 @@ the order, and that food stays unlimited:
   calling back) with no console problems. A cheap-model review found 9 points: 6 fixed, 2 written down (below), and 1 left
   alone on purpose (two result types exported but unused, like the other action result types).
 
+## 2026-11-21: Phase 3 slice 2: turn-based combat and the arena
+
+Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6. All numbers are first guesses, in
+`src/data/combat.ts`, and the figures below were written from that file and a simulation, not from memory.
+
+- **Who may fight** (`fightRefusal`, checked when the fight starts, nothing is checked again after): not away working
+  ("busy"), not asleep, not sick, from the in-training stage up (a baby is "too-young"), and it must keep at least 20 energy
+  after the fight's cost of 10 ("tired"). A refused tap shows the reason as a picture, like the habitat does (zzz, sick,
+  energy, lock, tree for away).
+- **Stats and HP.** Each form already had base `vit, str, def, spi, spd`. A creature's stat is its base plus trained points
+  (`creature.trained`, optional, so no migration; the save version stays 2). Max HP is vitality times 3. The trained points a
+  creature can hold per stat are capped by stage: baby 0, in training 12, rookie 20, champion 32, ultimate 50, and half of them
+  (rounded down) carry over when it evolves (plan 7.1). `creature.hp` is optional: missing means full, and it is deleted again
+  when resting brings it back to full, so a creature that never fought has exactly the same save as before.
+- **One round** (`playRound`, pure, no UI): the player picks Attack, Guard or Special, the wild creature picks its own
+  (special 70% of the time when its meter is full, else guard 20%, else attack), guards go up first, then the blows land in
+  speed order (a tie goes to the player) and a knock-out stops the other blow. Damage is the attacker's strength (spirit for a
+  special) times 1.5 (2.4 for a special), times a random 0.85 to 1.15, minus the target's defense times 0.5 (0.25 for a
+  special), at least 1, halved by a guard. Speed also gives a critical hit chance of 1% a point up to 25% (times 1.5). The
+  special meter holds 3: guarding fills it by 1 and every hit taken fills it by 1; a special needs it full and empties it
+  (the button is disabled until then; if one is played anyway it is an attack, tested). A creature with discipline under 50
+  sulks, ignoring the command, (50 minus discipline) percent of the time up to 30% (dormant at the starting 50, and nothing
+  raises discipline yet).
+- **The wild creature** is a random form of the same stage with its base stats times the rung: 0.7, 0.85, 1.0, 1.15, 1.4. The
+  last rung is the boss. A win moves the creature up a rung, a boss win starts again at rung 1, a loss keeps the rung, and
+  evolving resets it. The fight is seeded from the save's `rngState`, so it is repeatable and each fight differs.
+- **What a fight pays** (`finishFight`): a win gives rung to rung + 2 coins (double for the boss), half the time one material
+  from the spots its stage can use, and 1 trained point (2 for the boss) in the stat of the action it used most (Attack
+  strength, Guard defense, Special spirit; a tie goes to attack, then guard, then special), up to the cap. It keeps the HP it
+  has left. A loss leaves it at a quarter of its max HP and takes 10 more energy. Both count in `battles`, a win in `wins`.
+- **Resting** happens in `stepMinute`, so it also happens with the app closed: empty to full takes 30 awake minutes, twice as
+  fast asleep, half as fast while hunger or hygiene is under 25. Because a win keeps the HP left, a run up the ladder is a
+  matter of how much it can take before it needs a rest.
+- **The evolution numbers now read real stats.** `battles`, `wins`, `strength`, `defense` and `spirit` are counted metrics. The
+  three stats read the form's own number plus trained points (so they start above 0), and dev mode stores only the part above
+  that. Only `training` is still not counted (there is no Train action).
+- **A fight is never saved.** It lives in `game.arena`, and the save changes only when the fight ends (`endFight`), at the
+  moment its last round is played. Closing the app or tapping Run away forgets it and costs only the energy already spent.
+  Considered: saving a fight in progress. It would need the whole battle and its random state in the save for a thing that lasts
+  one to two minutes. A death or an evolution in the middle of a fight ends it; falling asleep or sick does not.
+- **The arena** is a third big button next to the room and the habitat. The nav is held (the other two buttons wait) while a fight
+  is on, and "Run away" is the way out. The picture has a stone ring with banners, both creatures face each other (the foe
+  flipped), HP bars on top, the special meter as three pips under the player's bar and the ladder as five pips under the foe's
+  (cleared green, this one yellow, the boss red). No numbers are drawn. Each round is played back in time (`playback`): guards and
+  sulks first together, then each blow in turn (0.5 s each): the attacker lunges, the target flashes white and is pushed back, a
+  special sends a spark, a guard shows a shield, a hit wince and a special shout use the creature's own eye and mouth pictures, the
+  winner shows happy eyes and the loser slumps in grey. The HP bars replay the round from `Battle.hpBefore`, so a bar drops when
+  the blow lands. The buttons wait until the round has finished playing. The result is a strip in the dock (not over the picture,
+  so the last blow stays in view): coins, material and the stat that grew, or a cloud and zzz for a loss. The dock keeps the same
+  height in every state so the picture does not jump.
+- **Dev panel:** battle HP percent and fight rung sliders (so the boss and a hurt creature can be tested without playing up to
+  them), and the "Numbers for later systems" text now says only training is missing.
+- **What the numbers do** (simulated with the real combat code, 300 fights for every form of the stage and every rung, an
+  untrained creature at full HP that plays a special whenever the meter is full and attacks otherwise): the win rate by rung 1
+  to 5 is 97 to 100%, 79 to 91%, 52 to 68%, 13 to 21% and 1 to 5% (the boss) across the four fighting stages, about 4 rounds a
+  fight. With all of attack, defense and spirit trained to the stage cap it is 98 to 100% at every rung. So the ladder expects
+  training, and the caps may be too generous: each is about twice the base stats of its stage or more (in training the cap is 12 against
+  a base strength of 4 to 7). Tune after real play.
+- **Tests and checks:** 97 deliberate code mutations of the combat, arena and `Game` code were all caught (63 of 64 on the first
+  pass of the rules, 28 of 31 on the arena and screen code, the 4 survivors were test gaps and were fixed and re-run, and 2 more
+  for the review fixes). One survivor showed a guard's meter cap was hidden by the cap on the hit line, which only a fight where
+  both sides guard can see. Four older tests that assumed strength reads 0 were rewritten to the new truth (strength, defense and
+  spirit start at the form's own numbers; only training is still "not in the game yet"). The look found the picture jumping when a
+  fight started because the dock got shorter, so every arena state now keeps the same dock height. A cheap-model review found 3
+  points, all tests whose titles promised more than they checked, all fixed.
+
