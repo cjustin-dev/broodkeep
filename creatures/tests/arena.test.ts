@@ -22,7 +22,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const SIZES = [...new Set(["blip", "pip", "fennix", "pyrefang", "solarion"].map((id) => getForm(id).idle.length))].sort((a, b) => a - b);
+const SIZES = [...new Set(["blip", "pebblin", "cragpup", "gravelhorn", "cindermane"].map((id) => getForm(id).idle.length))].sort((a, b) => a - b);
 const strike = (actor: "me" | "foe", o: Partial<BattleEvent> = {}): BattleEvent => ({ actor, kind: "attack", damage: 5, crit: false, ko: false, ...o });
 const guard = (actor: "me" | "foe"): BattleEvent => ({ actor, kind: "guard", damage: 0, crit: false, ko: false });
 const sulk = (actor: "me" | "foe"): BattleEvent => ({ actor, kind: "sulk", damage: 0, crit: false, ko: false });
@@ -65,7 +65,7 @@ describe("laying a round out in time", () => {
 // A real round between two fighters, so the HP in the picture can be checked against what the rules did.
 function played(meHp: number, foeHp: number, seed: number): { battle: Battle; play: Playback } {
   const stats = (str: number): Record<CombatStat, number> => ({ vit: 10, str, def: 5, spi: 10, spd: 3, });
-  const battle = newBattle(newFighter("fennix", stats(14), 200, meHp), newFighter("shellby", stats(12), 200, foeHp), 2, false, 0, seed);
+  const battle = newBattle(newFighter("cragpup", stats(14), 200, meHp), newFighter("dugling", stats(12), 200, foeHp), 2, false, 0, seed);
   playRound(battle, "attack", () => "attack");
   return { battle, play: playback(battle.events, battle.over !== null) };
 }
@@ -105,7 +105,7 @@ describe("the HP bars while a round plays", () => {
 
 describe("where the fighters stand", () => {
   it("puts them side by side, feet on the ground line, without touching, whatever their size", () => {
-    expect(SIZES).toEqual([16, 22, 28, 32]);
+    expect(SIZES).toEqual([20, 24, 36, 48]);
     for (const size of SIZES) {
       const me = fighterPlace("me", size, null, 0);
       const foe = fighterPlace("foe", size, null, 0);
@@ -189,7 +189,7 @@ describe("holding a fight", () => {
   });
 
   it("starts a fight for a creature that can, spends the energy, and holds the player in the arena", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     const energy = game.save.creature!.stats.energy;
     expect(game.fight()).toBe("started");
     expect(game.fighting).toBe(true);
@@ -201,7 +201,7 @@ describe("holding a fight", () => {
   });
 
   it("lets one round play out before the next, and the buttons wake when it is done", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     game.fight();
     expect(game.playing).toBe(false);
     game.round("guard");
@@ -219,7 +219,7 @@ describe("holding a fight", () => {
   });
 
   it("tells the screens when the round has finished playing", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     game.fight();
     let heard = 0;
     game.subscribe(() => heard++);
@@ -230,7 +230,7 @@ describe("holding a fight", () => {
   });
 
   it("plays a fight to its end: it pays out once, and the card goes when the screen does", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     game.fight();
     const arena = game.arena!;
     for (let i = 0; i < 60 && !arena.battle.over; i++) {
@@ -252,7 +252,7 @@ describe("holding a fight", () => {
   });
 
   it("lets the player run away: the energy stays spent and nothing else changes", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     const energy = game.save.creature!.stats.energy;
     game.fight();
     game.round("attack");
@@ -268,7 +268,7 @@ describe("holding a fight", () => {
   });
 
   it("drops the fight when the creature dies in the middle of it, and goes back to the room", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     game.fight();
     killCreature(game.save, game.now());
     game.changed();
@@ -278,20 +278,20 @@ describe("holding a fight", () => {
   });
 
   it("drops the fight when the creature evolves in the middle of it, and stays on the arena", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     game.fight();
-    forceEvolve(game.save, "fennix", game.now());
+    forceEvolve(game.save, "cragpup", game.now());
     game.changed();
     expect(game.arena).toBeNull();
     expect(game.screen).toBe("arena");
     expect(game.fight()).toBe("started"); // and the new form can fight at once
-    expect(game.arena!.battle.me.formId).toBe("fennix");
+    expect(game.arena!.battle.me.formId).toBe("cragpup");
   });
 
   it("forgets a fight when the whole game is replaced", () => {
-    const game = gameWith("nubbin");
+    const game = gameWith("pebblin");
     game.fight();
-    const fresh: Save = aliveSave("nubbin", T0 + 5000); // the same form, so only replacing the game can end the fight
+    const fresh: Save = aliveSave("pebblin", T0 + 5000); // the same form, so only replacing the game can end the fight
     game.replaceSave(fresh);
     expect(game.arena).toBeNull();
     expect(game.screen).toBe("room");
@@ -303,7 +303,7 @@ describe("holding a fight", () => {
       ["an egg", (game) => spawnEgg(game.save, game.now())],
     ];
     for (const [name, end] of ends) {
-      const game = gameWith("nubbin");
+      const game = gameWith("pebblin");
       end(game);
       expect(game.atArena, name).toBe(false); // the screen has not been told yet
       game.changed();

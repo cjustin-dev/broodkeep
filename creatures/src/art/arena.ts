@@ -18,7 +18,7 @@ import { icons } from "./sprites";
 import type { IconName } from "./sprites";
 
 // Where the fighters stand: the middle of each picture, and the line their feet are on.
-export const ARENA = { meX: 26, foeX: 70, feetY: 84, lunge: 8 };
+export const ARENA = { meX: 34, foeX: 94, feetY: 112, lunge: 10 };
 // How long things take, in seconds. A round plays guards and sulks together first, then each blow in turn.
 export const FX = { calm: 0.4, strike: 0.5, hitAt: 0.2, recoil: 0.25, down: 0.5 };
 
@@ -103,24 +103,24 @@ function icon(ctx: CanvasRenderingContext2D, name: IconName, x: number, y: numbe
 
 function drawGround(ctx: CanvasRenderingContext2D, hour: number): void {
   const s = sky(hour);
-  rect(ctx, s.color, 0, 0, ROOM.w, 40);
+  rect(ctx, s.color, 0, 0, ROOM.w, 53);
   if (s.stars) {
-    for (const [x, y] of [[10, 5], [34, 12], [58, 4], [80, 14], [90, 6]] as const) rect(ctx, "#ffffff", x, y, 1, 1);
+    for (const [x, y] of [[13, 7], [45, 16], [77, 5], [107, 19], [120, 8]] as const) rect(ctx, "#ffffff", x, y, 1, 1);
   }
-  rect(ctx, "#6b7078", 0, 30, ROOM.w, 26); // the wall round the ring
-  for (let y = 33, row = 0; y < 56; y += 6, row++) {
-    for (let x = (row % 2) * 8; x < ROOM.w; x += 16) rect(ctx, "#5a5f66", x, y, 8, 1);
+  rect(ctx, "#6b7078", 0, 40, ROOM.w, 35); // the wall round the ring
+  for (let y = 44, row = 0; y < 75; y += 8, row++) {
+    for (let x = (row % 2) * 10; x < ROOM.w; x += 20) rect(ctx, "#5a5f66", x, y, 10, 1);
   }
-  for (const [x, color] of [[14, "#e0455b"], [46, "#4aa3df"], [78, "#e0455b"]] as const) {
-    rect(ctx, "#3a3a44", x, 30, 1, 5); // a banner on a pole
-    rect(ctx, color, x + 1, 31, 7, 9);
-    rect(ctx, color, x + 2, 40, 5, 1);
+  for (const [x, color] of [[19, "#e0455b"], [61, "#4aa3df"], [104, "#e0455b"]] as const) {
+    rect(ctx, "#3a3a44", x, 40, 1, 7); // a banner on a pole
+    rect(ctx, color, x + 1, 41, 9, 12);
+    rect(ctx, color, x + 3, 53, 5, 1);
   }
-  rect(ctx, "#e8c98a", 0, 56, ROOM.w, ROOM.h - 56); // sand
-  for (let y = 60, row = 0; y < ROOM.h; y += 7, row++) {
-    for (let x = (row % 2) * 7; x < ROOM.w; x += 14) rect(ctx, "#d9b98a", x, y, 4, 1);
+  rect(ctx, "#e8c98a", 0, 75, ROOM.w, ROOM.h - 75); // sand
+  for (let y = 80, row = 0; y < ROOM.h; y += 9, row++) {
+    for (let x = (row % 2) * 9; x < ROOM.w; x += 18) rect(ctx, "#d9b98a", x, y, 5, 1);
   }
-  rect(ctx, "#c9a56e", 0, 56, ROOM.w, 1);
+  rect(ctx, "#c9a56e", 0, 75, ROOM.w, 1);
 }
 
 function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, hp: number, max: number, color: string): void {
@@ -170,7 +170,7 @@ function drawFighter(ctx: CanvasRenderingContext2D, show: ArenaShow, side: Side,
   const form = getForm(b[side].formId);
   const size = form.idle.length;
   const kind = faceOf(show, side, clock);
-  const frame: 0 | 1 = isWide(kind) || !form.idle2 ? 0 : Math.floor((clock + (side === "me" ? 0 : 0.5)) * 2) % 2 === 0 ? 0 : 1;
+  const frame: 0 | 1 = isWide(kind) ? 0 : Math.floor((clock + (side === "me" ? 0 : 0.5)) * 2) % 2 === 0 ? 0 : 1;
   const hit = play ? lastHitOn(play, side, t) : null;
   const flash = hit && hit.age < FX.recoil ? (hit.age < FX.recoil / 3 ? 0.8 : 0.45) : 0;
   const tint = flash
@@ -238,28 +238,28 @@ export function drawArena(ctx: CanvasRenderingContext2D, save: Save, gameNowMs: 
     drawFighter(ctx, show, "foe", clock);
     drawFighter(ctx, show, "me", clock);
     drawStrikes(ctx, show);
-    bar(ctx, 5, 4, 38, shownHp(b, play, t, "me"), b.me.maxHp, "#5cb85c");
-    meterPips(ctx, 5, 11, b.me.meter);
-    bar(ctx, 53, 4, 38, shownHp(b, play, t, "foe"), b.foe.maxHp, b.boss ? "#e0455b" : "#f08a24");
-    ladderPips(ctx, 53, 11, b.rung);
+    bar(ctx, 6, 5, 52, shownHp(b, play, t, "me"), b.me.maxHp, "#5cb85c");
+    meterPips(ctx, 6, 14, b.me.meter);
+    bar(ctx, 70, 5, 52, shownHp(b, play, t, "foe"), b.foe.maxHp, b.boss ? "#e0455b" : "#f08a24");
+    ladderPips(ctx, 70, 14, b.rung);
     night();
     return;
   }
 
   // No fight on: the creature waits on the left (or is out or in bed), and the right side invites a fight.
-  bar(ctx, 5, 4, 38, currentHp(c), maxHp(c), "#5cb85c");
-  ladderPips(ctx, 53, 4, Math.min(combatTuning.ladder.length, Math.max(1, c.rung ?? 1)));
-  if (c.job) drawBubble(ctx, "tree", ARENA.meX - 6, 60);
-  else if (c.sleep) drawBubble(ctx, "house", ARENA.meX - 6, 60);
+  bar(ctx, 6, 5, 52, currentHp(c), maxHp(c), "#5cb85c");
+  ladderPips(ctx, 70, 5, Math.min(combatTuning.ladder.length, Math.max(1, c.rung ?? 1)));
+  if (c.job) drawBubble(ctx, "tree", ARENA.meX - 6, 80);
+  else if (c.sleep) drawBubble(ctx, "house", ARENA.meX - 6, 80);
   else {
     const form = getForm(c.formId);
     const size = form.idle.length;
-    const frame = form.idle2 && Math.floor(clock * 2) % 2 === 1 ? 1 : 0;
+    const frame = Math.floor(clock * 2) % 2 === 1 ? 1 : 0;
     const blink = clock % 3.4 < 0.16;
     const kind: FaceKind = blink ? "closed" : "open";
     const sprite = spriteCanvas(faceSprite(form, kind, blink ? 0 : (frame as 0 | 1)), `form:${form.id}:${kind}:${blink ? 0 : frame}`);
     drawSprite(ctx, sprite, ARENA.meX - size / 2, ARENA.feetY - size + (Math.floor(clock * 3) % 2 === 1 ? 1 : 0));
-    drawBubble(ctx, "swords", ARENA.foeX - 6, 58);
+    drawBubble(ctx, "swords", ARENA.foeX - 6, 78);
   }
   night();
 }

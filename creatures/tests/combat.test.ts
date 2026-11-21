@@ -8,8 +8,7 @@ import type { Battle, BattleAction } from "../src/game/combat/battle";
 import { beginFight, fightRefusal, finishFight, isBossRung, mostUsed, rungOf } from "../src/game/combat/fight";
 import { stepRecovery } from "../src/game/combat/recovery";
 import { addTrained, currentHp, maxHp, statTotal } from "../src/game/combat/stats";
-import { forceEvolve, killCreature, rungNumber, setHpPercent, setLaterCounter, setRung } from "../src/game/dev";
-import { metricValue } from "../src/game/metrics";
+import { forceEvolve, killCreature, rungNumber, setHpPercent, setRung } from "../src/game/dev";
 import { simulateTo } from "../src/game/sim";
 import type { Creature, Save } from "../src/game/state";
 import { MINUTE } from "../src/game/time";
@@ -24,7 +23,7 @@ const copy = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
 // A battle between two made-up fighters with lots of HP, so one round never ends it unless the test wants that.
 function battleOf(me: Partial<Record<CombatStat, number>> = {}, foe: Partial<Record<CombatStat, number>> = {}, o: { seed?: number; sulk?: number; rung?: number; boss?: boolean; hp?: number; foeHp?: number } = {}): Battle {
-  return newBattle(newFighter("fennix", stats(me), 1000, o.hp ?? 1000), newFighter("shellby", stats(foe), 1000, o.foeHp ?? 1000), o.rung ?? 3, o.boss ?? false, o.sulk ?? 0, o.seed ?? 1);
+  return newBattle(newFighter("cragpup", stats(me), 1000, o.hp ?? 1000), newFighter("dugling", stats(foe), 1000, o.foeHp ?? 1000), o.rung ?? 3, o.boss ?? false, o.sulk ?? 0, o.seed ?? 1);
 }
 const always = (action: BattleAction) => (): BattleAction => action;
 const FIXED_FOE = { guard: always("guard"), attack: always("attack"), special: always("special") };
@@ -38,8 +37,8 @@ function limits(power: number, def: number, kind: "attack" | "special" = "attack
 
 describe("combat stats and HP", () => {
   it("adds trained points to the form's base stats, and HP follows vitality", () => {
-    const c = hatched("fennix").creature!;
-    const base = getForm("fennix").baseStats;
+    const c = hatched("cragpup").creature!;
+    const base = getForm("cragpup").baseStats;
     expect(statTotal(c, "str")).toBe(base.str);
     c.trained = { str: 4, vit: 2 };
     expect(statTotal(c, "str")).toBe(base.str + 4);
@@ -48,7 +47,7 @@ describe("combat stats and HP", () => {
   });
 
   it("treats a creature that was never hurt as full, and never reports more than full or less than nothing", () => {
-    const c = hatched("fennix").creature!;
+    const c = hatched("cragpup").creature!;
     expect(currentHp(c)).toBe(maxHp(c));
     c.hp = maxHp(c) + 50;
     expect(currentHp(c)).toBe(maxHp(c));
@@ -59,8 +58,8 @@ describe("combat stats and HP", () => {
   });
 
   it("never trains past the cap for the stage, and says how many points were really added", () => {
-    const stages: Stage[] = ["baby", "training", "rookie", "champion", "ultimate"];
-    const formFor: Record<Stage, string> = { baby: "blip", training: "pip", rookie: "fennix", champion: "pyrefang", ultimate: "solarion" };
+    const stages: Stage[] = ["baby", "kid", "young", "adult"];
+    const formFor: Record<Stage, string> = { baby: "blip", kid: "pebblin", young: "cragpup", adult: "gravelhorn" };
     for (const stage of stages) {
       const c = hatched(formFor[stage]).creature!;
       const cap = tune.trainedCap[stage];
@@ -69,19 +68,6 @@ describe("combat stats and HP", () => {
       expect(c.trained?.str ?? 0, stage).toBe(cap);
       expect(addTrained(c, "str", 1), stage).toBe(0);
       expect(addTrained(c, "def", 1), stage).toBe(cap > 0 ? 1 : 0); // each stat has its own room
-    }
-  });
-
-  it("has a cap that leaves every evolution rule that asks for a stat reachable", () => {
-    // A stat rule is reachable if the form's base plus the cap for its stage can meet it.
-    const keys = { strengthMin: "str", defenseMin: "def", spiritMin: "spi" } as const;
-    for (const form of Object.values(forms)) {
-      for (const evo of form.evolvesTo) {
-        for (const [need, stat] of Object.entries(keys)) {
-          const min = (evo.need as Record<string, number> | undefined)?.[need];
-          if (min !== undefined) expect(form.baseStats[stat] + tune.trainedCap[form.stage], `${form.id} to ${evo.to}: ${need}`).toBeGreaterThanOrEqual(min);
-        }
-      }
     }
   });
 });
@@ -95,7 +81,7 @@ describe("resting", () => {
   };
 
   it("does nothing to a creature that was never hurt, and forgets the number once it is full again", () => {
-    const c = hatched("fennix").creature!;
+    const c = hatched("cragpup").creature!;
     stepRecovery(c);
     expect(c.hp).toBeUndefined();
     c.hp = maxHp(c) - 0.1;
@@ -104,7 +90,7 @@ describe("resting", () => {
   });
 
   it("refills from empty in the time in the data, and never goes past full", () => {
-    const c = hurt("fennix", 0);
+    const c = hurt("cragpup", 0);
     for (let m = 0; m < tune.recoverMinutes - 1; m++) stepRecovery(c);
     expect(c.hp).toBeLessThan(maxHp(c));
     stepRecovery(c);
@@ -113,7 +99,7 @@ describe("resting", () => {
 
   it("is twice as fast asleep, and half as fast while hungry or dirty", () => {
     const gain = (edit: (c: Creature) => void): number => {
-      const c = hurt("fennix", 0.2, edit);
+      const c = hurt("cragpup", 0.2, edit);
       const before = c.hp!;
       stepRecovery(c);
       return c.hp! - before;
@@ -127,7 +113,7 @@ describe("resting", () => {
   });
 
   it("goes on while the app is closed: a hurt creature is whole again an hour later", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     setHpPercent(save, 10);
     simulateTo(save, DAY + 60 * MINUTE);
     expect(currentHp(save.creature!)).toBe(maxHp(save.creature!));
@@ -332,13 +318,12 @@ describe("one round of a fight", () => {
 
 describe("who may fight", () => {
   it("lets any creature from the youngest allowed stage up fight when it is awake, well and rested", () => {
-    for (const id of ["pip", "nubbin", "smudge", "fennix", "pyrefang", "solarion"]) expect(fightRefusal(hatched(id).creature!), id).toBeNull();
+    for (const id of ["pebblin", "cragpup", "gravelhorn", "cindermane"]) expect(fightRefusal(hatched(id).creature!), id).toBeNull();
   });
 
   it("keeps babies out, and anyone who is away, asleep or sick", () => {
     expect(fightRefusal(hatched("blip").creature!)).toBe("too-young");
-    expect(fightRefusal(hatched("drip").creature!)).toBe("too-young");
-    const c = hatched("fennix").creature!;
+    const c = hatched("cragpup").creature!;
     c.sleep = "nap";
     expect(fightRefusal(c)).toBe("asleep");
     c.sleep = null;
@@ -350,7 +335,7 @@ describe("who may fight", () => {
   });
 
   it("needs the energy for the fight and the floor after it: just enough goes, a hair less is too tired", () => {
-    const c = hatched("fennix").creature!;
+    const c = hatched("cragpup").creature!;
     c.stats.energy = tune.energyCost + tune.energyFloor;
     expect(fightRefusal(c)).toBeNull();
     c.stats.energy -= 0.5;
@@ -358,7 +343,7 @@ describe("who may fight", () => {
   });
 
   it("is told through startFight: a battle for a fit creature, the reason otherwise, and unavailable for an egg or the dead", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const before = save.creature!.stats.energy;
     const r = startFight(save, DAY);
     expect(r.status).toBe("started");
@@ -368,15 +353,15 @@ describe("who may fight", () => {
     expect(startFight(baby, DAY)).toEqual({ status: "too-young" });
     expect(baby.creature!.stats.energy).toBe(100); // a refused fight costs nothing
 
-    const dead = hatched("fennix");
+    const dead = hatched("cragpup");
     killCreature(dead, DAY);
     expect(startFight(dead, DAY)).toEqual({ status: "unavailable" });
   });
 });
 
 describe("the wild creature", () => {
-  it("is always a creature of the player's stage, and varies from fight to fight", () => {
-    for (const id of ["pip", "fennix", "pyrefang", "solarion"]) {
+  it("is always a creature of the player's stage, and varies from fight to fight when the stage has more than one", () => {
+    for (const id of ["pebblin", "cragpup", "gravelhorn", "cindermane"]) {
       const stage = getForm(id).stage;
       const seen = new Set<string>();
       for (let seed = 1; seed <= 80; seed++) {
@@ -385,13 +370,15 @@ describe("the wild creature", () => {
         expect(getForm(b.foe.formId).stage, id).toBe(stage);
         seen.add(b.foe.formId);
       }
-      expect(seen.size, id).toBeGreaterThan(1);
+      const kin = Object.values(forms).filter((f) => f.stage === stage).length; // (the kid stage has only Pebblin until Water and Sky open)
+      if (kin > 1) expect(seen.size, id).toBeGreaterThan(1);
+      else expect(seen.size, id).toBe(1);
     }
   });
 
   it("is as strong as the rung says: base stats times the rung's number, and the last rung is the boss", () => {
     for (let rung = 1; rung <= tune.ladder.length; rung++) {
-      const save = hatched("fennix");
+      const save = hatched("cragpup");
       save.creature!.rung = rung;
       const b = beginFight(save, save.creature!, DAY);
       const base = getForm(b.foe.formId).baseStats;
@@ -406,7 +393,7 @@ describe("the wild creature", () => {
   });
 
   it("starts at the first rung, and a rung number outside the ladder is kept inside it", () => {
-    const c = hatched("fennix").creature!;
+    const c = hatched("cragpup").creature!;
     expect(rungOf(c)).toBe(1);
     c.rung = 0;
     expect(rungOf(c)).toBe(1);
@@ -415,15 +402,15 @@ describe("the wild creature", () => {
   });
 
   it("brings the player's own stats, HP and sulk chance into the fight, and uses up the save's random numbers", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const c = save.creature!;
     c.trained = { str: 3 };
     c.stats.discipline = 30;
     setHpPercent(save, 50);
     const rngBefore = save.rngState;
     const b = beginFight(save, c, DAY);
-    expect(b.me.stats.str).toBe(getForm("fennix").baseStats.str + 3);
-    expect(b.me.stats.def).toBe(getForm("fennix").baseStats.def);
+    expect(b.me.stats.str).toBe(getForm("cragpup").baseStats.str + 3);
+    expect(b.me.stats.def).toBe(getForm("cragpup").baseStats.def);
     expect(b.me.maxHp).toBe(maxHp(c));
     expect(b.me.hp).toBe(Math.round(currentHp(c)));
     expect(b.sulkChance).toBeCloseTo(20 * tune.sulk.perPoint, 9);
@@ -432,13 +419,13 @@ describe("the wild creature", () => {
   });
 
   it("gives the same wild creature and the same fight to the same save", () => {
-    const a = hatched("fennix", 77);
-    const b = hatched("fennix", 77);
+    const a = hatched("cragpup", 77);
+    const b = hatched("cragpup", 77);
     expect(beginFight(a, a.creature!, DAY)).toEqual(beginFight(b, b.creature!, DAY));
   });
 
   it("goes into a fight at 1 HP at least, however hurt it was", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     save.creature!.hp = 0;
     expect(beginFight(save, save.creature!, DAY).me.hp).toBe(1);
   });
@@ -458,7 +445,7 @@ function ended(save: Save, over: "won" | "lost", o: { used?: Battle["used"]; hp?
 
 describe("what a fight changes", () => {
   it("changes nothing for a fight that is not over", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const b = beginFight(save, save.creature!, DAY);
     const before = copy(save);
     expect(finishFight(save, save.creature!, b, DAY)).toBeNull();
@@ -468,7 +455,7 @@ describe("what a fight changes", () => {
 
   it("pays a win: HP kept, battle and win counted, coins in the rung's range, and the ladder moves up", () => {
     for (let seed = 1; seed <= 40; seed++) {
-      const save = hatched("fennix", seed);
+      const save = hatched("cragpup", seed);
       const c = save.creature!;
       const b = ended(save, "won", { hp: 17 });
       const rung = b.rung;
@@ -486,7 +473,7 @@ describe("what a fight changes", () => {
   });
 
   it("pays a boss double, trains double, and starts the ladder again", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const c = save.creature!;
     c.rung = tune.ladder.length;
     const b = ended(save, "won", { used: { attack: 3, guard: 0, special: 0 } });
@@ -502,7 +489,7 @@ describe("what a fight changes", () => {
 
   it("trains the stat of the action used most, with ties going to attack, then guard, then special", () => {
     const train = (used: Battle["used"]): { stat: CombatStat; points: number } | null => {
-      const save = hatched("fennix");
+      const save = hatched("cragpup");
       return finishFight(save, save.creature!, ended(save, "won", { used }), DAY)!.trained;
     };
     expect(train({ attack: 3, guard: 1, special: 1 })).toEqual({ stat: "str", points: 1 });
@@ -515,20 +502,20 @@ describe("what a fight changes", () => {
   });
 
   it("stops training at the cap, and says no points were added", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const c = save.creature!;
-    c.trained = { str: tune.trainedCap.rookie };
+    c.trained = { str: tune.trainedCap.young };
     const r = finishFight(save, c, ended(save, "won", { used: { attack: 3, guard: 0, special: 0 } }), DAY)!;
     expect(r.trained).toEqual({ stat: "str", points: 0 });
-    expect(c.trained.str).toBe(tune.trainedCap.rookie);
+    expect(c.trained.str).toBe(tune.trainedCap.young);
   });
 
   it("sometimes drops a material the creature could also gather, and sometimes none", () => {
     let none = 0;
     let some = 0;
-    const open = new Set(["fiber", "herb", "wood", "fish"]); // what a rookie may gather (stone is for champions)
+    const open = new Set(["fiber", "herb", "wood", "fish"]); // what a young one may gather (stone is for adults)
     for (let seed = 1; seed <= 80; seed++) {
-      const save = hatched("fennix", seed);
+      const save = hatched("cragpup", seed);
       const r = finishFight(save, save.creature!, ended(save, "won"), DAY)!;
       if (r.material) {
         some++;
@@ -544,7 +531,7 @@ describe("what a fight changes", () => {
   });
 
   it("makes a loss cost: HP drops to a quarter, energy drops, no coins, no training, and the rung stays", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const c = save.creature!;
     c.rung = 3;
     c.stats.energy = 60;
@@ -560,7 +547,7 @@ describe("what a fight changes", () => {
   });
 
   it("never lets energy go below nothing after a loss", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const c = save.creature!;
     c.stats.energy = 3;
     finishFight(save, c, ended(save, "lost"), DAY);
@@ -568,7 +555,7 @@ describe("what a fight changes", () => {
   });
 
   it("is put into the save by endFight, which also catches the game up to now", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const r = startFight(save, DAY);
     if (r.status !== "started") throw new Error("could not start");
     r.battle.over = "won";
@@ -580,46 +567,17 @@ describe("what a fight changes", () => {
   });
 });
 
-describe("combat and the evolution rules", () => {
-  it("reads strength, defense and spirit from the stats, and battles and wins from the fights", () => {
-    const save = hatched("fennix");
-    const c = save.creature!;
-    c.trained = { str: 6, def: 2, spi: 1 };
-    c.counters.battles = 4;
-    c.counters.wins = 3;
-    const base = getForm("fennix").baseStats;
-    expect(metricValue(c, "strength")).toBe(base.str + 6);
-    expect(metricValue(c, "defense")).toBe(base.def + 2);
-    expect(metricValue(c, "spirit")).toBe(base.spi + 1);
-    expect(metricValue(c, "battles")).toBe(4);
-    expect(metricValue(c, "wins")).toBe(3);
-  });
-
-  it("lets dev mode set the totals, but never below what was really earned", () => {
-    const save = hatched("fennix");
-    const c = save.creature!;
-    c.trained = { str: 6 };
-    c.counters.wins = 3;
-    setLaterCounter(save, "strength", 40);
-    setLaterCounter(save, "wins", 9);
-    expect(metricValue(c, "strength")).toBe(40);
-    expect(metricValue(c, "wins")).toBe(9);
-    setLaterCounter(save, "strength", 0);
-    setLaterCounter(save, "wins", 0);
-    expect(metricValue(c, "strength")).toBe(getForm("fennix").baseStats.str + 6);
-    expect(metricValue(c, "wins")).toBe(3);
-  });
-
+describe("combat and evolving", () => {
   it("carries half the trained points to the next form (rounded down), keeps the HP share, and starts the ladder and counters again", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     const c = save.creature!;
     c.trained = { str: 11, def: 5, spi: 1 };
     c.rung = 4;
     c.counters.battles = 9;
     c.counters.wins = 6;
     setHpPercent(save, 50);
-    forceEvolve(save, "pyrefang", DAY + MINUTE);
-    expect(c.formId).toBe("pyrefang");
+    forceEvolve(save, "gravelhorn", DAY + MINUTE);
+    expect(c.formId).toBe("gravelhorn");
     expect(c.trained).toEqual({ str: 5, def: 2, spi: 0 });
     expect(c.rung).toBeUndefined();
     expect(c.counters.battles).toBe(0);
@@ -628,8 +586,8 @@ describe("combat and the evolution rules", () => {
   });
 
   it("leaves a creature that was never hurt at full HP after it evolves", () => {
-    const save = hatched("fennix");
-    forceEvolve(save, "pyrefang", DAY + MINUTE);
+    const save = hatched("cragpup");
+    forceEvolve(save, "gravelhorn", DAY + MINUTE);
     expect(save.creature!.hp).toBeUndefined();
     expect(currentHp(save.creature!)).toBe(maxHp(save.creature!));
   });
@@ -637,7 +595,7 @@ describe("combat and the evolution rules", () => {
 
 describe("dev tools for fights", () => {
   it("puts the creature on any rung of the ladder, and clamps what is typed", () => {
-    const save = hatched("nubbin");
+    const save = hatched("pebblin");
     const top = tune.ladder.length;
     setRung(save, 4);
     expect([rungNumber(save), rungOf(save.creature!)]).toEqual([4, 4]);
@@ -654,7 +612,7 @@ describe("dev tools for fights", () => {
   });
 
   it("does nothing with no creature", () => {
-    const save = hatched("nubbin");
+    const save = hatched("pebblin");
     save.creature = null;
     setRung(save, 3);
     expect(rungNumber(save)).toBe(1);

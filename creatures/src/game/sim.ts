@@ -10,12 +10,13 @@ import { stepCare } from "./care";
 import { maxHp } from "./combat/stats";
 import { stepRecovery } from "./combat/recovery";
 import { stepJob } from "./habitat/jobs";
-import { chooseEvolution } from "./evolution";
+import { countFieldMinute, nextForm } from "./growth";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
 import { freshCounters, logEvent } from "./state";
 import type { Creature, Save } from "./state";
 import { MINUTE } from "./time";
+import type { EggPattern } from "./types";
 
 // Bring the save up to date with nowMs. Returns how many minutes of time were covered.
 export function simulateTo(save: Save, nowMs: number): number {
@@ -53,7 +54,10 @@ function stepMinute(save: Save, rng: Rng, t: number): void {
     stepCare(save, rng, t);
     if (save.phase === "alive") {
       stepJob(save, rng, t); // before evolving, so a job finished this minute counts toward the next form
-      if (save.creature) stepRecovery(save.creature);
+      if (save.creature) {
+        stepRecovery(save.creature);
+        countFieldMinute(save.creature);
+      }
       evolveIfReady(save, t);
     }
   }
@@ -67,16 +71,18 @@ export function hatchIfReady(save: Save, rng: Rng, t: number): boolean {
   const waited = (t - egg.startedAt) / MINUTE + egg.shavedMinutes;
   if (waited < tuning.egg.minutes) return false;
   const babyId = rng.pick(hatchTable[egg.pattern] ?? hatchTable[eggPatterns[0]!]);
-  save.creature = makeCreature(babyId, t);
+  save.creature = makeCreature(babyId, t, egg.pattern);
   save.egg = null;
   save.phase = "alive";
   logEvent(save, t, `The egg hatched into ${getForm(babyId).name}`);
   return true;
 }
 
-export function makeCreature(formId: string, t: number): Creature {
+export function makeCreature(formId: string, t: number, eggPattern: EggPattern = eggPatterns[0]!): Creature {
   return {
     formId,
+    eggPattern,
+    place: "home",
     bornAt: t,
     stageStartedAt: t,
     stats: { ...tuning.newborn },
@@ -96,8 +102,8 @@ export function makeCreature(formId: string, t: number): Creature {
 function evolveIfReady(save: Save, t: number): void {
   const c = save.creature;
   if (!c) return;
-  const next = chooseEvolution(c, t);
-  if (next) evolveTo(save, next.to, t);
+  const next = nextForm(c, t);
+  if (next) evolveTo(save, next, t);
 }
 
 // Change form and start a new stage. Care stats stay as they are.
@@ -109,6 +115,7 @@ export function evolveTo(save: Save, formId: string, t: number): void {
   c.formId = getForm(formId).id;
   c.stageStartedAt = t;
   c.counters = freshCounters();
+  c.callMinutes = 0; // an unanswered call that was nearly a mistake does not carry into the new stage's count
   // Half the trained points carry over (plan 7.1), and the ladder starts again.
   if (c.trained) c.trained = Object.fromEntries(Object.entries(c.trained).map(([stat, points]) => [stat, Math.floor(points / 2)]));
   delete c.rung;

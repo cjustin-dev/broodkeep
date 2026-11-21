@@ -1,6 +1,6 @@
 // The habitat: the places a creature can be sent to work, and what it brings back.
-// First-guess numbers, like everything in tuning.ts. Plan section 7.3: babies and in training forms do
-// light jobs only, and the heavier spots open as the creature grows.
+// First-guess numbers, like everything in tuning.ts. Plan section 7.3: babies and kids do
+// light jobs only, and the heavier spots open as the creature grows (young, then adult).
 
 import type { Stage } from "../game/types";
 
@@ -31,9 +31,9 @@ export interface Spot {
 export const spots: Record<SpotId, Spot> = {
   meadow: { id: "meadow", name: "Bug meadow", material: "fiber", minStage: "baby", minutes: 3, energyCost: 5, coins: [1, 2], amount: [1, 2] },
   herbs: { id: "herbs", name: "Herb patch", material: "herb", minStage: "baby", minutes: 3, energyCost: 5, coins: [1, 2], amount: [1, 2] },
-  trees: { id: "trees", name: "Trees", material: "wood", minStage: "rookie", minutes: 5, energyCost: 10, coins: [2, 3], amount: [1, 2] },
-  pond: { id: "pond", name: "Pond", material: "fish", minStage: "rookie", minutes: 6, energyCost: 10, coins: [2, 4], amount: [1, 2] },
-  rocks: { id: "rocks", name: "Rock pile", material: "stone", minStage: "champion", minutes: 8, energyCost: 15, coins: [3, 5], amount: [1, 3] },
+  trees: { id: "trees", name: "Trees", material: "wood", minStage: "young", minutes: 5, energyCost: 10, coins: [2, 3], amount: [1, 2] },
+  pond: { id: "pond", name: "Pond", material: "fish", minStage: "young", minutes: 6, energyCost: 10, coins: [2, 4], amount: [1, 2] },
+  rocks: { id: "rocks", name: "Rock pile", material: "stone", minStage: "adult", minutes: 8, energyCost: 15, coins: [3, 5], amount: [1, 3] },
 };
 export const spotIds = Object.keys(spots) as SpotId[];
 

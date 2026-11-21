@@ -4,9 +4,9 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-21)
 
-**Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slice 1 are merged** (PR #3 to
-#6, #8, #9, #11 and #12, `main` at ea04bb8; the first four are confirmed live at https://broodkeep.pages.dev, and so is slice 1
-(the page shows the version label "0.3 (Phase 3a)"), the deploys in between were not checked).
+**Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slices 1 and 2 are merged** (PR #3
+to #6, #8, #9, #11, #12 and #13, `main` at 932497c; the first four are confirmed live at https://broodkeep.pages.dev, and so is
+slice 1 (the page showed the version label "0.3 (Phase 3a)"), the deploys in between and slice 2's were not checked).
 Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The
 owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), the request for
 more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
@@ -16,9 +16,75 @@ evolutions are "the same circle like mass with some small affections", and the o
 redesign section below and [art-direction.md](art-direction.md).
 
 **Phase 3 is being built in four slices** (the owner chose the order and that food stays unlimited): 1) habitat jobs, coins and
-the bag (merged in PR #12, live), 2) turn-based combat with HP (built and reviewed on branch `phase-3b-combat` from `main` ea04bb8,
-4 commits, not pushed yet, see "Phase 3 slice 2" below), 3) garden plots, standing chores and habitat upgrades, 4) the Creature Book and the legacy
+the bag (merged in PR #12, live), 2) turn-based combat with HP (merged in PR #13, see "Phase 3 slice 2" below), 3) garden plots, standing chores and habitat upgrades, 4) the Creature Book and the legacy
 shelf.
+
+**Owner feedback on slice 2 (2026-11-21): "seems kind of shit. i was hoping for more of a pokemon design for the habitat and
+creature battle honestly."** The owner chose to restyle both screens (the rules and buttons stay; the battle gets the classic
+Pokemon layout, the habitat a tile-map overworld look; the creature stays in place and the player still taps spots) and to see a
+concept sheet before anything ships. The plan and art-direction.md had no visual reference for these two screens, so the first
+look was generic placeholder art and nobody had asked for a reference. In progress on branch `pokemon-look` (off `main` 932497c),
+see "Pokemon look" below.
+
+**Owner feedback 2 (2026-11-21), right after the Pokemon concept sheet: "can we not get this game closer to tamagotchi paradise?
+... the current design feels boring and lacking. id enjoy the game more if it was a clone of tamagotchi paradise with more
+interesting looking creatures and areas."** Reference: the Tamagotchi Paradise growth chart (https://i.redd.it/xjeya1d8d8ff1.png;
+read from the chart only, not from the game). Answers (AskUserQuestion, same day):
+scope = "Show me a sample first" (three original creatures and one field in the new style on a concept sheet, then they pick the
+scope); art = "Cuter pixel art" (keep the pixel pipeline: chunkier bodies, bigger eyes, pastel colors with colored outlines,
+sprites up to about 48 px); and about the Pokemon look: "i want to drop monster battling. allow players to battle eachother
+competetively like in the tamagotchi paradise. via minigames." So the wild-creature battling (arena, HP, fight ladder) is to go,
+and player-versus-player minigames come instead. The Pokemon look is dropped; branch `pokemon-look` stays aside, uncommitted
+(673 tests pass), not to be built on. Nothing is removed from `main` yet: the order is sample sheet, then scope. Original
+creatures only: the chart's characters are Bandai's and are not copied.
+Owner answers to the cute sample (2026-11-21): player-versus-player via **accounts with a server** (so Phase 5, D1 and
+sync, has to come before PvP); style: **"cooler, less juvenile, a little more monster gritty"** (the pastel sample is rejected
+on style); and **monster battling stays for now, against NPCs only**, "we may revisit it later because im not happy with how
+its designed currently". This reverses the earlier "drop monster battling": nothing is removed. (The scope question that was
+open here is closed: see "Direction decided" below.)
+Gritty sample built 2026-11-21 (second sample, drawing only): three original monsters at 48 x 48 (Gravelhorn, a stone-shouldered
+horned brute; Murkfang, a deep-sea angler with a lure; Ashwing, an ember-winged drake) with black outlines, glowing slit
+eyes under heavy brows, fangs, and five looks each, plus a 128 x 128 dusk ruins field. On the Design canvas, page "Gritty
+monster sample". Script: `scratchpad/sample/gritty.py` (session scratch folder, not in the repo). A blind cheap-model check
+found clipped wing tips and horns, unreadable drake expressions, and a ruin lost in the haze; all fixed. The same check still
+called the shapes "cute-moody, not gritty" (round, chubby bodies), so the owner should say whether this is gritty enough or
+should go leaner and scarier. Engine work if chosen: bigger picture, a new face rule (slit eyes with brows, 5 x 3), black outline
+kept, new drawings for all forms.
+Owner answer to the gritty sample (2026-11-21): **"lets do a combination of gritty and cute monsters."** Third sample (drawing
+only): one growth line per field (Land, Water, Sky), each with a cute 24 px baby, a hybrid 36 px young (chibi round body, big
+glossy slit-pupil eyes, small brows, a fang, small horns or fins) and the gritty 48 px adult from the second sample, each with
+open, happy and sad looks. Script: `scratchpad/sample/growth.py` (session scratch folder, not in the repo). Published on the
+Design canvas as page "Gritty + cute blend" (canvas version 11); the owner said the blend looks right. A blind
+cheap-model check said the open and sad looks were too close on the young and adult stages, the sky line's baby had no link to
+its adult, the water line jumped from pale to dark in one step, and a headband, back dots and foot specks read as mistakes.
+All fixed: heavier brows and a tear on sad, wings and an ember belly on the sky baby, young palettes halfway between baby and
+adult, smaller young jaw. My own pixel check then found cut-off fin, tail and wing tips (also on the gritty adults) and a
+magenta placeholder where the young eye gloss had no palette color; both fixed. Not changed: the adult drawings otherwise,
+and the uneven column widths (they are the real size growth).
+Sample built 2026-11-21 (drawing only, not the game): 40 x 40 pixel creatures with colored outlines instead of black, 4 x 5
+glossy eyes, blush, three different silhouettes (spiky-maned cub, pear-shaped shell critter, winged bird), and a 128 x 128 Land
+field. Drawn with `tools/art/bk.py`; the script is `scratchpad/sample/cute.py` in the session scratch folder (not in the repo).
+A blind check by a cheap model found a clipped shell, an unreadable forehead gem, a hard-to-read sad face and a path hidden
+behind the creature; all fixed before the sheet went up. If this style is chosen, the game needs: a bigger picture (96 to 128),
+a new face rule (the engine finds eyes as a 2 x 2 `WW`/`WK` block, these are 4 x 5), a colored-outline rule instead of `K`
+black, and new drawings for every form.
+Design problems that followed from dropping battles, now closed: the evolution rules no longer read `battles`, `wins`,
+`strength`, `defense` or `spirit` (the Paradise rules below use field time, food and care), and player-versus-player comes after
+accounts and a server (Phase 5), as the owner chose.
+
+The owner then sent a second growth chart as another reference (Waji Pascua, Tamagotchi wiki, 17 July 2025,
+https://i.redd.it/k5v0slgphudf1.jpeg). It matches the first and adds two rules, now in the plan: a baby needs 4 field cells (an hour
+in one field) to become a kid, and a baby with 4 hours of no care becomes the special plain form (parked for a later slice).
+
+**Direction decided (2026-11-21).** Owner on the blend sample: **"blend looks right."** Asked whether the growth chart is in
+scope: **"define scope? you mean how they evolve? so long as it follows paradise design its fine."** So the chart's growth design
+is the scope: egg, baby, kid (Land, Water or Sky, by time spent in a field), young (four per kid, by what it ate), adult (four
+per young, by care: hunger cells, happy cells, mistakes). That is 1 baby + 3 kids + 12 young + 48 adults = 64 original
+creatures (the chart's characters are Bandai's and are not copied), replacing the 20 forms and their tree. Style: cute baby and
+kid, blended young, gritty adult (the "Gritty + cute blend" sheet). Monster battling stays against NPCs for now, PvP comes after
+accounts. The rules, sizes, roster, milestones and costs are in [paradise-plan.md](paradise-plan.md). Work is on branch
+`paradise` (a git worktree at ~/broodkeep-paradise, off `main` 932497c, 665 tests pass there); nothing is pushed. The
+`pokemon-look` branch and its uncommitted tree in ~/broodkeep stay aside, not to be built on.
 
 **Branch protection is on for `main`** (owner set it 2026-11-21: pull request required, 0 approvals because GitHub has no 0 option
 to pick, force pushes and deletions not allowed; the public API reports `protected: true`). Not tested: whether the hub's deploy
@@ -57,7 +123,7 @@ creature sizes, night, a refused tap, a job, the room while away, the welcome-ba
 habitat screen followed by a new egg), and a cheap-model review that found 9 points (6 fixed, 2 written down, 1 left alone on
 purpose). Not checked: a real phone, and the drawing code beyond its placement tests.
 
-## Phase 3 slice 2: combat and the arena (built 2026-11-21, branch `phase-3b-combat`, not pushed)
+## Phase 3 slice 2: combat and the arena (merged in PR #13, 2026-11-21)
 
 What it adds: a third nav button (crossed swords) opens the arena. The creature (from the in-training stage up) fights a wild
 creature of its own stage, turn by turn: Attack, Guard or Special (Special needs a full three-pip meter). Wins pay coins, now and
@@ -80,6 +146,23 @@ animations as motion, and the drawing code beyond its timeline and placement tes
 
 Simulated difficulty (first-guess numbers): an untrained creature at full HP wins 97 to 100% on rung 1, 13 to 21% on rung 4
 and 1 to 5% against the boss; trained to the stage cap it wins 98 to 100% on every rung (details in decisions.md).
+
+## Pokemon look (in progress, branch `pokemon-look`, nothing pushed)
+
+Owner answers: restyle both screens, concept sheet first. Plan: a tile-based overworld look for the habitat (8 pixel tiles drawn
+from text grids, like the creature and icon pictures) and the classic battle layout for the arena (the wild creature up on the
+right on its platform, yours down on the left, a name and HP box for each, a boxed command menu). The rules, the buttons and the
+save do not change. The sheet is made from the real game running the new art, so what is approved is what ships.
+
+Built so far (uncommitted on the branch, 673 tests and typecheck pass, nothing pushed): `src/art/tiles.ts` (12 x 12 tile map,
+8 pixel tiles), `src/art/habitat.ts` (draws that map; spot boxes sit on whole tiles; the job gauge moved under the creature's
+feet as `progressBox`, 16 wide, so it never hides the creature or covers another spot), `src/art/font.ts` (3 x 5 capital
+letters for the names), `src/art/arena.ts` (platforms, a name box for each fighter with name, HP bar and the fight ladder or the
+special meter, diagonal lunge and recoil, grass field, night tint under the boxes), `src/ui/ArenaBar.tsx` and `app.css` (one
+framed command box, same height in every state, refusal icon in its corner). Checked in a headless phone browser: every
+arena state and every habitat state (no console errors). The Design canvas "Broodkeep Pokémon look" holds the real screenshots.
+Still to do after the owner answers: deliberate code mutations of the new tests (restore and diff), the reviewer pass, the docs
+(decisions.md, known-issues.md, art-direction.md with the reference), then "push it".
 
 ## Creature redesign (merged in PR #9, 2026-11-21)
 
@@ -171,12 +254,18 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
   right, are the coins and bag worth having before anything can be bought, does the empty room while it is away feel ok). Dev
   mode (gear, tap the version line 7 times) skips the waits and can hatch any form.
 
-- Slice 2 is on its branch only: when it is live, play a few fights on a phone and report what feels wrong (is the ladder too
-  steep or too easy, are the blows readable, do the buttons feel right, is the arena worth a nav button). Dev mode has the HP
-  and rung sliders.
-- Proposed, not built (needs your OK, scope beyond the plan's slice 2): a Train action (the `training` metric, which Blip and
-  Drip to Nubbin and Smudge to Gruntle need) and a way for discipline to rise (Thornback and Bastion to Citadrake need 60,
-  and the sulk rule needs it below 50).
+- Slice 2 is merged: the owner has played it and wants a different look (above). Still unanswered: is the ladder too steep or too
+  easy, do the buttons feel right. Dev mode has the HP and rung sliders.
+- Closed by the Paradise decision: the proposed Train action and a way for discipline to rise existed only for the old tree's
+  rules (the `training` and `discipline` metrics). Under the Paradise rules nothing reads them, so neither is needed for growth.
+  (Discipline still has the unbuilt sulk rule in combat; that stays as is.)
+
+- Paradise growth, choices I made that the owner can change (listed in paradise-plan.md section 8): the place model (home and
+  three fields), stage lengths (6, 24, 48 real hours), 2 servings per food cell, one food item per type, a baby that has not
+  reached 4 cells in any field after 6 hours growing up anyway (egg pattern as the fallback), berry and fish dropped.
+- Closed 2026-11-21 (owner): old saves do not matter. No migration: save version 3 may reset everything. The owner replaced
+  section 6 of CLAUDE.md (done: it now points to paradise-plan.md) and approved the gate-script edit in ~/CLAUDE.md (done).
+  The owner answered "proceed" to "do the Land creatures look right?", taken as yes; redraw notes can still come any time.
 
 ## Facts that are easy to get wrong
 
@@ -191,9 +280,63 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Phase 3 slice 2 (combat) is built, checked and reviewed on `phase-3b-combat`: the owner says "push it" (first `git fetch origin`
-   and check it is not already merged), then merges the pull request.
-2. Then slice 3 (garden plots, standing chores, habitat upgrades: the first thing coins buy) and slice 4 (the Creature Book and
-   the legacy shelf). Phase 3 makes most Champion and Ultimate paths reachable.
-3. Tune the tree, job and fight numbers after real play.
+1. **Paradise growth** (decided 2026-11-21, plan in [paradise-plan.md](paradise-plan.md), branch `paradise`): milestone 1, the
+   Python art library (face patterns, face stamping, palette helper, art checks, sheets, in `tools/art/paradise/`); milestone 2,
+   the Land art (baby, 3 young, 15 adults, the Land field) with an owner checkpoint; milestone 3, the game side (anchor faces in
+   TypeScript, 128 pixel layout, growth rules, save version 3); then pull request 1 (Land playable), then Water and Sky. CLAUDE.md section 6 now points to paradise-plan.md (owner OK, 2026-11-21).
+   **Milestone 1 done (2026-11-21, in ~/broodkeep-paradise):** `src/data/face-patterns.json` (shared face pieces),
+   `tools/art/paradise/lib.py` (face stamping, art checks, palettes, sheets), `sheet.py`, `selftest.py`, and `land.py`, `water.py`,
+   `sky.py` with the nine blend-sheet creatures (kid, young, adult of each field) ported as body-only drawings with anchors, a
+   second drawing each and, for Murkfang and Ashwing, custom mouth patterns. `selftest.py` has 56 cases (good creatures, each
+   defect, the pattern file) and passes; breaking 36 lines of `lib.py` one at a time in a scratch copy made it fail every time
+   (the harness is a scratchpad script, not in the repo). A cheap-model fresh-eyes review found Murkfang's neutral and yawn
+   mouths half a pixel off centre plus gaps in the checks; all fixed, the rest recorded in known-issues. Sheets are in the
+   session scratchpad (`m1/land.png`, `water.png`, `sky.png`), looked at 4x: faces, brows, tears and mouths read right.
+   **Milestone 2 done (2026-11-21):** all 22 Land creatures (1 baby, 1 kid,
+   4 young, 16 adults) are drawn in `tools/art/paradise/` (`baby.py`, `land.py`, and one file per line: `land_cragpup.py`,
+   `land_dugling.py`, `land_frillet.py`, `land_sporeling.py`; `land_all.py` lists them in order). The Land field is ported
+   unchanged from the gritty sheet as `land_field.py` (`python3 land_field.py out.png [creature id]`). Every creature passes
+   the art checks and `selftest.py` (75 cases) now gates all 22. A blind cheap-model review of all 22 and a second one of the
+   10 revised rows led to redraws: Moonlop (ears read as wings), Plateback (plates read as spikes), Gutterfang (an outlined
+   snout read as an open mouth), plus lighter palettes for Tuskmole, Bogviper, Hollowbloom and Mossheap, a face plate for
+   Potterling and warmer tan for Dugling. A code review found mirrored claws and toes placed with the wrong offset (fixed with
+   `sym`) and dead shade arguments (removed). Contact sheets are on the design canvas, page "Paradise: Land creatures"
+   (https://claude.ai/artifact/5V89utWpfU4Kh4CSiKMPSJ). Owner answered "proceed" (2026-11-21), taken as "look right";
+   milestone 3 (the game side) is in progress.
+   **Milestone 3 steps (started 2026-11-21; baseline `npm test` 665 passed, typecheck 0).** Layer A, game rules without the new
+   faces (art stays on the old code and shows faceless bodies until layer B): A1 types, foods (pellet, treat, meat, carrot,
+   worm; each later field adds its three), tuning, stage remap in combat and habitat, derived stats (stage budgets from the
+   old forms: baby 20, kid 29, young 44, adult 93); A2 an emitter `tools/art/paradise/emit_ts.py` writes `data/forms/baby.ts`
+   and `land.ts` (old 20 forms deleted); A3 `data/fields.ts`, `game/growth.ts`, save version 3 (old saves are not read), sim,
+   care, actions, dev tools; A4 tests (growth, data, a scripted playthrough that reaches every Land adult); A5 menus (foods,
+   place picker, dev tree). Layer B, art: B1 TypeScript anchor faces (a parity test against the Python sheets), B2 128 pixel
+   room and the Land field, B3 art tests and screenshots of the running game.
+   **Milestone 3 done (2026-11-21):** layers A and B are built. `npm run typecheck` exit 0,
+   `npm test` 17 files and 574 tests pass, `selftest.py` 84 cases pass, `emit_ts.py --check` and `face_hashes.py --check` agree
+   with the files, `npm run build` works (205.6 KB of JavaScript, 49.5 KB gzipped). The game now has 22 forms (1 baby, 1 kid, 4 young,
+   16 adults), the growth rules (`growth.ts`), anchor faces (`face.ts`, 308 pictures checked against Python), the 128 pixel room,
+   habitat and arena, the Land field drawn behind a creature that is out in it (`art/field.ts`, written by `emit_ts.py` as
+   `art/field-land.ts`), and a "Go somewhere" tray (Home, Land, Water and Sky, the last two locked). Looked at on a contact sheet of
+   13 states and two tray screenshots (Playwright against the dev server): all five sizes in the room and the field, sleeping on
+   the bed, slumped, sick, dead with the tombstone, eating and poop in the field. The look found the five-food tray wrapping to a
+   second row (fixed) and a pellet icon that looked like poop (redrawn). Mutation checks: the right-eye position, the field emitter
+   checks, the field picture test, each branch of `goTo`, the width and column protection of `lieDown` and the poop spots were
+   broken on purpose and the tests failed. A cheap-model fresh-eyes review of layer B (read-only, 18 files in the diff plus the new
+   files by path) found 2 defects and 3 test gaps, all checked against the code and fixed: the habitat screen said "at home" and drew
+   the creature at home while it was out in a field (now an empty habitat with a bubble of that field's icon, and the sentence says
+   where it is); the test titles "changes nothing else" and "as wide as its picture allows" promised more than they checked (the
+   first is covered by the Python parity hashes and the title now says so, the second now checks the width, and a new test checks
+   that a protected column is never doubled); plus a poop spot drawn over the food bowl, a hard-coded "4" in the dev tree text and
+   a stale size comment. Its other two points were left: a job does not send a creature home from a field (open question for the
+   owner, below) and the dev tree's option lists have no keys (no visible effect). See decisions.md and
+   known-issues.md ("Paradise growth, game side"). Next for this branch: milestone 4, pull request 1 (Land playable, Water and
+   Sky locked). Tell the owner then that existing saves reset. Milestones 1 to 3 are committed and pushed to branch `paradise` (2026-11-21, on the
+   owner's "commit and push"); `main` is untouched and the owner opens and merges the pull request.
+   **Open, for the owner at pull request 1 time (my default is in place):** a creature that starts a habitat job from a field
+   comes back to that same field when the job ends (nothing sends it home), while bedtime and naps do send it home. Alternative:
+   starting a job sends it home, so it never silently goes back to counting field minutes. Which is wanted?
+2. Later: the "no care for 4 hours" special form, the secret evolutions (two players, so after accounts), slice 3 of the old
+   Phase 3 (garden plots become a food source, standing chores, habitat upgrades) and slice 4 (the Creature Book, which fits a
+   64 creature game, and the legacy shelf).
+3. Tune the stage lengths, cell counts and fight numbers after real play.
    Work on a new branch, never push `main`, and the owner merges the pull request.

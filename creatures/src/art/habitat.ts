@@ -14,23 +14,25 @@ import { ROOM } from "./layout";
 import { drawSprite, spriteCanvas } from "./pixel";
 import { sky } from "./room";
 import { drawBubble } from "./scene";
-import { icons } from "./sprites";
+import { icons, placeIcon } from "./sprites";
 
-// Where each spot sits on the 96 x 96 picture (top left corner, width, height).
+// Where each spot sits on the 128 x 128 picture (top left corner, width, height).
 export const SPOT_BOXES: Record<SpotId, { x: number; y: number; w: number; h: number }> = {
-  trees: { x: 4, y: 30, w: 26, h: 26 },
-  pond: { x: 35, y: 40, w: 26, h: 16 },
-  rocks: { x: 66, y: 30, w: 26, h: 26 },
-  meadow: { x: 4, y: 62, w: 26, h: 18 },
-  herbs: { x: 66, y: 62, w: 26, h: 18 },
+  trees: { x: 6, y: 40, w: 26, h: 26 },
+  pond: { x: 51, y: 52, w: 26, h: 16 },
+  rocks: { x: 96, y: 40, w: 26, h: 26 },
+  meadow: { x: 6, y: 80, w: 26, h: 18 },
+  herbs: { x: 96, y: 80, w: 26, h: 18 },
 };
 // The creature stands in the middle at the bottom when it is at home. Its feet are on this line.
-export const HOME = { centerX: ROOM.w / 2, feetY: 92 };
+export const HOME = { centerX: ROOM.w / 2, feetY: 122 };
 
-// Where a creature works at a spot: in front of it, with its feet a little below the spot's picture.
-export function workingPlace(id: SpotId): { centerX: number; feetY: number } {
+// Where a creature of a given size works at a spot: in front of it, with its feet a little below the spot's picture. A big
+// creature at a spot near the edge is moved in, so it never hangs off the picture.
+export function workingPlace(id: SpotId, size: number): { centerX: number; feetY: number } {
   const b = SPOT_BOXES[id];
-  return { centerX: b.x + b.w / 2, feetY: Math.min(94, b.y + b.h + 4) };
+  const half = size / 2;
+  return { centerX: Math.min(ROOM.w - half, Math.max(half, b.x + b.w / 2)), feetY: Math.min(124, b.y + b.h + 4) };
 }
 
 function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number): void {
@@ -40,18 +42,18 @@ function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number
 
 function drawGround(ctx: CanvasRenderingContext2D, hour: number): void {
   const s = sky(hour);
-  rect(ctx, s.color, 0, 0, ROOM.w, 32);
+  rect(ctx, s.color, 0, 0, ROOM.w, 36);
   if (s.stars) {
-    for (const [x, y] of [[12, 6], [30, 14], [52, 5], [70, 18], [86, 8]] as const) rect(ctx, "#ffffff", x, y, 1, 1);
+    for (const [x, y] of [[16, 7], [40, 17], [69, 6], [93, 24], [114, 10]] as const) rect(ctx, "#ffffff", x, y, 1, 1);
   }
-  rect(ctx, s.body === "sun" ? "#ffe066" : "#f5f0c8", 74, 6, 6, 6);
-  rect(ctx, "#5fa35a", 0, 26, ROOM.w, 8); // far hills
-  rect(ctx, "#7fc46a", 0, 32, ROOM.w, ROOM.h - 32); // grass
-  for (let y = 34, row = 0; y < ROOM.h; y += 8, row++) {
+  rect(ctx, s.body === "sun" ? "#ffe066" : "#f5f0c8", 100, 8, 7, 7);
+  rect(ctx, "#5fa35a", 0, 30, ROOM.w, 9); // far hills
+  rect(ctx, "#7fc46a", 0, 36, ROOM.w, ROOM.h - 36); // grass
+  for (let y = 38, row = 0; y < ROOM.h; y += 8, row++) {
     for (let x = (row % 2) * 6; x < ROOM.w; x += 12) rect(ctx, "#74b860", x, y, 3, 1);
   }
-  rect(ctx, "#d9b98a", 44, 44, 8, 16); // the path from home up to the pond
-  rect(ctx, "#d9b98a", 38, 60, 20, 36);
+  rect(ctx, "#d9b98a", 60, 68, 8, 26); // the path from home up to the pond
+  rect(ctx, "#d9b98a", 54, 94, 20, 34);
 }
 
 function drawTrees(ctx: CanvasRenderingContext2D, b: { x: number; y: number }): void {
@@ -115,7 +117,7 @@ function drawCreature(ctx: CanvasRenderingContext2D, c: Creature, view: View, ce
   const form = getForm(c.formId);
   const size = form.idle.length;
   const kind = pickFace(view, false, false);
-  const frame = isWide(kind) || !form.idle2 ? 0 : frameOf(view);
+  const frame = isWide(kind) ? 0 : frameOf(view);
   const picture = faceSprite(form, kind, frame);
   const tint = c.sick ? { color: "#7bdc6a", amount: 0.4 } : undefined;
   const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}`, tint);
@@ -147,14 +149,17 @@ export function drawHabitat(ctx: CanvasRenderingContext2D, save: Save, view: Vie
   if (job) {
     const b = SPOT_BOXES[job.spot];
     const progress = Math.min(1, Math.max(0, (gameNowMs - job.startedAt) / (job.endsAt - job.startedAt)));
-    const place = workingPlace(job.spot);
+    const place = workingPlace(job.spot, getForm(c.formId).idle.length);
     drawCreature(ctx, c, view, place.centerX, place.feetY, true);
     // The progress bar goes on top, because a big creature covers the whole spot.
     rect(ctx, "#1a1020", b.x, b.y - 4, b.w, 4);
     rect(ctx, "#ffd25a", b.x + 1, b.y - 3, Math.round((b.w - 2) * progress), 2);
   } else if (c.sleep) {
     // In bed at home: the habitat is empty, with a bubble that says where it went.
-    drawBubble(ctx, "house", HOME.centerX - 6, 60);
+    drawBubble(ctx, "house", HOME.centerX - 6, 80);
+  } else if (c.place !== "home") {
+    // Out in a field: the habitat is empty too, with a bubble that says where it is.
+    drawBubble(ctx, placeIcon[c.place], HOME.centerX - 6, 80);
   } else {
     drawCreature(ctx, c, view, HOME.centerX, HOME.feetY, false);
   }

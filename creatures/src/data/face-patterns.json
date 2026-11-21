@@ -1,0 +1,100 @@
+{
+  "about": "Face pieces for the Paradise creatures. The Python drawing tools (tools/art/paradise/) and the game read this one file, so a contact sheet shows what the game shows. A creature's drawing has no face: the engine stamps these patterns at the creature's anchor (left eye column and row, mouth row). In a pattern a dot leaves the drawing as it is. The letters are reserved for faces: I iris, W gloss, K pupil and brows, A lid and happy arch, M mouth, T tooth, P blush, U tear. Eyes are placed once on the left and moved over unchanged on the right. Brows, tears and blush are mirrored. Mouths are centered, so their width must have the same parity as the picture (all pictures are even, so all mouths are even). dx and dy move a piece from the left eye's top left corner (mouths: dy from the mouth row).",
+  "styles": {
+    "kid": {
+      "eye": { "w": 4, "h": 4 },
+      "eyes": {
+        "open": [".II.", "IWWI", "IIIW", ".II."],
+        "half": ["AAAA", "IWWI", "IIIW", ".II."],
+        "closed": ["....", "....", "A..A", ".AA."],
+        "up": [".IW.", "IIII", "IIII", ".II."],
+        "happy": ["....", ".AA.", "A..A", "...."]
+      },
+      "brows": {},
+      "tear": { "dx": 0, "dy": 5, "rows": ["U", "U"] },
+      "blush": { "dx": -3, "dy": 4, "rows": ["PPP"] },
+      "mouths": {
+        "neutral": { "dy": 0, "rows": ["M....M", ".MMMM."] },
+        "flat": { "dy": 0, "rows": ["MM"] },
+        "smile": { "dy": 0, "rows": ["MMMM", "MTTM", ".MM."] },
+        "frown": { "dy": 0, "rows": [".MMMM.", "M....M"] },
+        "yawn": { "dy": 0, "rows": ["..MM..", ".MMMM.", ".MMMM.", "..MM.."] }
+      },
+      "looks": {
+        "open": { "eyes": "open", "mouth": "neutral", "blush": true },
+        "half": { "eyes": "half", "mouth": "flat", "blush": true },
+        "closed": { "eyes": "closed", "mouth": "flat", "blush": true },
+        "up": { "eyes": "up", "mouth": "neutral", "blush": true },
+        "happy": { "eyes": "happy", "mouth": "smile", "blush": true },
+        "yawn": { "eyes": "closed", "mouth": "yawn", "blush": true },
+        "sad": { "eyes": "open", "mouth": "frown", "blush": true, "tear": true }
+      }
+    },
+    "young": {
+      "eye": { "w": 5, "h": 4 },
+      "eyes": {
+        "open": [".III.", "IWKII", "IIKII", ".III."],
+        "half": ["AAAAA", "IWKII", "IIKII", ".III."],
+        "closed": [".....", "AAAAA", ".....", "....."],
+        "up": [".IKI.", "IWKII", "IIIII", ".III."],
+        "happy": [".....", ".AAA.", "A...A", "....."]
+      },
+      "brows": {
+        "angry": { "dx": 0, "dy": -2, "rows": ["KK...", "..KK.", "....K"] },
+        "worried": { "dx": 0, "dy": -2, "rows": ["...KK", ".KK..", "K...."] },
+        "arch": { "dx": 0, "dy": -2, "rows": ["..K..", ".K.K."] }
+      },
+      "tear": { "dx": 1, "dy": 4, "rows": ["U", "U"] },
+      "blush": null,
+      "mouths": {
+        "neutral": { "dy": 0, "rows": ["T....T", "MMMMMM"] },
+        "flat": { "dy": 0, "rows": ["MMMMMM"] },
+        "smile": { "dy": 0, "rows": ["M....M", ".MTTM.", "..MM.."] },
+        "frown": { "dy": 0, "rows": [".MMMM.", "M....M"] },
+        "yawn": { "dy": 0, "rows": ["..MMMM..", ".MMMMMM.", ".MMMMMM.", "..MMMM.."] }
+      },
+      "looks": {
+        "open": { "eyes": "open", "brows": "angry", "mouth": "neutral" },
+        "half": { "eyes": "half", "mouth": "flat" },
+        "closed": { "eyes": "closed", "mouth": "flat" },
+        "up": { "eyes": "up", "brows": "angry", "mouth": "neutral" },
+        "happy": { "eyes": "happy", "brows": "arch", "mouth": "smile" },
+        "yawn": { "eyes": "closed", "mouth": "yawn" },
+        "sad": { "eyes": "open", "brows": "worried", "mouth": "frown", "tear": true }
+      }
+    },
+    "adult": {
+      "eye": { "w": 5, "h": 3 },
+      "eyes": {
+        "open": [".IKI.", "IIKII", ".IKI."],
+        "half": ["AAAAA", "IIKII", ".IKI."],
+        "closed": [".....", "AAAAA", "....."],
+        "up": [".IKI.", "IIIII", ".III."],
+        "happy": [".....", ".AAA.", "A...A"]
+      },
+      "brows": {
+        "angry": { "dx": 0, "dy": -2, "rows": ["KK...", "..KK.", "....K"] },
+        "worried": { "dx": 0, "dy": -2, "rows": ["...KK", ".KK..", "K...."] },
+        "arch": { "dx": 0, "dy": -2, "rows": ["..K..", ".K.K."] }
+      },
+      "tear": { "dx": 1, "dy": 3, "rows": ["U", "U"] },
+      "blush": null,
+      "mouths": {
+        "neutral": { "dy": 0, "rows": ["T......T", "MMMMMMMM"] },
+        "flat": { "dy": 0, "rows": ["MMMMMMMM"] },
+        "smile": { "dy": 0, "rows": ["M......M", ".MTTTTM.", "..MMMM.."] },
+        "frown": { "dy": 0, "rows": [".MMMMMM.", "M......M"] },
+        "yawn": { "dy": 0, "rows": ["...MM...", "..MMMM..", ".MMMMMM.", ".MMMMMM.", "..MMMM.."] }
+      },
+      "looks": {
+        "open": { "eyes": "open", "brows": "angry", "mouth": "neutral" },
+        "half": { "eyes": "half", "mouth": "flat" },
+        "closed": { "eyes": "closed", "mouth": "flat" },
+        "up": { "eyes": "up", "brows": "angry", "mouth": "neutral" },
+        "happy": { "eyes": "happy", "brows": "arch", "mouth": "smile" },
+        "yawn": { "eyes": "closed", "mouth": "yawn" },
+        "sad": { "eyes": "open", "brows": "worried", "mouth": "frown", "tear": true }
+      }
+    }
+  }
+}

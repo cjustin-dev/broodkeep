@@ -9,10 +9,10 @@ import { aliveSave, at, careForUntil } from "./helpers";
 describe("catching up on time", () => {
   it("gives exactly the same result however the time is split up", () => {
     const t0 = at(8);
-    const one = aliveSave("blip", t0);
+    const one = aliveSave("pebblin", t0);
     // Leave poop lying around so that chance events (sickness) are part of the test.
-    feed(one, "berry", t0);
-    feed(one, "berry", t0);
+    feed(one, "carrot", t0);
+    feed(one, "carrot", t0);
     const pieces = structuredClone(one);
 
     simulateTo(one, t0 + 30 * HOUR);
@@ -29,7 +29,7 @@ describe("catching up on time", () => {
 
   it("only simulates whole minutes and keeps the leftover seconds", () => {
     const t0 = at(8);
-    const save = aliveSave("blip", t0);
+    const save = aliveSave("pebblin", t0);
     expect(simulateTo(save, t0 + 90 * 1000)).toBe(1);
     expect(save.lastSimulatedAt).toBe(t0 + MINUTE);
     expect(simulateTo(save, t0 + 119 * 1000)).toBe(0);
@@ -38,7 +38,7 @@ describe("catching up on time", () => {
 
   it("handles a very long absence quickly, and splitting it up changes nothing", () => {
     const t0 = at(8);
-    const one = aliveSave("blip", t0);
+    const one = aliveSave("pebblin", t0);
     const two = structuredClone(one);
     const tenYears = t0 + 3650 * 24 * HOUR;
     simulateTo(one, tenYears);
@@ -51,9 +51,9 @@ describe("catching up on time", () => {
 
   it("carries on from a saved game exactly as if it had never been stored", () => {
     const t0 = at(8);
-    const live = aliveSave("blip", t0);
-    feed(live, "berry", t0);
-    feed(live, "berry", t0);
+    const live = aliveSave("pebblin", t0);
+    feed(live, "carrot", t0);
+    feed(live, "carrot", t0);
     simulateTo(live, t0 + 5 * HOUR);
     const stored = JSON.parse(JSON.stringify(live)); // what IndexedDB would keep
     simulateTo(live, t0 + 40 * HOUR);
@@ -63,7 +63,7 @@ describe("catching up on time", () => {
 
   it("ignores a small step back of the clock until it catches up", () => {
     const t0 = at(8);
-    const steady = aliveSave("blip", t0);
+    const steady = aliveSave("pebblin", t0);
     const wobbly = structuredClone(steady);
     simulateTo(steady, t0 + 3 * HOUR);
     simulateTo(wobbly, t0 + 3 * HOUR);
@@ -76,7 +76,7 @@ describe("catching up on time", () => {
 
   it("starts over from the new time if the clock jumps far back", () => {
     const t0 = at(8);
-    const save = aliveSave("blip", t0);
+    const save = aliveSave("pebblin", t0);
     simulateTo(save, t0 + 3 * HOUR);
     expect(simulateTo(save, t0)).toBe(0);
     expect(save.lastSimulatedAt).toBe(t0);
@@ -98,20 +98,16 @@ describe("egg", () => {
     expect(save.egg).toBeNull();
   });
 
-  it("each egg pattern hatches the baby the table says, and a swirled egg can be either", () => {
-    const hatched = (pattern: "speckled" | "striped" | "swirled", seed: number): string | undefined => {
+  it("every egg pattern hatches Blip, and the creature remembers which egg it came from", () => {
+    for (const pattern of ["speckled", "striped", "swirled"] as const) {
       const t0 = at(8);
-      const save = newSave(t0, seed);
+      const save = newSave(t0, 7);
       save.egg!.pattern = pattern;
       simulateTo(save, t0 + 30 * MINUTE);
-      return save.creature?.formId;
-    };
-    for (let seed = 1; seed <= 30; seed++) {
-      expect(hatched("speckled", seed)).toBe("blip");
-      expect(hatched("striped", seed)).toBe("drip");
+      expect(save.creature?.formId).toBe("blip");
+      expect(save.creature?.eggPattern).toBe(pattern);
+      expect(save.creature?.place).toBe("home");
     }
-    const swirled = new Set(Array.from({ length: 30 }, (_, i) => hatched("swirled", i + 1)));
-    expect(swirled).toEqual(new Set(["blip", "drip"]));
   });
 
   it("hatches sooner with taps, but taps can only save so much", () => {
@@ -138,7 +134,7 @@ describe("egg", () => {
 
 describe("sleep", () => {
   it("sleeps at night and wakes in the morning", () => {
-    const save = aliveSave("blip", at(18));
+    const save = aliveSave("pebblin", at(18));
     simulateTo(save, at(21));
     expect(save.creature?.sleep).toBe("night");
     simulateTo(save, at(7, 0, 6));
@@ -146,7 +142,7 @@ describe("sleep", () => {
   });
 
   it("follows the sleeping hours from Settings, even when they cross midnight", () => {
-    const save = aliveSave("blip", at(8));
+    const save = aliveSave("pebblin", at(8));
     save.settings = { sleepStartHour: 23, sleepEndHour: 9 };
     simulateTo(save, at(8, 30));
     expect(save.creature?.sleep).toBe("night"); // 08:30 is before 09:00
@@ -155,7 +151,7 @@ describe("sleep", () => {
   });
 
   it("never counts bedtime as neglect, even if it gets very hungry in its sleep", () => {
-    const save = aliveSave("blip", at(19, 59));
+    const save = aliveSave("pebblin", at(19, 59));
     simulateTo(save, at(20, 30));
     setStat(save, "hunger", 10);
     simulateTo(save, at(6, 30, 6));
@@ -166,7 +162,7 @@ describe("sleep", () => {
   });
 
   it("falls asleep at exactly the start hour and wakes at exactly the end hour", () => {
-    const save = aliveSave("blip", at(19, 50));
+    const save = aliveSave("pebblin", at(19, 50));
     simulateTo(save, at(19, 59));
     expect(save.creature?.sleep).toBeNull();
     simulateTo(save, at(20, 0));
@@ -178,16 +174,16 @@ describe("sleep", () => {
   });
 
   it("never sleeps if the start and end hours are the same", () => {
-    const save = aliveSave("blip", at(8));
+    const save = aliveSave("pebblin", at(8));
     save.settings = { sleepStartHour: 7, sleepEndHour: 7 };
     simulateTo(save, at(3, 0, 6));
     expect(save.creature?.sleep).toBeNull();
   });
 
   it("loses hunger much more slowly while asleep", () => {
-    const awake = aliveSave("blip", at(8));
+    const awake = aliveSave("pebblin", at(8));
     simulateTo(awake, at(10));
-    const asleep = aliveSave("blip", at(20, 30));
+    const asleep = aliveSave("pebblin", at(20, 30));
     simulateTo(asleep, at(22, 30));
     const lostAwake = 70 - awake.creature!.stats.hunger;
     const lostAsleep = 70 - asleep.creature!.stats.hunger;
@@ -197,7 +193,7 @@ describe("sleep", () => {
 
 describe("neglect", () => {
   it("counts a care mistake for every hour a call goes unanswered", () => {
-    const save = aliveSave("blip", at(8));
+    const save = aliveSave("pebblin", at(8));
     setStat(save, "hunger", 10);
     simulateTo(save, at(8, 5)); // the call starts
     expect(save.creature?.call).toBe("hungry");
@@ -209,7 +205,7 @@ describe("neglect", () => {
   it("an ignored creature dies after about two days, whatever time of day it hatched", () => {
     for (const hatchHour of [8, 14, 21]) {
       const t0 = at(hatchHour);
-      const save = aliveSave("blip", t0);
+      const save = aliveSave("pebblin", t0);
       simulateTo(save, t0 + 5 * 24 * HOUR);
       expect(save.phase).toBe("dead");
       const hours = (save.death!.at - t0) / HOUR;
@@ -219,14 +215,14 @@ describe("neglect", () => {
   });
 
   it("dies of hunger when nobody ever feeds it", () => {
-    const save = aliveSave("blip", at(8));
+    const save = aliveSave("pebblin", at(8));
     simulateTo(save, at(8) + 5 * 24 * HOUR);
     expect(save.death?.cause).toBe("hunger");
   });
 
   it("dies of sickness when it is fed and clean but never given medicine", () => {
     const t0 = at(8);
-    const save = aliveSave("blip", t0);
+    const save = aliveSave("pebblin", t0);
     setSick(save, true);
     for (let t = t0; t < t0 + 3 * 24 * HOUR && save.phase === "alive"; t += 30 * MINUTE) {
       setStat(save, "hunger", 100);
@@ -240,7 +236,7 @@ describe("neglect", () => {
 
   it("does not change anything once it is dead", () => {
     const t0 = at(8);
-    const save = aliveSave("blip", t0);
+    const save = aliveSave("pebblin", t0);
     simulateTo(save, t0 + 5 * 24 * HOUR);
     const snapshot = structuredClone(save.creature);
     simulateTo(save, t0 + 8 * 24 * HOUR);
@@ -254,25 +250,27 @@ describe("good care", () => {
     const save = aliveSave("blip", t0);
     careForUntil(save, t0, t0 + 7 * 24 * HOUR);
     expect(save.phase).toBe("alive");
-    expect(save.creature?.formId).toBe("lumiwing"); // baby 6 h, training 24 h, rookie 72 h, then a champion
-    expect(save.creature?.counters.careMistakes).toBeLessThanOrEqual(3);
+    // baby 6 h (never taken outside, so its egg's field), kid 24 h (pellets only, so the fourth young), young 48 h (full cells are
+    // rare for this simple player, so it is placed by mistakes alone).
+    expect(save.creature?.formId).toBe("potterling");
+    expect(save.creature?.counters.careMistakes).toBeLessThanOrEqual(1);
     expect(save.creature?.stats.wellness).toBeGreaterThan(50);
-    for (const name of ["Pip", "Fennix", "Lumiwing"]) {
+    for (const name of ["Pebblin", "Sporeling", "Potterling"]) {
       expect(save.log.some((entry) => entry.text.includes(`evolved into ${name}`)), name).toBe(true);
     }
   });
 
-  it("evolves from a baby to Pip after 6 hours and Pip to Fennix 24 hours later", () => {
+  it("grows from a baby to a kid after 6 hours and to a young 24 hours later", () => {
     const t0 = at(8);
     const save = aliveSave("blip", t0);
     simulateTo(save, t0 + 5 * HOUR + 59 * MINUTE);
     expect(save.creature?.formId).toBe("blip");
     simulateTo(save, t0 + 6 * HOUR);
-    expect(save.creature?.formId).toBe("pip");
+    expect(save.creature?.formId).toBe("pebblin");
     expect(save.creature?.counters.careMistakes).toBe(0); // counters start fresh each stage
     simulateTo(save, t0 + 29 * HOUR + 59 * MINUTE);
-    expect(save.creature?.formId).toBe("pip");
+    expect(save.creature?.formId).toBe("pebblin");
     simulateTo(save, t0 + 30 * HOUR);
-    expect(save.creature?.formId).toBe("fennix");
+    expect(save.creature?.formId).toBe("sporeling");
   });
 });

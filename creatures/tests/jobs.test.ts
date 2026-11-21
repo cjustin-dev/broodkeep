@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getForm } from "../src/data/forms";
 import { habitatTuning, materialIds, materials, spotIds, spots } from "../src/data/habitat";
 import { callBack, clean, dismissHaul, feed, startJob, toggleLights, touch } from "../src/game/actions";
-import { forceEvolve, killCreature, setLaterCounter } from "../src/game/dev";
-import { metricValue } from "../src/game/metrics";
+import { forceEvolve, killCreature } from "../src/game/dev";
 import { simulateTo } from "../src/game/sim";
 import { newSave } from "../src/game/state";
 import type { Save } from "../src/game/state";
@@ -36,14 +35,14 @@ describe("the spot data", () => {
     }
   });
 
-  it("lets even a baby work somewhere, and a champion work everywhere", () => {
+  it("lets even a baby work somewhere, and an adult work everywhere", () => {
     expect(spotIds.some((id) => spots[id].minStage === "baby")).toBe(true);
-    for (const id of spotIds) expect(stageOrder.indexOf(spots[id].minStage)).toBeLessThanOrEqual(stageOrder.indexOf("champion"));
+    for (const id of spotIds) expect(stageOrder.indexOf(spots[id].minStage)).toBeLessThanOrEqual(stageOrder.indexOf("adult"));
   });
 
   it("can be started by a grown creature at full energy, whatever the spot", () => {
     for (const id of spotIds) {
-      const save = hatched("solarion");
+      const save = hatched("cindermane");
       expect(save.creature!.stats.energy, id).toBe(100);
       expect(startJob(save, id, DAY), id).toBe("started");
     }
@@ -84,7 +83,7 @@ describe("setting off", () => {
 
   it("keeps every spot closed to a creature younger than the spot allows", () => {
     // One creature per stage, and every spot: it works there exactly when its stage is old enough.
-    const formFor: Record<string, string> = { baby: "blip", training: "pip", rookie: "fennix", champion: "pyrefang", ultimate: "solarion" };
+    const formFor: Record<string, string> = { baby: "blip", kid: "pebblin", young: "cragpup", adult: "gravelhorn" };
     for (const stage of stageOrder) {
       for (const id of spotIds) {
         const save = hatched(formFor[stage]!);
@@ -98,12 +97,12 @@ describe("setting off", () => {
   it("needs enough energy: just enough goes, a hair less is too tired", () => {
     const spot = spots.rocks;
     const enough = spot.energyCost + habitatTuning.energyFloor;
-    const save = hatched("pyrefang");
+    const save = hatched("gravelhorn");
     save.creature!.stats.energy = enough;
     expect(startJob(save, "rocks", DAY)).toBe("started");
     expect(save.creature!.stats.energy).toBe(habitatTuning.energyFloor);
 
-    const tired = hatched("pyrefang");
+    const tired = hatched("gravelhorn");
     tired.creature!.stats.energy = enough - 0.5;
     expect(startJob(tired, "rocks", DAY)).toBe("tired");
     expect(tired.creature!.stats.energy).toBe(enough - 0.5);
@@ -140,7 +139,7 @@ describe("coming home", () => {
 
   it("brings coins and material inside the spot's ranges, and counts one job done", () => {
     for (const id of spotIds) {
-      const save = hatched("solarion"); // old enough for every spot
+      const save = hatched("cindermane"); // old enough for every spot
       const spot = spots[id];
       startJob(save, id, DAY);
       simulateTo(save, DAY + min(spot.minutes));
@@ -151,13 +150,13 @@ describe("coming home", () => {
       expect(got, id).toBeLessThanOrEqual(spot.amount[1]);
       expect(save.hauls[0]).toEqual({ spot: id, at: DAY + min(spot.minutes), coins: save.coins, material: spot.material, amount: got });
       expect(save.creature!.counters.chores).toBe(1);
-      expect(metricValue(save.creature!, "chores")).toBe(1);
+      expect(save.creature!.counters.chores).toBe(1);
     }
   });
 
   it("gives the same haul whether the time passes in one go or a minute at a time", () => {
-    const a = hatched("fennix");
-    const b = hatched("fennix");
+    const a = hatched("cragpup");
+    const b = hatched("cragpup");
     startJob(a, "pond", DAY);
     startJob(b, "pond", DAY);
     simulateTo(a, DAY + min(120));
@@ -220,9 +219,9 @@ describe("coming home", () => {
   });
 
   it("lets a job that is still out when the creature evolves finish, and counts it in the new stage", () => {
-    const save = hatched("fennix");
+    const save = hatched("cragpup");
     startJob(save, "pond", DAY);
-    forceEvolve(save, "pyrefang", DAY + min(1));
+    forceEvolve(save, "gravelhorn", DAY + min(1));
     expect(save.creature!.counters.chores).toBe(0); // a new stage starts from nothing
     simulateTo(save, DAY + min(spots.pond.minutes));
     expect(save.creature!.counters.chores).toBe(1);
@@ -268,7 +267,7 @@ describe("while the creature is away", () => {
 
 describe("the welcome-back cards", () => {
   it("shows the oldest first and says when there are none", () => {
-    const save = hatched("solarion");
+    const save = hatched("cindermane");
     for (const id of ["meadow", "herbs"] as const) {
       startJob(save, id, save.lastSimulatedAt);
       simulateTo(save, save.lastSimulatedAt + min(spots[id].minutes));
@@ -281,7 +280,7 @@ describe("the welcome-back cards", () => {
   });
 
   it("forgets the oldest cards past the limit, but keeps every coin", () => {
-    const save = hatched("solarion");
+    const save = hatched("cindermane");
     const jobs = habitatTuning.unseenHaulsMax + 2;
     let t = DAY;
     let earned = 0; // the coins on the card of every job, counted as each one comes home
@@ -302,39 +301,25 @@ describe("the welcome-back cards", () => {
   });
 });
 
-describe("jobs and the evolution rules", () => {
-  it("counts jobs for the chores rule, and a new stage starts again from none", () => {
-    const save = hatched("solarion");
+describe("jobs and evolving", () => {
+  it("counts jobs in the stage, and a new stage starts again from none", () => {
+    const save = hatched("cindermane");
     startJob(save, "meadow", DAY);
     simulateTo(save, DAY + min(spots.meadow.minutes));
-    expect(metricValue(save.creature!, "chores")).toBe(1);
-    forceEvolve(save, "citadrake", DAY + min(10));
-    expect(metricValue(save.creature!, "chores")).toBe(0);
+    expect(save.creature!.counters.chores).toBe(1);
+    forceEvolve(save, "gravelhorn", DAY + min(10));
+    expect(save.creature!.counters.chores).toBe(0);
   });
 
-  it("counts a job finished in the very minute an evolution opens, so that chore can decide the form", () => {
-    const save = hatched("pip");
+  it("does not count the minutes a baby spends away on a job toward its field cells", () => {
+    const save = hatched("blip");
     const c = save.creature!;
-    const minutes = spots.meadow.minutes;
-    c.stageStartedAt = DAY + min(minutes) - 24 * 60 * MINUTE; // the 24 hour mark falls on the minute the job ends
-    c.counters.foodEaten.berry = 4;
-    setLaterCounter(save, "chores", 2); // one short of the three the path to Shellby wants
+    c.place = "land";
     startJob(save, "meadow", DAY);
-    simulateTo(save, DAY + min(minutes - 1));
-    expect(save.creature!.formId).toBe("pip");
-    simulateTo(save, DAY + min(minutes));
-    expect(save.creature!.formId).toBe("shellby");
-  });
-
-  it("lets dev mode set the total the tree reads, but never below what was really done", () => {
-    const save = hatched("solarion");
-    startJob(save, "meadow", DAY);
-    simulateTo(save, DAY + min(spots.meadow.minutes));
-    setLaterCounter(save, "chores", 15);
-    expect(metricValue(save.creature!, "chores")).toBe(15);
-    setLaterCounter(save, "chores", 0);
-    expect(metricValue(save.creature!, "chores")).toBe(1); // the one real job still counts
-    setLaterCounter(save, "wins", 7);
-    expect(metricValue(save.creature!, "wins")).toBe(7); // the counters that are not in the game yet are set as before
+    simulateTo(save, DAY + min(spots.meadow.minutes - 1));
+    expect(c.counters.fieldMinutes.land ?? 0).toBe(0);
+    simulateTo(save, DAY + min(spots.meadow.minutes + 4)); // home again: the minute it comes back and the 4 after it count
+    expect(c.job ?? null).toBeNull();
+    expect(c.counters.fieldMinutes.land ?? 0).toBe(5);
   });
 });

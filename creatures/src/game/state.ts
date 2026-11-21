@@ -5,8 +5,7 @@ import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
 import { makeRng } from "./rng";
-import type { LaterMetric } from "./metrics";
-import type { CombatStat, EggPattern, FoodId } from "./types";
+import type { CombatStat, EggPattern, FieldId, FoodId, Place } from "./types";
 
 export type Phase = "egg" | "alive" | "dead";
 export type CallKind = "sick" | "hungry" | "dirty" | "sad" | "sleepy";
@@ -17,22 +16,20 @@ export interface Stats {
   energy: number;
   hygiene: number;
   wellness: number; // low wellness means sickness (not the same as battle HP)
-  discipline: number; // nothing raises it yet; only the evolution rules read it (Phase 3 combat will use it)
+  discipline: number; // nothing raises it yet; only combat reads it (the chance of sulking)
 }
 
-// Counters for the current stage. They reset at each evolution and decide the next form.
-// `later` holds the numbers of systems that do not exist yet (training, battles, jobs, trained
-// stats). Nothing but dev mode writes to it. It is optional so saves made before Phase 2 still load.
+// Counters for the current stage. They reset at each evolution and decide the next form (game/growth.ts):
+// field minutes pick the kid, servings pick the young, and cells and care mistakes pick the adult.
 export interface Counters {
-  careMistakes: number;
-  foodEaten: Record<FoodId, number>;
-  neglectMinutes: number;
-  happinessSum: number; // add the happiness of every awake minute...
-  happinessMinutes: number; // ...and count the minutes, to get the average
-  later?: Partial<Record<LaterMetric, number>>;
-  chores?: number; // jobs finished in this stage (optional so older saves still load)
-  battles?: number; // fights fought in this stage, won or lost (optional so older saves still load)
-  wins?: number; // fights won in this stage (optional so older saves still load)
+  fieldMinutes: Partial<Record<FieldId, number>>; // awake minutes spent in each field (the baby stage)
+  servings: Partial<Record<FoodId, number>>; // meals eaten, by food (the kid stage)
+  hungerCells: number; // feedings that filled the creature up, at most tuning.growth.careCellsMax (the young stage)
+  happyCells: number; // times happiness reached 100, at most the same (the young stage)
+  careMistakes: number; // calls left unanswered too long
+  chores?: number; // jobs finished in this stage
+  battles?: number; // fights fought in this stage, won or lost
+  wins?: number; // fights won in this stage
 }
 
 // A creature out working at a habitat spot. It is back when game time reaches endsAt.
@@ -53,6 +50,8 @@ export interface Haul {
 
 export interface Creature {
   formId: string;
+  eggPattern: EggPattern; // the egg it hatched from: it names the field a baby grows toward if never taken to one
+  place: Place; // at home, or in one of the fields (the picture behind it, and where a baby's field minutes count)
   bornAt: number;
   stageStartedAt: number;
   stats: Stats;
@@ -84,7 +83,7 @@ export interface LogEntry {
 }
 
 export interface Save {
-  version: 2;
+  version: 3;
   phase: Phase;
   egg: Egg | null;
   creature: Creature | null; // kept after death, so the last form can still be shown
@@ -101,11 +100,11 @@ export interface Save {
 
 export function freshCounters(): Counters {
   return {
+    fieldMinutes: {},
+    servings: {},
+    hungerCells: 0,
+    happyCells: 0,
     careMistakes: 0,
-    foodEaten: { berry: 0, meat: 0, fish: 0, candy: 0 },
-    neglectMinutes: 0,
-    happinessSum: 0,
-    happinessMinutes: 0,
     chores: 0,
     battles: 0,
     wins: 0,
@@ -120,7 +119,7 @@ export function newEgg(nowMs: number, pattern?: EggPattern): Egg {
 export function newSave(nowMs: number, seed: number): Save {
   const rng = makeRng(seed);
   const save: Save = {
-    version: 2,
+    version: 3,
     phase: "egg",
     egg: newEgg(nowMs, rng.pick(eggPatterns)),
     creature: null,
@@ -152,7 +151,7 @@ export function isSave(value: unknown): value is Save {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Partial<Save>;
   return (
-    v.version === 2 &&
+    v.version === 3 &&
     (v.phase === "egg" || v.phase === "alive" || v.phase === "dead") &&
     typeof v.lastSimulatedAt === "number" &&
     typeof v.rngState === "number" &&
@@ -164,12 +163,9 @@ export function isSave(value: unknown): value is Save {
   );
 }
 
-// Turn data read from storage into a current save, or null if it is not one. A version 1 save
-// (made before the habitat) gets an empty purse, an empty bag and no finished jobs.
+// Turn data read from storage into a current save, or null if it is not one. Only version 3 is read: the Paradise growth
+// rules replaced every old form, so an older save has no creature that could carry on (the owner chose a clean start, and the
+// loader keeps an unreadable save under another name, see sync/local.ts).
 export function migrateSave(value: unknown): Save | null {
-  if (typeof value === "object" && value !== null && (value as { version?: unknown }).version === 1) {
-    const old = value as Record<string, unknown>;
-    value = { ...old, version: 2, coins: 0, inventory: {}, hauls: [] };
-  }
   return isSave(value) ? value : null;
 }

@@ -229,8 +229,17 @@ input:focus-visible {
 .care,
 .tray {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 8px;
+}
+
+.care {
+  grid-template-columns: repeat(5, 1fr); /* feed, clean, lights, medicine, go somewhere */
+}
+
+/* The food list (up to five) and the list of places (four) each fit on one row, whatever the count. */
+.tray {
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
 }
 
 .tray {
@@ -275,7 +284,8 @@ input:focus-visible {
   min-height: 64px; /* the same height as the row of spots it stands in for, so the picture does not jump */
 }
 
-.btn.spot {
+.btn.spot,
+.btn.place {
   position: relative;
   min-height: 64px;
   background: var(--panel-hi);

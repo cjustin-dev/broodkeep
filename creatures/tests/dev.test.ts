@@ -5,14 +5,16 @@ import {
   forceHatch,
   killCreature,
   resetAll,
-  setLaterCounter,
+  setCareCounter,
+  setFieldMinutes,
+  setPlace,
   setPoop,
+  setServings,
   setStat,
   skipAhead,
   spawnEgg,
 } from "../src/game/dev";
 import { forms } from "../src/data/forms";
-import { metricValue } from "../src/game/metrics";
 import { simulateTo } from "../src/game/sim";
 import { HOUR, gameNow } from "../src/game/time";
 import { aliveSave, at } from "./helpers";
@@ -24,7 +26,7 @@ describe("dev tools", () => {
     skipAhead(save, 6, t0);
     expect(save.clockOffsetMs).toBe(6 * HOUR);
     expect(gameNow(save, t0)).toBe(t0 + 6 * HOUR);
-    expect(save.creature?.formId).toBe("pip"); // 6 hours is the length of the baby stage
+    expect(save.creature?.formId).toBe("pebblin"); // 6 hours is the length of the baby stage
   });
 
   it("time multiplier adds the extra game time, and 1x adds nothing", () => {
@@ -49,8 +51,8 @@ describe("dev tools", () => {
     const t0 = at(8);
     const save = aliveSave("blip", t0);
     save.creature!.counters.careMistakes = 4;
-    forceEvolve(save, "fennix", t0 + HOUR);
-    expect(save.creature?.formId).toBe("fennix");
+    forceEvolve(save, "cragpup", t0 + HOUR);
+    expect(save.creature?.formId).toBe("cragpup");
     expect(save.creature?.counters.careMistakes).toBe(0);
     expect(save.creature?.stageStartedAt).toBe(t0 + HOUR);
   });
@@ -60,9 +62,9 @@ describe("dev tools", () => {
     const save = aliveSave("blip", t0);
     spawnEgg(save, t0);
     expect(save.phase).toBe("egg");
-    forceHatch(save, "pip", t0);
+    forceHatch(save, "pebblin", t0);
     expect(save.phase).toBe("alive");
-    expect(save.creature?.formId).toBe("pip");
+    expect(save.creature?.formId).toBe("pebblin");
   });
 
   it("refuses an unknown form without damaging the save", () => {
@@ -96,25 +98,40 @@ describe("dev tools", () => {
     expect(fresh.settings.sleepStartHour).toBe(22);
   });
 
-  it("sets the numbers of later systems, whole and between 0 and 999, and they reset at evolution", () => {
+  it("sets the growth numbers whole and between 0 and the top, and they reset at evolution", () => {
     const t0 = at(8);
-    const save = aliveSave("fennix", t0);
-    setLaterCounter(save, "strength", 40.6);
-    setLaterCounter(save, "wins", -3);
-    setLaterCounter(save, "battles", 5000);
-    setLaterCounter(save, "chores", Number.NaN);
-    // The number the tree reads is the typed total. Strength is a real stat now, so what is stored is the part above it.
-    const totals = () => (["strength", "wins", "battles", "chores"] as const).map((m) => metricValue(save.creature!, m));
-    expect(totals()).toEqual([41, 0, 999, 0]);
-    expect(save.creature?.counters.later).toEqual({ strength: 41 - forms.fennix.baseStats.str, wins: 0, battles: 999, chores: 0 });
-    forceEvolve(save, "pyrefang", t0 + HOUR);
-    expect(save.creature?.counters.later ?? {}).toEqual({});
+    const save = aliveSave("blip", t0);
+    setFieldMinutes(save, "land", 40.6);
+    setFieldMinutes(save, "water", -3);
+    setServings(save, "meat", 7);
+    setCareCounter(save, "careMistakes", 5000);
+    setCareCounter(save, "hungerCells", Number.NaN);
+    setCareCounter(save, "happyCells", 40); // the cells stop at the same top as the real count
+    const counters = save.creature!.counters;
+    expect(counters.fieldMinutes).toEqual({ land: 41, water: 0 });
+    expect(counters.servings).toEqual({ meat: 7 });
+    expect([counters.careMistakes, counters.hungerCells, counters.happyCells]).toEqual([99, 0, 5]);
+    forceEvolve(save, "pebblin", t0 + HOUR);
+    expect(save.creature!.counters.fieldMinutes).toEqual({});
+    expect(save.creature!.counters.servings).toEqual({});
+    expect(save.creature!.counters.careMistakes).toBe(0);
   });
 
-  it("setting later numbers with no creature does nothing", () => {
-    const save = aliveSave("fennix", at(8));
+  it("puts the creature in any place, with none of the checks the real action makes", () => {
+    const save = aliveSave("blip", at(8));
+    setPlace(save, "water"); // locked, but dev mode may still go
+    expect(save.creature!.place).toBe("water");
+    setPlace(save, "home");
+    expect(save.creature!.place).toBe("home");
+  });
+
+  it("setting growth numbers or a place with no creature does nothing", () => {
+    const save = aliveSave("blip", at(8));
     save.creature = null;
-    setLaterCounter(save, "strength", 5);
+    setFieldMinutes(save, "land", 5);
+    setServings(save, "meat", 5);
+    setCareCounter(save, "careMistakes", 5);
+    setPlace(save, "land");
     expect(save.creature).toBeNull();
   });
 });

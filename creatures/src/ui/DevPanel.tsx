@@ -18,7 +18,6 @@ import {
   skipAhead,
   spawnEgg,
 } from "../game/dev";
-import { happinessAverage } from "../game/metrics";
 import type { Stats } from "../game/state";
 import { HOUR } from "../game/time";
 import { DevTree } from "./DevTree";
@@ -38,7 +37,7 @@ const when = (ms: number): string => {
 
 export function DevPanel({ game, onClose }: { game: Game; onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [formId, setFormId] = useState("fennix");
+  const [formId, setFormId] = useState("cragpup");
   const [sure, setSure] = useState(false);
   useEffect(() => closeRef.current?.focus(), []);
 
@@ -97,10 +96,8 @@ export function DevPanel({ game, onClose }: { game: Game; onClose: () => void })
                 <dd>{((now - c.stageStartedAt) / HOUR).toFixed(1)} h</dd>
                 <dt>Care mistakes</dt>
                 <dd>{c.counters.careMistakes}</dd>
-                <dt>Minutes neglected</dt>
-                <dd>{c.counters.neglectMinutes}</dd>
-                <dt>Average happiness</dt>
-                <dd>{happinessAverage(c.counters).toFixed(0)}</dd>
+                <dt>Place</dt>
+                <dd>{c.place}</dd>
                 <dt>Call</dt>
                 <dd>{c.call ?? "none"}</dd>
               </>
