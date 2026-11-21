@@ -4,9 +4,14 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-20)
 
-Scaffold done on branch `broodkeep-scaffold`, pushed to origin on 2026-11-20 (owner approved). `main` untouched. No game code.
-Phase 1 not started. The old Cloudflare project still shows the old repo name `kharbranth` (stale label), which is moot
-because that project is being deleted.
+Scaffold is MERGED to `main` (PR #1, merge commit 389934e) and LIVE at https://broodkeep.pages.dev (second Pages project,
+root dir `creatures`, built from `main`). No game code. Phase 1 not started.
+Live check 2026-11-21: all security headers present on `/` and `/api/*` (`no-store`), and source files such as
+`/package.json` and `/wrangler.toml` return the placeholder page, not the real files. The placeholder D1 id did not
+break the deploy.
+Local branch `broodkeep-scaffold` has 3 notes-only commits not on `main`; they ride along with the next branch.
+Pages gotcha seen: "Retry deployment" rebuilds the OLD commit. After a merge, look for the new deployment instead.
+Dashboard gotcha seen: the Workers setup flow shows a "Deploy command" box; the Pages flow does not. Use the Pages flow.
 
 Verified locally: `npm run build`, `npm run typecheck` and `npm test` exit 0. `public/_headers` was checked
 by serving `dist` with `wrangler pages dev` (headers present on `/`, `/api/*` and assets, absent when the
@@ -34,7 +39,8 @@ file is removed). The built `index.html` has no inline script or style, so the C
 
 ## Next
 
-1. Owner: delete the old Cloudflare Pages project (check it has no custom domain first).
-2. Owner: merge the branch to `main` on GitHub (no gh CLI or token on the hub).
-3. Owner: create the Cloudflare Pages project `broodkeep` (root `creatures`, build `npm run build`, output `dist`).
-4. Then Phase 1 (single local creature), only on the owner's go-ahead.
+1. Owner: confirm the old Cloudflare project is deleted (or leave it; it is disposable).
+2. Owner's call: delete the old site files at the repo root, now that nothing serves them.
+3. Phase 1 (single local creature), only on the owner's go-ahead.
+4. Phase 5 note: the host falls back to `index.html` with 200 for unknown paths, so `/api/typo` returns 200 HTML today.
+   Once Functions exist, unknown API routes should return a JSON 404.
