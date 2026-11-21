@@ -257,7 +257,7 @@ input:focus-visible {
 
 .nav {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 
@@ -313,6 +313,52 @@ input:focus-visible {
   min-width: 32px;
   display: grid;
   animation: rise 0.2s var(--ease) both;
+}
+
+/* ---------- arena ---------- */
+
+.btn.wide.fight {
+  min-height: 76px; /* the same height as the fight buttons and the result strip, so the picture does not jump */
+}
+
+.fightbtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 0.6fr;
+  gap: 12px;
+}
+
+/* What a fight paid, as a strip in the dock (not over the picture, so the last blow stays in view). Tap to put it away. */
+.result {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  color: var(--ink);
+  min-height: 76px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--lift), inset 0 0 0 2px var(--accent);
+  cursor: pointer;
+  animation: rise 0.25s var(--ease) both;
+}
+
+.result[data-won="false"] {
+  box-shadow: var(--lift), inset 0 0 0 2px var(--low);
+}
+
+.result:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.result-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 /* ---------- welcome back (what a finished job brought home) ---------- */

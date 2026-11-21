@@ -8,7 +8,7 @@ import type { Battle, BattleAction } from "../src/game/combat/battle";
 import { beginFight, fightRefusal, finishFight, isBossRung, mostUsed, rungOf } from "../src/game/combat/fight";
 import { stepRecovery } from "../src/game/combat/recovery";
 import { addTrained, currentHp, maxHp, statTotal } from "../src/game/combat/stats";
-import { forceEvolve, killCreature, setHpPercent, setLaterCounter } from "../src/game/dev";
+import { forceEvolve, killCreature, rungNumber, setHpPercent, setLaterCounter, setRung } from "../src/game/dev";
 import { metricValue } from "../src/game/metrics";
 import { simulateTo } from "../src/game/sim";
 import type { Creature, Save } from "../src/game/state";
@@ -210,6 +210,17 @@ describe("one round of a fight", () => {
     expect(lose.over).toBe("lost");
     expect(lose.events).toHaveLength(1);
     expect(lose.events[0]).toMatchObject({ actor: "foe", ko: true });
+  });
+
+  it("remembers each side's HP from before the round, so the screen can replay the blows in order", () => {
+    const b = battleOf({ str: 20 }, { str: 20 });
+    playRound(b, "attack", FIXED_FOE.attack);
+    expect(b.hpBefore).toEqual({ me: 1000, foe: 1000 });
+    const lost = (side: "me" | "foe"): number => b.events.filter((e) => e.actor !== side).reduce((sum, e) => sum + e.damage, 0);
+    expect([b.me.hp, b.foe.hp]).toEqual([1000 - lost("me"), 1000 - lost("foe")]);
+    const afterOne = { me: b.me.hp, foe: b.foe.hp };
+    playRound(b, "attack", FIXED_FOE.attack);
+    expect(b.hpBefore).toEqual(afterOne);
   });
 
   it("does nothing once the fight is over", () => {
@@ -621,5 +632,32 @@ describe("combat and the evolution rules", () => {
     forceEvolve(save, "pyrefang", DAY + MINUTE);
     expect(save.creature!.hp).toBeUndefined();
     expect(currentHp(save.creature!)).toBe(maxHp(save.creature!));
+  });
+});
+
+describe("dev tools for fights", () => {
+  it("puts the creature on any rung of the ladder, and clamps what is typed", () => {
+    const save = hatched("nubbin");
+    const top = tune.ladder.length;
+    setRung(save, 4);
+    expect([rungNumber(save), rungOf(save.creature!)]).toEqual([4, 4]);
+    setRung(save, 99);
+    expect(rungNumber(save)).toBe(top);
+    expect(isBossRung(rungNumber(save))).toBe(true);
+    setRung(save, -3);
+    expect(rungNumber(save)).toBe(1);
+    expect(save.creature!.rung).toBeUndefined(); // the first rung is the same as never having fought
+    setRung(save, 3.6);
+    expect(rungNumber(save)).toBe(4);
+    setRung(save, Number.NaN);
+    expect(rungNumber(save)).toBe(1);
+  });
+
+  it("does nothing with no creature", () => {
+    const save = hatched("nubbin");
+    save.creature = null;
+    setRung(save, 3);
+    expect(rungNumber(save)).toBe(1);
+    expect(save.creature).toBeNull();
   });
 });

@@ -3,8 +3,10 @@
 
 import { eggPatterns } from "../data/eggs";
 import { getForm } from "../data/forms";
+import { combatTuning } from "../data/combat";
 import { countedValue } from "./metrics";
 import type { LaterMetric } from "./metrics";
+import { rungOf } from "./combat/fight";
 import { currentHp, maxHp } from "./combat/stats";
 import { makeCreature, evolveTo, simulateTo } from "./sim";
 import { clamp, logEvent, newEgg, newSave } from "./state";
@@ -53,6 +55,20 @@ export function setHpPercent(save: Save, percent: number): void {
 export function hpPercent(save: Save): number {
   const c = save.creature;
   return c ? Math.round((currentHp(c) / maxHp(c)) * 100) : 100;
+}
+
+// Put the creature on a rung of the fight ladder (1 up to the boss), so the boss can be tested without winning up to it.
+export function setRung(save: Save, rung: number): void {
+  const c = save.creature;
+  if (!c) return;
+  const top = combatTuning.ladder.length;
+  const next = Math.min(top, Math.max(1, Math.round(Number.isFinite(rung) ? rung : 1)));
+  if (next === 1) delete c.rung;
+  else c.rung = next;
+}
+
+export function rungNumber(save: Save): number {
+  return save.creature ? rungOf(save.creature) : 1;
 }
 
 export function setSick(save: Save, sick: boolean): void {

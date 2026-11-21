@@ -38,6 +38,7 @@ export interface Battle {
   sulkChance: number; // chance per round that the player's creature ignores the command
   over: null | "won" | "lost";
   events: BattleEvent[]; // what happened in the last round
+  hpBefore: Record<Side, number>; // each side's HP when the last round began, so the screen can play the blows back in order
   rngState: number;
 }
 
@@ -46,7 +47,7 @@ export function newFighter(formId: string, stats: Record<CombatStat, number>, ma
 }
 
 export function newBattle(me: Fighter, foe: Fighter, rung: number, boss: boolean, sulkChance: number, rngState: number): Battle {
-  return { me, foe, rung, boss, round: 0, used: { attack: 0, guard: 0, special: 0 }, sulkChance, over: null, events: [], rngState };
+  return { me, foe, rung, boss, round: 0, used: { attack: 0, guard: 0, special: 0 }, sulkChance, over: null, events: [], hpBefore: { me: me.hp, foe: foe.hp }, rngState };
 }
 
 // The chance that a creature ignores a command, from its discipline.
@@ -92,6 +93,7 @@ export function playRound(b: Battle, choice: BattleAction, chooseFoe: FoeChooser
   if (b.over) return;
   const rng = makeRng(b.rngState);
   b.events = [];
+  b.hpBefore = { me: b.me.hp, foe: b.foe.hp };
   b.round += 1;
 
   let mine: BattleAction | "sulk" = choice === "special" && b.me.meter < combatTuning.meterMax ? "attack" : choice;

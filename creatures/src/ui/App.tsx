@@ -4,6 +4,7 @@ import { eggSprite } from "../art/sprites";
 import { getForm } from "../data/forms";
 import { startNewEgg } from "../game/actions";
 import { ActionBar } from "./ActionBar";
+import { ArenaBar } from "./ArenaBar";
 import { DevPanel } from "./DevPanel";
 import type { Game } from "./game";
 import { HabitatBar } from "./HabitatBar";
@@ -73,7 +74,7 @@ export function App({ game }: { game: Game }) {
         ) : (
           <>
             {save.phase === "alive" && <Nav game={game} />}
-            {game.atHabitat ? <HabitatBar game={game} /> : <ActionBar game={game} />}
+            {game.atHabitat ? <HabitatBar game={game} /> : game.atArena ? <ArenaBar game={game} /> : <ActionBar game={game} />}
           </>
         )}
       </div>
