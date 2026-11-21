@@ -28,18 +28,24 @@ Not checked by me: hatching, feeding and the other screens on a real phone, and 
 
 ## Emotes (branch `creature-emotes`, not pushed)
 
-Owner feedback after the first playtest: more visible emotion for small children. Built the three things asked for:
-food appears and the creature eats it bite by bite (eyes shut while chewing, then a heart and a hop); asleep (and dead)
-it lies flat with eyes shut instead of standing with open eyes; saying no is eyes shut and a slow gentle sway, with the
-old quick rattle kept only for a tapped egg. Design notes in [decisions.md](decisions.md), accepted gaps in
-[known-issues.md](known-issues.md).
+Owner feedback after the first playtest: more visible emotion for small children. Built in two rounds, both committed on
+this branch:
 
-Checks: typecheck, 120 tests (17 new) and build exit 0. 17 deliberate code mutations on the new code were all caught (one
-was first missed because a test only looked at the end state, and was fixed). The built game was driven in a headless
-phone browser through eating, refusing, a Blip, Pip and Fennix asleep and a dead Fennix, with no console errors.
-A cheap-model review found 3 real issues (meal not cancelled by death, food position not on a whole pixel, missing
-tests), all fixed. Not checked: a real phone, and the sway as motion (tests cover its size and speed, the pictures are
-stills).
+1. Eating (food drops in, four bites, eyes shut while chewing, then a heart and a hop), lying flat with eyes shut when
+   asleep or dead, and a slow gentle "no" (eyes shut, slow sway) instead of a rattle. The quick rattle stays for a tapped
+   egg.
+2. On the owner's go-ahead, the rest: blinking, sad (slumped, heavy lids, tears), sick (slump, sway), hungry (tummy
+   rumble), sleepy (heavy lids, yawn), a pink blanket over the sleeping creature, and pupils that look up at falling food.
+
+Design notes in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
+
+Checks (round 2, on top of round 1): typecheck, 147 tests and build exit 0. 41 deliberate code mutations of the emote code
+were all caught (several tests were first too weak and were tightened). The built game was driven in a headless phone
+browser for every feeling (time-lapse close-ups of eating, hungry, tired, sad, sad and tired, sick, asleep with the
+blanket) with no console errors, and the earlier two-finger and failed-read browser checks still pass. Both rounds had a
+cheap-model review; round 1 found 3 real issues and round 2 found 5, all fixed (a sad creature now stays slumped while
+yawning, chewing or saying no, tears line up with the eyes, the wander roll is spread correctly after the growl and yawn
+chances). Not checked: a real phone, and the motion as motion (tests cover sizes and timing, the pictures are stills).
 
 ## Open for the owner
 
@@ -63,7 +69,8 @@ stills).
 
 ## Next
 
-1. Owner reviews the emotes (after a push and merge), and picks which of the suggested extra emotes, if any, to add.
+1. Owner says "push it" for `creature-emotes` (it carries the emotes and the `notes-phase-1-live` notes commit), opens the
+   pull request, merges, and plays it. Feedback on how the emotes feel on a real phone comes next.
 2. Collect the owner's Phase 1 feedback and fix it. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
    after that feedback.
    Work on a new branch, never push `main`, and the owner merges the pull request.

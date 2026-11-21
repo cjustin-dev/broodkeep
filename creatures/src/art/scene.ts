@@ -7,9 +7,9 @@ import { MINUTE, hourOf } from "../game/time";
 import { tuning } from "../data/tuning";
 import { MEAL, eyesClosed, foodLeft, poseOffsets, snackCut } from "./idle";
 import type { Mood, Snack, View } from "./idle";
+import type { Sprite } from "./pixel";
 import { POOP_SPOTS, ROOM } from "./layout";
-import { LIE_WIDTH, faceSprite } from "./face";
-import type { FaceKind } from "./face";
+import { WIDE_WIDTH, blanketBox, eyeSpots, faceSprite, isWide, pickFace } from "./face";
 import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
@@ -19,7 +19,14 @@ import { drawRoom } from "./room";
 export function moodOf(save: Save): Mood {
   const c = save.phase === "alive" ? save.creature : null;
   if (!c) return { asleep: false, sad: false, sick: false, dead: save.phase === "dead" };
-  return { asleep: c.sleep !== null, sad: c.stats.happiness < 30, sick: c.sick, dead: false };
+  return {
+    asleep: c.sleep !== null,
+    sad: c.stats.happiness < 30,
+    sick: c.sick,
+    dead: false,
+    hungry: c.stats.hunger < 25,
+    sleepy: c.stats.energy < 25,
+  };
 }
 
 const callIcon: Record<CallKind, IconName> = {
@@ -79,17 +86,24 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       : c.sick
         ? { color: "#7bdc6a", amount: 0.4 }
         : undefined;
-    // Asleep or dead: lying flat with eyes shut. Asleep it breathes, one extra row in and out.
+    // Asleep or dead: lying flat with eyes shut. Sad or sick: slumped. Otherwise the picture
+    // follows what it is doing and feeling (blinking, yawning, tired eyes, and so on).
     const lying = asleep || dead;
-    const breath = Math.floor(view.clock / 1.4) % 2 === 0 || dead ? 0 : 1;
-    const kind: FaceKind = lying ? (breath ? "lie1" : "lie0") : eyesClosed(view) ? "closed" : "open";
+    const kind = pickFace(view, asleep, dead);
     const sprite = spriteCanvas(faceSprite(form, kind), `form:${form.id}:${kind}`, tint);
     const onBed = asleep && !dead;
-    const x = dead ? ROOM.deadX : onBed ? ROOM.bedX : view.x + off.dx;
+    const x = Math.round(dead ? ROOM.deadX : onBed ? ROOM.bedX : view.x + off.dx); // whole pixels, so the tears and marks line up
     const y = (onBed ? ROOM.bedY : ROOM.walkY) + (dead ? 0 : off.dy);
-    // The lying picture is wider than the standing one, so it starts further left to stay centered.
-    const drawX = lying ? x - (LIE_WIDTH - ROOM.sprite) / 2 : x;
-    drawSprite(ctx, sprite, drawX, y, { flipX: view.facing === -1, height: sprite.height - (lying ? 0 : off.squash) });
+    // The lying and slumped pictures are wider than the standing one, so they start further left to stay centered.
+    const wide = isWide(kind);
+    const flip = view.facing === -1;
+    const drawX = wide ? x - (WIDE_WIDTH - ROOM.sprite) / 2 : x;
+    drawSprite(ctx, sprite, drawX, y, { flipX: flip, height: sprite.height - (lying ? 0 : off.squash) });
+
+    if (onBed) drawBlanket(ctx, faceSprite(form, kind), drawX, y, flip);
+    // The body is drawn one row lower on a sigh frame, so the tears move down with it.
+    if (kind === "droop" && c.sick === false) drawTears(ctx, faceSprite(form, kind), drawX, y + (lying ? 0 : off.squash), flip, view.clock);
+    if (view.pose === "rumble" && !lying) drawRumble(ctx, x, y, view.poseTime);
 
     if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
 
@@ -127,6 +141,43 @@ function drawSnack(ctx: CanvasRenderingContext2D, snack: Snack, poseTime: number
   if (columns <= 0) return;
   const fall = Math.round(14 * (1 - Math.min(1, poseTime / MEAL.drop)) ** 2); // pixels above the floor
   ctx.drawImage(picture, from, 0, columns, picture.height, snack.x + shift, snack.y - fall, columns, picture.height);
+}
+
+// A blanket tucked up to the creature's chin, so only its face shows.
+function drawBlanket(ctx: CanvasRenderingContext2D, lying: Sprite, x: number, y: number, flip: boolean): void {
+  const box = blanketBox(lying);
+  if (!box) return;
+  const left = flip ? WIDE_WIDTH - 1 - box.right : box.left;
+  const right = flip ? WIDE_WIDTH - 1 - box.left : box.right;
+  const top = y + box.top;
+  const height = box.bottom - box.top + 2; // one pixel past its feet, over the mattress
+  ctx.fillStyle = "#ff8fb3";
+  ctx.fillRect(x + left, top, right - left + 1, height);
+  ctx.fillStyle = "#ffc2d6"; // the folded edge
+  ctx.fillRect(x + left, top, right - left + 1, 1);
+  ctx.fillStyle = "#e0455b"; // the hem
+  ctx.fillRect(x + left, top + height - 1, right - left + 1, 1);
+}
+
+// A tear rolls down from each eye every few seconds.
+function drawTears(ctx: CanvasRenderingContext2D, droop: Sprite, x: number, y: number, flip: boolean, clock: number): void {
+  const progress = (clock % 2.6) / 0.9; // 0 to 1 while the tear falls, then a pause
+  if (progress >= 1) return;
+  ctx.fillStyle = "#9fe0ff";
+  for (const spot of eyeSpots(droop)) {
+    const column = flip ? WIDE_WIDTH - 1 - spot.x : spot.x;
+    ctx.fillRect(x + column, y + spot.y + 1 + Math.round(progress * 5), 1, 2);
+  }
+}
+
+// Little tremble marks either side of a hungry tummy, flickering.
+function drawRumble(ctx: CanvasRenderingContext2D, x: number, y: number, poseTime: number): void {
+  if (Math.floor(poseTime * 10) % 2 !== 0) return;
+  ctx.fillStyle = "#5b3f7a";
+  for (const dy of [9, 11, 13]) {
+    ctx.fillRect(x - 2, y + dy, 2, 1);
+    ctx.fillRect(x + ROOM.sprite, y + dy, 2, 1);
+  }
 }
 
 function drawCracks(ctx: CanvasRenderingContext2D, x: number, y: number, progress: number): void {

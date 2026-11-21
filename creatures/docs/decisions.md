@@ -78,3 +78,32 @@ three. More emotes are listed as suggestions in the owner message, not built.
 - **"No" is slow.** Eyes shut for 1.3 s and a sway of at most 2 pixels at about 2 swings a second, easing in and out. It
   is used for food when full, medicine when not sick, and lights when not tired. The old quick rattle is kept only for a
   tapped egg, as its own pose (`wobble`).
+
+## 2026-11-20: feelings (the rest of the emotes, built on owner approval)
+
+After the first three emotes the owner said to build the others suggested: blinking, sad droop, hungry tummy, sick wobble,
+yawning, a blanket, and eyes that follow food. All visual only, never saved, driven by the creature's stats.
+
+- **Mood comes from stats with fixed cut-offs.** Hungry under 25, sleepy (energy) under 25, sad under 30, sick from the
+  sickness flag. `moodOf` in `scene.ts` makes it and `updateView` copies it into the view each frame.
+- **One function picks the picture:** `pickFace` in `face.ts`. Order: lying (asleep or dead) beats a yawn, a yawn beats
+  closed eyes (chewing, no), then eyes up for falling food, then slumped (sad or sick), then a blink, then heavy eyelids
+  (sleepy), then open. A slumped creature never blinks, because the blink picture is the standing one and the body would
+  pop upright. For the same reason a slumped creature has its own versions of the yawn, chewing and "no" pictures
+  (`droopYawn`, `droopClosed`), so it never stands up straight for them. Only the eyes-up look at falling food is skipped
+  while slumped.
+- **New derived pictures** (all from the one standing grid, see the eye rule above): heavy eyelids (a dark lid line over
+  the top of each eye), looking up (pupil moves to the top row), a wide mouth (a small mouth grows into an oval) and a
+  slump (the lying-down squash at 15% instead of 33%, with both rows of each eye kept).
+- **Eye columns are never doubled when widening.** Doubling a column inside an eye made the two eyes different widths,
+  because both pupils sit on the right. Face rows and eye columns are both protected now.
+- **Sad: slumped, heavy lids, a tear from each eye every 2.6 s, slow sighing.** Sick: the same slump with a one pixel sway
+  and no tears, plus the green tint that already existed. Both sit still and rarely walk.
+- **Hungry: now and then a "rumble"** (the body trembles a pixel for 0.9 s, with little marks beside it). **Sleepy: heavy
+  eyelids and now and then a "yawn"** (1.7 s, eyes shut, oval mouth open for the middle, stretches up a pixel). Each is
+  25% of the creature's idle decisions, so about one every 10 seconds. After the growl and yawn chances are taken off the
+  dice roll, what is left is stretched back over 0 to 1 (`rest`), so a hungry or tired creature still wanders as often
+  as a sad one instead of almost never.
+- **Blink: 0.16 s every 2.5 to 5.5 s** while awake.
+- **The blanket** covers a sleeping creature from the mouth down and a pixel wider each side, so the eyes show. A dead
+  creature has none.

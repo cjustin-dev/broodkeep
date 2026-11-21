@@ -40,8 +40,15 @@
   empty bottom row, so the awake breathing bob and the chewing bob are just the sprite moving down one pixel. Real squash
   frames come with Phase 2 art. The lying-down picture is separate and is a true flat shape.
 - **One meal at a time.** Feeding again during a meal replaces the food on the floor and restarts the eating.
-- **Eyes only open or shut.** No half-closed eyes, no looking toward the food, no blinking yet.
-- **The lying creature has no blanket,** it rests on top of the bed.
+- **The mouth only changes for a yawn.** A sad creature has the same small mouth as a happy one, the sadness is in the
+  heavy eyelids, the slump and the tears. Eyes only look up (at falling food) or stay as drawn, there is no looking around.
+- **The slumped yawn mouth is a wide red oval** (the mouth grows with the widened body), and reads as a small plus sign at
+  a glance. Hand-drawn Phase 2 frames would fix it.
+- **Sick shows as droop, green tint and sway.** There is no separate "sick" face, and a sad and sick creature look alike
+  apart from the tears.
+- **The feelings use fixed cut-offs** (hungry under 25, sleepy under 25, sad under 30), the same idea as the red part of the
+  stat bars. They are in `moodOf` in `scene.ts`.
+- **The blanket sits on top of the bed,** it is a pink rectangle, not a drawing that follows the creature's shape.
 
 ## Backend (Phase 5)
 

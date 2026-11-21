@@ -1,14 +1,26 @@
 // Idle life: how the creature moves around the room when nobody is touching it.
 // This is only for looks. It is never saved and does not change any stat.
 // Reactions (hop for joy, head shake for "no", eating) are started by calling triggerPose
-// or startEating.
+// or startEating. Feelings (sad, sick, hungry, sleepy) come in through the mood.
 
 import type { FoodId } from "../game/types";
 import { ROOM } from "./layout";
 
 // "refuse" is the creature saying no: eyes shut, slow gentle head shake.
 // "wobble" is the quick wiggle of a tapped egg.
-export type Pose = "idle" | "walk" | "hop" | "happy" | "startle" | "refuse" | "wobble" | "eat" | "sleep";
+// "rumble" is a hungry tummy growling, "yawn" is a tired creature yawning.
+export type Pose =
+  | "idle"
+  | "walk"
+  | "hop"
+  | "happy"
+  | "startle"
+  | "refuse"
+  | "wobble"
+  | "eat"
+  | "sleep"
+  | "rumble"
+  | "yawn";
 
 export interface Effect {
   kind: "heart" | "sparkle";
@@ -35,6 +47,8 @@ export interface View {
   clock: number; // seconds since the screen opened, for bobbing
   effects: Effect[];
   snack: Snack | null; // food being eaten, only while the pose is "eat"
+  mood: Mood; // how it feels right now, copied in by updateView
+  nextBlink: number; // clock time of the next blink
 }
 
 export interface Mood {
@@ -42,6 +56,8 @@ export interface Mood {
   sad: boolean;
   sick: boolean;
   dead?: boolean;
+  hungry?: boolean;
+  sleepy?: boolean;
 }
 
 // How long each timed reaction lasts, in seconds.
@@ -52,7 +68,15 @@ const poseLengths: Partial<Record<Pose, number>> = {
   refuse: 1.3,
   wobble: 0.6,
   eat: 2.2,
+  rumble: 0.9,
+  yawn: 1.7,
 };
+
+// A yawn: the mouth is open from `open` to `close` seconds, with the eyes shut the whole time.
+export const YAWN = { open: 0.3, close: 1.4 };
+
+// A blink is short, and comes every few seconds.
+export const BLINK = { length: 0.16, gapMin: 2.5, gapMax: 5.5 };
 
 // A meal, in seconds from the start of the "eat" pose: the food drops in, then four bites with
 // chewing between them, then a moment to swallow. Bite 4 finishes the food.
@@ -69,6 +93,8 @@ export function createView(): View {
     clock: 0,
     effects: [],
     snack: null,
+    mood: { asleep: false, sad: false, sick: false },
+    nextBlink: 2,
   };
 }
 
@@ -103,18 +129,22 @@ export function foodLeft(poseTime: number): number {
   return 1 - bitten / MEAL.bites;
 }
 
-// Which slice of a food picture is still there, and where it sits. The creature is on the side
-// the food is NOT facing away from: facing right it is left of the food and bites its left edge,
-// so the right part stays. Facing left it bites the right edge and the left part stays.
+// Which slice of a food picture is still there, and where it sits. Facing right, the creature is
+// left of the food and bites its left edge, so the right part stays. Facing left it bites the
+// right edge and the left part stays.
 export function snackCut(width: number, left: number, facing: 1 | -1): { from: number; columns: number; shift: number } {
   const columns = Math.round(width * left);
   const gone = width - columns;
   return facing === 1 ? { from: gone, columns, shift: gone } : { from: 0, columns, shift: 0 };
 }
 
-// Eyes are shut while asleep (the caller knows that), saying no, and chewing.
+// Eyes are shut while asleep (the caller knows that), saying no, chewing and yawning.
 export function eyesClosed(view: View): boolean {
-  return view.pose === "refuse" || view.pose === "sleep" || (view.pose === "eat" && view.poseTime >= MEAL.drop);
+  return view.pose === "refuse" || view.pose === "sleep" || view.pose === "yawn" || (view.pose === "eat" && view.poseTime >= MEAL.drop);
+}
+
+export function blinking(view: View): boolean {
+  return view.clock >= view.nextBlink && view.clock < view.nextBlink + BLINK.length;
 }
 
 export function addEffect(view: View, kind: Effect["kind"], x: number, y: number): void {
@@ -125,6 +155,8 @@ export function addEffect(view: View, kind: Effect["kind"], x: number, y: number
 export function updateView(view: View, dt: number, mood: Mood, rand: () => number): void {
   view.clock += dt;
   view.poseTime += dt;
+  view.mood = mood;
+  if (view.clock >= view.nextBlink + BLINK.length) view.nextBlink = view.clock + BLINK.gapMin + rand() * (BLINK.gapMax - BLINK.gapMin);
   view.effects = view.effects.filter((fx) => (fx.age += dt) < fx.life);
   if (mood.dead && view.pose === "eat") setPose(view, "idle", 2); // a meal stops if it dies halfway
   if (view.pose !== "eat") view.snack = null;
@@ -166,15 +198,27 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
 
 function chooseNext(view: View, mood: Mood, rand: () => number): void {
   const roll = rand();
-  if (mood.sick || mood.sad) {
+  // A hungry tummy growls and a tired creature yawns, now and then.
+  let edge = 0;
+  if (mood.hungry) {
+    edge += 0.25;
+    if (roll < edge) return setPose(view, "rumble");
+  }
+  if (mood.sleepy) {
+    edge += 0.25;
+    if (roll < edge) return setPose(view, "yawn");
+  }
+  // What is left of the roll after the growl and yawn chances, spread back over 0 to 1.
+  const rest = (roll - edge) / (1 - edge);
+  if (mood.sick || mood.sad || mood.hungry || mood.sleepy) {
     // Low spirits: mostly sits still, wanders rarely, never hops around.
-    if (roll < 0.25) startWalk(view, rand);
+    if (rest < 0.25) startWalk(view, rand);
     else setPose(view, "idle", 2 + rand() * 3);
     return;
   }
-  if (roll < 0.45) startWalk(view, rand);
-  else if (roll < 0.7) setPose(view, "hop");
-  else if (roll < 0.85) {
+  if (rest < 0.45) startWalk(view, rand);
+  else if (rest < 0.7) setPose(view, "hop");
+  else if (rest < 0.85) {
     view.facing = view.facing === 1 ? -1 : 1;
     setPose(view, "idle", 1 + rand() * 2);
   } else setPose(view, "idle", 1 + rand() * 2);
@@ -217,6 +261,10 @@ export function poseOffsets(view: View): { dx: number; dy: number; squash: numbe
     }
     case "wobble":
       return { dx: Math.round(2 * Math.sin(t * 40)), dy: 0, squash: 0 };
+    case "rumble":
+      return { dx: 0, dy: Math.floor(t * 16) % 2, squash: 0 }; // the whole body trembles
+    case "yawn":
+      return { dx: 0, dy: t >= YAWN.open && t < YAWN.close ? -1 : 0, squash: 0 }; // stretches up
     case "eat": {
       const chewing = t >= MEAL.drop && t < MEAL.drop + MEAL.bite * MEAL.bites;
       return { dx: 0, dy: 0, squash: chewing && Math.sin((t - MEAL.drop) * 16) > 0 ? 1 : 0 };
@@ -225,7 +273,13 @@ export function poseOffsets(view: View): { dx: number; dy: number; squash: numbe
       return { dx: 0, dy: -(Math.floor(view.clock * 8) % 2), squash: 0 }; // little step-bounce
     case "sleep":
       return { dx: 0, dy: 0, squash: 2 };
-    default:
-      return { dx: 0, dy: 0, squash: Math.sin(view.clock * 3) > 0.4 ? 1 : 0 }; // gentle breathing
+    default: {
+      if (view.mood.sick) {
+        // Queasy: a slow sway, one pixel each way, and a heavy slow sigh.
+        return { dx: Math.round(Math.sin(view.clock * 3.8)), dy: 0, squash: Math.sin(view.clock * 1.5) > 0.4 ? 1 : 0 };
+      }
+      const slow = view.mood.sad ? 1.5 : 3; // a sad creature sighs slowly
+      return { dx: 0, dy: 0, squash: Math.sin(view.clock * slow) > 0.4 ? 1 : 0 }; // breathing
+    }
   }
 }
