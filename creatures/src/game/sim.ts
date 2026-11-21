@@ -7,6 +7,8 @@ import { eggPatterns, hatchTable } from "../data/eggs";
 import { getForm } from "../data/forms";
 import { tuning } from "../data/tuning";
 import { stepCare } from "./care";
+import { maxHp } from "./combat/stats";
+import { stepRecovery } from "./combat/recovery";
 import { stepJob } from "./habitat/jobs";
 import { chooseEvolution } from "./evolution";
 import { makeRng } from "./rng";
@@ -51,6 +53,7 @@ function stepMinute(save: Save, rng: Rng, t: number): void {
     stepCare(save, rng, t);
     if (save.phase === "alive") {
       stepJob(save, rng, t); // before evolving, so a job finished this minute counts toward the next form
+      if (save.creature) stepRecovery(save.creature);
       evolveIfReady(save, t);
     }
   }
@@ -102,8 +105,13 @@ export function evolveTo(save: Save, formId: string, t: number): void {
   const c = save.creature;
   if (!c) return;
   const from = getForm(c.formId).name;
+  const hpShare = c.hp === undefined ? null : c.hp / maxHp(c); // a hurt creature stays as hurt, in proportion
   c.formId = getForm(formId).id;
   c.stageStartedAt = t;
   c.counters = freshCounters();
+  // Half the trained points carry over (plan 7.1), and the ladder starts again.
+  if (c.trained) c.trained = Object.fromEntries(Object.entries(c.trained).map(([stat, points]) => [stat, Math.floor(points / 2)]));
+  delete c.rung;
+  if (hpShare !== null) c.hp = Math.min(maxHp(c), Math.round(hpShare * maxHp(c)));
   logEvent(save, t, `${from} evolved into ${getForm(formId).name}`);
 }

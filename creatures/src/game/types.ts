@@ -8,6 +8,9 @@ export type EggPattern = "speckled" | "striped" | "swirled";
 // Life stages, from youngest to oldest.
 export type Stage = "baby" | "training" | "rookie" | "champion" | "ultimate";
 
+// The five combat stats of a form (see Form.baseStats).
+export type CombatStat = "vit" | "str" | "def" | "spi" | "spd";
+
 // The stages in order, so one can be compared with another by position.
 export const stageOrder: Stage[] = ["baby", "training", "rookie", "champion", "ultimate"];
 

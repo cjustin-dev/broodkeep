@@ -5,6 +5,7 @@ import { eggPatterns } from "../data/eggs";
 import { getForm } from "../data/forms";
 import { countedValue } from "./metrics";
 import type { LaterMetric } from "./metrics";
+import { currentHp, maxHp } from "./combat/stats";
 import { makeCreature, evolveTo, simulateTo } from "./sim";
 import { clamp, logEvent, newEgg, newSave } from "./state";
 import type { Save, Stats } from "./state";
@@ -38,6 +39,20 @@ export function setLaterCounter(save: Save, metric: LaterMetric, value: number):
   const whole = Number.isFinite(value) ? Math.max(0, Math.min(999, Math.round(value))) : 0;
   const extra = Math.max(0, whole - countedValue(save.creature, metric));
   save.creature.counters.later = { ...save.creature.counters.later, [metric]: extra };
+}
+
+// Set battle HP as a share of the maximum (0 to 100). Full means "never hurt".
+export function setHpPercent(save: Save, percent: number): void {
+  const c = save.creature;
+  if (!c) return;
+  const share = Math.min(100, Math.max(0, Number.isFinite(percent) ? percent : 100)) / 100;
+  if (share >= 1) delete c.hp;
+  else c.hp = Math.round(maxHp(c) * share);
+}
+
+export function hpPercent(save: Save): number {
+  const c = save.creature;
+  return c ? Math.round((currentHp(c) / maxHp(c)) * 100) : 100;
 }
 
 export function setSick(save: Save, sick: boolean): void {

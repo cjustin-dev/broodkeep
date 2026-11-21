@@ -194,14 +194,17 @@ describe("the plan's examples", () => {
 });
 
 describe("how rules read a creature", () => {
-  it("a save from before Phase 2 (no `later` counters) reads the later metrics as 0", () => {
+  it("a save from before Phase 2 (no `later` counters) reads the counted systems as 0 and the stats as the form's own", () => {
     const c = makeCreature("fennix", 0);
     delete c.counters.later;
-    for (const metric of ["training", "battles", "wins", "chores", "strength", "defense", "spirit"] as const) {
+    for (const metric of ["training", "battles", "wins", "chores"] as const) {
       expect(metricValue(c, metric), metric).toBe(0);
     }
-    expect(needMet({ strengthMin: 1 }, c)).toBe(false);
-    expect(needMet({ strengthMax: 0 }, c)).toBe(true);
+    const base = forms.fennix.baseStats;
+    expect([metricValue(c, "strength"), metricValue(c, "defense"), metricValue(c, "spirit")]).toEqual([base.str, base.def, base.spi]);
+    expect(needMet({ strengthMin: base.str }, c)).toBe(true);
+    expect(needMet({ strengthMin: base.str + 1 }, c)).toBe(false);
+    expect(needMet({ strengthMax: base.str - 1 }, c)).toBe(false);
   });
 
   it("adds up food, and reads the later metrics from counters.later", () => {
@@ -223,12 +226,14 @@ describe("how rules read a creature", () => {
 
   it("describeNeed gives one line per rule with pass or fail, and marks systems that do not exist yet", () => {
     const c = makeCreature("fennix", 0);
-    c.counters.later = { strength: 12, wins: 5 };
-    const rows = describeNeed({ strengthMin: 20, winsMin: 5, careMistakesMax: 3 }, c);
+    c.counters.later = { strength: 12, wins: 5, training: 2 };
+    const strength = forms.fennix.baseStats.str + 12; // a real stat plus what dev mode added
+    const rows = describeNeed({ strengthMin: strength + 1, winsMin: 5, trainingMin: 3, careMistakesMax: 3 }, c);
     expect(rows.map((r) => [r.metric, r.have, r.pass, r.tracked])).toEqual([
       ["careMistakes", 0, true, true],
-      ["wins", 5, true, false],
-      ["strength", 12, false, false],
+      ["training", 2, false, false],
+      ["wins", 5, true, true],
+      ["strength", strength, false, true],
     ]);
   });
 
@@ -244,13 +249,15 @@ describe("how rules read a creature", () => {
 
   it("ruleText says pass or fail, what is needed, and flags systems that do not exist yet", () => {
     const c = makeCreature("fennix", 0);
-    c.counters.later = { strength: 12 };
+    c.counters.later = { strength: 12, training: 2 };
     c.counters.happinessMinutes = 10;
     c.counters.happinessSum = 725; // 72.5 average
-    const [careRow, happyRow, strengthRow] = describeNeed({ careMistakesMax: 3, happinessAvgMin: 70, strengthMin: 40 }, c);
+    const need = { careMistakesMax: 3, happinessAvgMin: 70, trainingMin: 3, strengthMin: 40 };
+    const [careRow, happyRow, trainingRow, strengthRow] = describeNeed(need, c);
     expect(ruleText(careRow!)).toBe("✓ care mistakes: 0 (need at most 3)");
     expect(ruleText(happyRow!)).toBe("✓ average happiness: 72.5 (need at least 70)");
-    expect(ruleText(strengthRow!)).toBe("✗ strength: 12 (need at least 40), not in the game yet");
+    expect(ruleText(trainingRow!)).toBe("✗ training sessions: 2 (need at least 3), not in the game yet");
+    expect(ruleText(strengthRow!)).toBe(`✗ strength: ${forms.fennix.baseStats.str + 12} (need at least 40)`);
     c.counters.happinessSum = 699.6; // 69.96, which must not show as 70
     expect(ruleText(describeNeed({ happinessAvgMin: 70 }, c)[0]!)).toBe("✗ average happiness: 69.96 (need at least 70)");
     const [both] = describeNeed({ careMistakesMin: 1, careMistakesMax: 4 }, c);
