@@ -5,8 +5,8 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 ## State (2026-11-20)
 
 Scaffold done on branch `broodkeep-scaffold`, pushed to origin on 2026-11-20 (owner approved). `main` untouched. No game code.
-Phase 1 not started. Old-project Git connection still shows the old repo name `kharbranth` in the Cloudflare dashboard
-(stale label, unconfirmed whether builds still work). The push is the test: watch the old project's Deployments tab.
+Phase 1 not started. The old Cloudflare project still shows the old repo name `kharbranth` (stale label), which is moot
+because that project is being deleted.
 
 Verified locally: `npm run build`, `npm run typecheck` and `npm test` exit 0. `public/_headers` was checked
 by serving `dist` with `wrangler pages dev` (headers present on `/`, `/api/*` and assets, absent when the
@@ -14,8 +14,13 @@ file is removed). The built `index.html` has no inline script or style, so the C
 
 ## Open decisions for the owner
 
-- Root `_redirects` to hide `creatures/` source on the old site. A 404 rule is not supported by Cloudflare Pages
-  (tested: silently ignored). `/creatures/* / 302` works (tested on a scratch copy). Waiting for a yes.
+- DECIDED 2026-11-20: the owner said the old Cloudflare project (`kharbranth`) is disposable (just made, nothing depends on
+  it). Plan: delete it, then create one new Pages project `broodkeep` (root dir `creatures`). That makes the root
+  `_redirects` rule, the build watch paths and the old-connection test unnecessary. Kept for reference if the old
+  project is ever kept: a 404 rule in `_redirects` is not supported (tested: silently ignored), and `/creatures/* / 302`
+  works (tested on a scratch copy).
+- Optional, owner's call: delete the old site files at the repo root (index.html, css/, js/, img/, fonts/, _headers,
+  robots.txt, sitemap.xml, style.css, favicon.png). They are harmless once nothing serves the root.
 - Placeholder D1 `database_id` in wrangler.toml: unknown whether the first Pages deploy accepts it.
   If the first build fails with a D1 error, comment out the `[[d1_databases]]` block until Phase 5.
 
@@ -29,8 +34,7 @@ file is removed). The built `index.html` has no inline script or style, so the C
 
 ## Next
 
-1. Owner: yes/no on the `_redirects` rule.
-2. Owner: report whether the old Cloudflare project started a build for `broodkeep-scaffold` (connection test).
-3. Owner: merge the branch to `main` on GitHub (no gh CLI or token on the hub), then create the second Cloudflare Pages
-   project (steps given at hand-off).
+1. Owner: delete the old Cloudflare Pages project (check it has no custom domain first).
+2. Owner: merge the branch to `main` on GitHub (no gh CLI or token on the hub).
+3. Owner: create the Cloudflare Pages project `broodkeep` (root `creatures`, build `npm run build`, output `dist`).
 4. Then Phase 1 (single local creature), only on the owner's go-ahead.
