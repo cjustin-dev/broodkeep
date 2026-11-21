@@ -15,7 +15,7 @@ evolutions are "the same circle like mass with some small affections", and the o
 redesign section below and [art-direction.md](art-direction.md).
 
 **Phase 3 is being built in four slices** (the owner chose the order and that food stays unlimited): 1) habitat jobs, coins and
-the bag (built, on branch `phase-3a-habitat`, not pushed), 2) turn-based combat with HP, 3) garden plots, standing chores and
+the bag (built, pushed on branch `phase-3a-habitat` 2026-11-21, pull request not merged yet), 2) turn-based combat with HP, 3) garden plots, standing chores and
 habitat upgrades, 4) the Creature Book and the legacy shelf. See "Phase 3 slice 1" below.
 
 **Branch protection is on for `main`** (owner set it 2026-11-21: pull request required, 0 approvals because GitHub has no 0 option
@@ -40,7 +40,7 @@ Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that fou
 built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
 and iOS Safari save-on-close.
 
-## Phase 3 slice 1: the habitat (built 2026-11-21, branch `phase-3a-habitat`, waiting for "push it")
+## Phase 3 slice 1: the habitat (built and pushed 2026-11-21, branch `phase-3a-habitat`, waiting for the owner to merge)
 
 What it adds: a habitat screen (switch with the house and tree buttons) with five gathering spots. The player taps a spot, the
 creature works there for 3 to 8 real minutes (also while the app is closed) and comes home with coins and a material, shown on
@@ -158,7 +158,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Push `phase-3a-habitat` on the owner's "push it"; the owner merges it, then plays the habitat.
+1. The owner opens and merges the pull request for `phase-3a-habitat` (github.com/cjustin-dev/broodkeep/pull/new/phase-3a-habitat), then plays the habitat.
 2. Phase 3 slice 2: turn-based combat (HP and recovery, wild creature ladders, stat gains that feed `battles`, `wins`,
    `strength`, `defense` and `spirit`). Then slice 3 (garden plots, standing chores, habitat upgrades: the first thing coins
    buy) and slice 4 (the Creature Book and the legacy shelf). Phase 3 makes most Champion and Ultimate paths reachable.
