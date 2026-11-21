@@ -9,7 +9,7 @@ root dir `creatures`, built from `main`). No game code. Phase 1 not started.
 Live check 2026-11-21: all security headers present on `/` and `/api/*` (`no-store`), and source files such as
 `/package.json` and `/wrangler.toml` return the placeholder page, not the real files. The placeholder D1 id did not
 break the deploy.
-Local branch `broodkeep-scaffold` has 3 notes-only commits not on `main`; they ride along with the next branch.
+Local branch `remove-old-site` (not pushed) holds the root-site deletion plus the notes-only commits that are not on `main`.
 Pages gotcha seen: "Retry deployment" rebuilds the OLD commit. After a merge, look for the new deployment instead.
 Dashboard gotcha seen: the Workers setup flow shows a "Deploy command" box; the Pages flow does not. Use the Pages flow.
 
@@ -24,8 +24,9 @@ file is removed). The built `index.html` has no inline script or style, so the C
   `_redirects` rule, the build watch paths and the old-connection test unnecessary. Kept for reference if the old
   project is ever kept: a 404 rule in `_redirects` is not supported (tested: silently ignored), and `/creatures/* / 302`
   works (tested on a scratch copy).
-- Optional, owner's call: delete the old site files at the repo root (index.html, css/, js/, img/, fonts/, _headers,
-  robots.txt, sitemap.xml, style.css, favicon.png). They are harmless once nothing serves the root.
+- Old site files are deleted on branch `remove-old-site` (37 files incl. the template README; not on `main` until that
+  PR is merged). Kept: `LICENSE` (the template author's MIT notice, which could read as the game's license; owner's call)
+  and the root `.gitignore`. Plan sections 1 and 2 and the handoff notes still describe the old site; left as written.
 - Placeholder D1 `database_id` in wrangler.toml: unknown whether the first Pages deploy accepts it.
   If the first build fails with a D1 error, comment out the `[[d1_databases]]` block until Phase 5.
 
@@ -40,7 +41,7 @@ file is removed). The built `index.html` has no inline script or style, so the C
 ## Next
 
 1. Owner: confirm the old Cloudflare project is deleted (or leave it; it is disposable).
-2. Owner's call: delete the old site files at the repo root, now that nothing serves them.
+2. Owner: say "push" so `remove-old-site` goes to GitHub, then merge its PR. It carries the notes-only commits too.
 3. Phase 1 (single local creature), only on the owner's go-ahead.
 4. Phase 5 note: the host falls back to `index.html` with 200 for unknown paths, so `/api/typo` returns 200 HTML today.
    Once Functions exist, unknown API routes should return a JSON 404.

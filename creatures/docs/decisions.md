@@ -5,7 +5,8 @@
 The plan (section 2) called for a second Pages project so the old root site kept working. The owner then said the old
 Cloudflare project was just made and nothing depends on it. Decision: delete it and run ONE Pages project, `broodkeep`,
 with root directory `creatures`. This made a root `_redirects` rule, build watch paths and a connection test unnecessary.
-The old site files stay at the repo root until the owner says to remove them.
+The old site files were then removed from the repo root (2026-11-21, owner approved, branch `remove-old-site`, 37 files
+including the template README). Kept: `LICENSE` (the template author's MIT notice) and the generic root `.gitignore`.
 
 ## 2026-11-20: no `_redirects` rule
 
