@@ -2,13 +2,14 @@
 
 Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Local clone: ~/broodkeep (hub).
 
-## State (2026-11-20)
+## State (2026-11-21)
 
-**Phase 1 is merged (PR #3, `main` at d94c749) and LIVE at https://broodkeep.pages.dev.** The live page serves the same
-asset file names as the local build (`index-CbvsJsE3.js`, `index-C5ifZwfL.css`). Cloudflare Pages project `broodkeep`,
-root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The owner deleted the merged branches on
-GitHub; `main` is the only branch there. Owner feedback so far: on a PC browser and an Android browser the egg shakes when
-tapped. Nothing else reported yet.
+**Phase 1 plus the emotes are merged (PR #3, then PR #4, `main` at b2ccad8) and LIVE at https://broodkeep.pages.dev.**
+The live page serves the same asset file names as the local build (`index-DlVcX8n5.js`, `index-C5ifZwfL.css`, checked
+2026-11-21). Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from
+`main`. The owner deletes merged branches on GitHub. Owner feedback so far: on a PC browser and an Android browser the
+egg shakes when tapped, and then the request for more emotion in the creature (the emotes below). Nothing reported yet
+on how the emotes feel.
 
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
 poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
@@ -26,10 +27,10 @@ code and passes on the new.
 
 Not checked by me: hatching, feeding and the other screens on a real phone, and iOS Safari save-on-close.
 
-## Emotes (branch `creature-emotes`, not pushed)
+## Emotes (merged in PR #4, live 2026-11-21)
 
-Owner feedback after the first playtest: more visible emotion for small children. Built in two rounds, both committed on
-this branch:
+Owner feedback after the first playtest: more visible emotion for small children. Built in two rounds, both merged in
+PR #4:
 
 1. Eating (food drops in, four bites, eyes shut while chewing, then a heart and a hop), lying flat with eyes shut when
    asleep or dead, and a slow gentle "no" (eyes shut, slow sway) instead of a rattle. The quick rattle stays for a tapped
@@ -69,8 +70,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Owner says "push it" for `creature-emotes` (it carries the emotes and the `notes-phase-1-live` notes commit), opens the
-   pull request, merges, and plays it. Feedback on how the emotes feel on a real phone comes next.
+1. Owner plays the live emotes on a real phone (dev mode sets hunger, happiness, energy or sickness to see each feeling)
+   and reports what feels wrong. The stale remote branch `creature-emotes` (recreated by a push after the merge) can be
+   deleted on GitHub.
 2. Collect the owner's Phase 1 feedback and fix it. Phase 2 (all 20 forms, full evolution tree, dev tree viewer) only
    after that feedback.
    Work on a new branch, never push `main`, and the owner merges the pull request.
