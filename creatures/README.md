@@ -1,7 +1,7 @@
 # Broodkeep (the game)
 
 A raise-a-creature game that runs in the browser and installs on a phone. This folder is the whole game.
-It is deployed as its own Cloudflare Pages project, separate from the old website at the repo root.
+It is deployed as one Cloudflare Pages project, `broodkeep`, and this folder is its root directory.
 
 The plan lives in [CLAUDE.md](CLAUDE.md). It is the source of truth for what gets built and in which phase.
 
@@ -74,7 +74,7 @@ The database id in `wrangler.toml` is not a secret, but it is a placeholder unti
 
 ## Deploying
 
-The game is a second Cloudflare Pages project with these settings:
+The game is one Cloudflare Pages project, `broodkeep`, with these settings:
 
 - Root directory: `creatures`
 - Build command: `npm run build`

@@ -70,10 +70,6 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 ## Open for the owner
 
 - Play Phase 1 on a phone and report what feels wrong. Dev mode (gear, tap the version line 7 times) skips the waits.
-- `LICENSE` at the repo root is the old template author's MIT notice. It could read as the game's license. Keep, replace
-  or remove?
-- Plan sections 1 and 2 and the handoff notes still describe the old site and say "do not touch the repo root". Update
-  the plan to match, or leave as history?
 - Add GitHub branch protection on `main`. The hub's deploy key can push any branch.
 
 ## Facts that are easy to get wrong
