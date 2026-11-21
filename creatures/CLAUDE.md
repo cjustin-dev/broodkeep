@@ -7,29 +7,35 @@
 - Build **Phase 1 only**, deploy it, give the phone test steps, then stop for feedback.
 - Sections 7 and 9 describe the whole game. Build only what the current phase lists, but keep the data files and code ready for the later systems (items, recipes, habitat, combat).
 - Explain every Cloudflare dashboard step as plain, numbered instructions. This is the owner's first game and first deploy.
-- Hosting is a second Pages project built from `creatures/`. Do not touch the existing static site at the repo root.
+- Hosting is one Cloudflare Pages project, `broodkeep`, built from the `creatures/` folder (see section 2). The repo root holds nothing else but `.gitignore`.
 - Keep game rules and content in data files (`src/data/`), not in logic, so new creatures can be added later.
 - Keep code commented enough for a beginner to follow.
 - Owner preference: plain, direct writing. No em dashes, no corporate phrasing.
 
 ## 1. What's in the broodkeep repo today
 
-- It's the unmodified "cloudflare-pages-template": plain static HTML, Bootstrap CSS, a few JS libraries and images, all at the repo root.
-- There is no build step, no `package.json` and no `wrangler.toml`. Cloudflare Pages is connected to the repo through Git and just serves the root folder as-is.
-- The template used to have a `functions/` folder (Pages Functions middleware), but your last commit deleted it, so the site is 100% static right now.
-- Deploys happen automatically when you push to `main`.
+- The repo root holds only `.gitignore` and the `creatures/` folder. The game is all of `creatures/`.
+- The repo started as the unmodified "cloudflare-pages-template" (plain static HTML, Bootstrap, no build step). Those files were removed on 2026-11-20, because nothing depended on that site.
+- `creatures/` is a Vite + TypeScript + Preact project: `package.json`, `wrangler.toml`, `src/`, `tests/`, `docs/`, plus `functions/` and `migrations/` that stay mostly empty until Phase 5.
+- There is no license file, so the code is all rights reserved. The template's MIT notice named its author, not this game, and was removed on 2026-11-21.
+- Cloudflare Pages builds from the `main` branch, so a merged pull request deploys. Work happens on feature branches and the owner merges.
 
-## 2. Hosting choice: separate Pages project from a subfolder
+## 2. Hosting: one Pages project from a subfolder
 
-I recommend a **second Cloudflare Pages project** built from a new `creatures/` folder in the same repo, rather than a `/creatures` section of the existing site.
+The game is **one Cloudflare Pages project**, `broodkeep` (https://broodkeep.pages.dev), built from the `creatures/` folder:
 
-Why:
-- The game needs a build step (TypeScript, bundling, PWA files) and backend functions. Adding those to the existing project means changing its build settings, which is exactly how you'd break the current site.
-- A separate project gets its own URL (something like `broodkeep.pages.dev`), its own D1 database binding and its own deploy logs. If a game deploy fails, your main site doesn't notice.
+- Root directory: `creatures`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Branch: `main`
+
+How it got here: the first version of this plan recommended a second Pages project beside the old template site, so a game deploy could never break that site. The old Cloudflare project turned out to be disposable and was deleted, and the old site files were removed from the repo, so there is only the one project.
+
+Why a subfolder with its own project still makes sense:
+- The game needs a build step (TypeScript, bundling, PWA files) and backend functions, and the project settings are built around that.
+- The project has its own URL, its own D1 database binding and its own deploy logs.
 - A PWA works best when it owns the whole origin (its own home-screen icon, offline cache and cookies), not a subpath of another site.
-- You can still link to it from the main site, or give it a subdomain later if you add a custom domain.
-
-One side effect: the existing project serves everything in the repo root, so the game's source files would also be readable at `kharbranth.pages.dev/creatures/...`. Nothing secret lives there (secrets go in Cloudflare settings, never in the repo), so it's harmless. I'll also show you how to set "build watch paths" so game commits don't trigger a pointless rebuild of the main site.
+- A custom domain or subdomain can be added later without moving anything.
 
 ## 3. Tech stack
 
@@ -54,9 +60,8 @@ One side effect: the existing project serves everything in the repo root, so the
 ## 4. Folder layout
 
 ```
-broodkeep/
-  index.html, css/, js/ ...      <- existing site, untouched
-  creatures/                     <- root of the new Pages project
+broodkeep/                       <- the repo root: only .gitignore and creatures/
+  creatures/                     <- root of the Pages project
     package.json, vite.config.ts, wrangler.toml
     index.html
     migrations/0001_init.sql     <- D1 tables
@@ -310,7 +315,7 @@ At the end of each phase I will stop, give you the test URL and phone steps, and
 
 ## 10. What you'll do yourself (preview)
 
-- **Phase 1:** create the second Cloudflare Pages project and point it at the `creatures` folder (about 5 minutes; I'll give numbered steps).
+- **Phase 1:** create the Cloudflare Pages project and point it at the `creatures` folder (about 5 minutes; I'll give numbered steps).
 - **Phase 5:** create a D1 database, bind it to the project, and run one setup command (about 10 minutes; numbered steps then too).
 - No paid plans needed. Everything fits the free tiers.
 

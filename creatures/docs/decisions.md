@@ -145,3 +145,14 @@ add hatch and evolve scenes on top of the derived emotes (no hand-drawn extra fr
   per scene at 80% white, which stays well below the usual limit of three flashes a second. `Game`'s constructor records
   what was on screen before the catch-up, so an evolution that happened while the app was closed still plays.
 
+## 2026-11-21: license removed, plan sections 1 and 2 rewritten
+
+- **`LICENSE` removed.** It was the template author's MIT notice (copyright 2023, a bot imported it with the template), so
+  it named someone else as the holder for this game. With no license file the code is all rights reserved, which is the
+  safe default for a family game. If the owner ever wants others to reuse the code, add a license then with the owner's own
+  name. The earlier "Kept: `LICENSE`" line above is history.
+- **Plan sections 1 and 2 and the handoff hosting note now describe what exists:** one Pages project from `creatures/`,
+  and a repo root with only `.gitignore` and `creatures/`. The folder layout in section 4 and two lines in `README.md`
+  that still said "second project" and "old website" were fixed in the same change. The old Cloudflare project
+  (`kharbranth`) was confirmed deleted by the owner on 2026-11-21.
+
