@@ -14,6 +14,10 @@ evolutions are "the same circle like mass with some small affections", and the o
 **The creature redesign is merged (PR #9, 2026-11-21).** The owner approved the concept sheet first. See the redesign section
 below and [art-direction.md](art-direction.md). Waiting for the owner's phone feedback on it.
 
+**Branch protection is on for `main`** (owner set it 2026-11-21: pull request required, 0 approvals because GitHub has no 0 option
+to pick, force pushes and deletions not allowed; the public API reports `protected: true`). Not tested: whether the hub's deploy
+key can still push to `main` (it must never try).
+
 **The drawing toolkit is in the repo** (`tools/art/`, 2026-11-21, owner said to move it): the Python that drew the 18 creatures,
 `emit.py` to write drawings into the form files and `python3 tools/art/emit.py --check` to see whether they still agree
 (0 differ today), `preview.py` for a contact sheet. The game and the tests never run it. Cheap-model review: 11 points, 10 fixed
@@ -121,7 +125,6 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 - Play the redesign on a phone and report what feels wrong
   (how the creatures look, whether the two-drawing animation pace feels right, the happy eyes). Dev mode (gear, tap the
   version line 7 times) skips the waits and can hatch any form.
-- Add GitHub branch protection on `main`. The hub's deploy key can push any branch.
 
 ## Facts that are easy to get wrong
 
