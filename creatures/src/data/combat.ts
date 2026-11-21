@@ -5,13 +5,13 @@ import type { Stage } from "../game/types";
 
 export const combatTuning = {
   // A creature may fight from this stage up (babies are too small).
-  minStage: "training" as Stage,
+  minStage: "kid" as Stage,
 
   // Max HP is vitality times this.
   hpPerVit: 3,
   // Trained points a creature can have in each stat, by stage (they come from winning fights). Half of them carry
   // over when it evolves. A creature can never train past the cap of its stage.
-  trainedCap: { baby: 0, training: 12, rookie: 20, champion: 32, ultimate: 50 } as Record<Stage, number>,
+  trainedCap: { baby: 0, kid: 12, young: 20, adult: 40 } as Record<Stage, number>,
 
   // Opponent stats are a wild creature's base stats times the number for the rung. The last rung is the boss.
   ladder: [0.7, 0.85, 1.0, 1.15, 1.4],

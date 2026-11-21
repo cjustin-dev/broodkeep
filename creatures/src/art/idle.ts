@@ -39,7 +39,7 @@ export interface Snack {
 }
 
 export interface View {
-  size: number; // width and height of the creature's standing picture (16 to 32), set by updateView
+  size: number; // width and height of the creature's standing picture (16 for an egg, 20 to 48 for a creature), set by updateView
   x: number; // left edge of the sprite
   facing: 1 | -1; // 1 = looking right
   pose: Pose;

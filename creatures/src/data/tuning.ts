@@ -80,6 +80,25 @@ export const tuning = {
   // Petting and tickling make the creature happier, but only so much per hour.
   affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 3 },
 
+  // Growing up (Paradise rules, see docs/paradise-plan.md section 2). Hours are real hours since the stage began.
+  growth: {
+    // Awake minutes in a field that make one cell, and how many cells in one field end the baby stage.
+    fieldCellMinutes: 15,
+    fieldCellsToKid: 4,
+    // A baby that has not reached that grows up anyway after this long (into the field with the most cells).
+    babyHours: 6,
+    kidHours: 24,
+    youngHours: 48,
+    // Servings of one food that make one food cell (the kid's most-fed food decides the young).
+    servingsPerFoodCell: 2,
+    // Hunger cells and happy cells each stop counting at this many (young stage only).
+    careCellsMax: 5,
+    // Mistakes for the adult tiers: at most this many is tier 2, at most the next is tier 3, more is tier 4.
+    // Tier 1 needs full hunger and happy cells and no mistakes at all.
+    tier2MaxMistakes: 1,
+    tier3MaxMistakes: 5,
+  },
+
   // The dev log keeps this many lines.
   logMax: 300,
 };

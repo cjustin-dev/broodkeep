@@ -1,6 +1,6 @@
 # Broodkeep: Plan v2 (expanded design)
 
-**Game name: Broodkeep.** Use it for the PWA name, page titles and the Cloudflare Pages project (`broodkeep`). The game folder in the repo stays `creatures/` so the plan below still reads correctly. The 20 forms and the evolution tree below are approved as written. Version 2 adds the full gameplay design: stats, the habitat and room, the crafting economy, combat details, fun systems and a revised seven-phase order (sections 7 and 9).
+**Game name: Broodkeep.** Use it for the PWA name, page titles and the Cloudflare Pages project (`broodkeep`). The game folder in the repo stays `creatures/` so the plan below still reads correctly. The forms and the evolution tree are replaced by the Paradise growth design in `docs/paradise-plan.md` (section 6). Version 2 adds the full gameplay design: stats, the habitat and room, the crafting economy, combat details, fun systems and a revised seven-phase order (sections 7 and 9).
 
 ## Handoff notes for Claude Code
 
@@ -134,70 +134,11 @@ export const fennix: Form = {
 
 **Offline sync rule: newest save wins, per profile, with a safety net.** Each device keeps playing offline and uploads when it reconnects. If the server already has a newer save for that profile (another device played more recently), the newer one wins and the older one gets copied to `save_backups` instead of disappearing. Past-creatures history is merged rather than overwritten, so a death recorded on one device is never lost. Since each kid mostly plays on one device, real conflicts should be rare.
 
-## 6. The 20 forms and the evolution tree
+## 6. Growth and forms (replaced 2026-11-21)
 
-Egg: there are 3 egg patterns (Speckled, Striped, Swirled). Each is random, and the pattern decides which baby hatches. Eggs aren't counted in the 20.
+The 20 forms and the evolution tree that stood here are gone. The game follows the Paradise growth design instead: egg, baby (Blip), kid by field, young by food, adult by care, 64 original creatures in all. The rules, the ladder, the Land roster, the code changes and the milestones are in [docs/paradise-plan.md](docs/paradise-plan.md). That file is the plan for forms and evolution. This file stays the plan for everything else.
 
-**Baby (2)**
-1. **Blip**: round jelly blob with big eyes
-2. **Drip**: teardrop-shaped blob that wobbles
-
-**In-Training (3)**
-3. **Pip**: hoppy blob with leaf ears (good care)
-4. **Nubbin**: stubby lump with tiny horns (lots of food and play-fighting)
-5. **Smudge**: smoky, frowny puff (neglected)
-
-**Rookie (5)**
-6. **Fennix**: fox pup with an ember tail (balanced, well cared)
-7. **Shellby**: round turtle with a mossy shell (berries, chores, defense)
-8. **Gruntle**: horned brawler pup (meat, training, battles)
-9. **Mothlet**: fuzzy little moth (happy, candy and fish, gentle jobs)
-10. **Grumblot**: lumpy grumpy toad (neglect, odd branch)
-
-**Champion (5)**
-11. **Pyrefang**: flame-maned wolf
-12. **Bastion**: stone tortoise with a little tower on its back
-13. **Lumiwing**: glowing moth with patterned wings
-14. **Thornback**: spiky armored lizard
-15. **Gloomtoad**: swamp toad carrying a lantern of cold light
-
-**Ultimate (5)**
-16. **Solarion**: radiant lion-dragon (the heroic payoff)
-17. **Citadrake**: dragon with a fortress grown into its back
-18. **Aurelith**: celestial moth-angel, wings full of stars (the entrancing one)
-19. **Dreadmaw**: shadow beast, many eyes, huge jaw (the terrifying one)
-20. **Hollowking**: hollow-eyed swamp king with a crown of roots (creepy)
-
-**Branches** (each arrow is a set of thresholds; the best match wins, and every form has a fallback):
-
-```
-Speckled egg -> Blip      Striped egg -> Drip      Swirled egg -> Blip or Drip (random)
-
-Blip  -> Pip (few mistakes) | Nubbin (lots of feeding/training) | Smudge (3+ mistakes)
-Drip  -> Pip (few mistakes) | Nubbin (lots of training)         | Smudge (3+ mistakes)
-
-Pip    -> Fennix (balanced) | Shellby (berries + chores) | Mothlet (high happiness)
-Nubbin -> Gruntle (meat + battles) | Fennix (balanced) | Shellby (high defense)
-Smudge -> Grumblot (still neglected) | Gruntle (turned around with training) | Mothlet (turned around with play)
-
-Fennix   -> Pyrefang (strength + battles) | Lumiwing (spirit + happiness)
-Shellby  -> Bastion (defense + chores)    | Thornback (battles, some mistakes)
-Gruntle  -> Pyrefang (wins a lot)         | Thornback (fights a lot, sloppy care)
-Mothlet  -> Lumiwing (great care)         | Gloomtoad (neglected)
-Grumblot -> Gloomtoad (still neglected)   | Thornback (lots of fighting)
-
-Pyrefang  -> Solarion (strong + great care) | Dreadmaw (strong + many mistakes)
-Bastion   -> Citadrake (defense + discipline) | Solarion (all-round excellent)
-Lumiwing  -> Aurelith (spirit + great care) | Solarion (strength focus)
-Thornback -> Dreadmaw (battle-hungry)       | Citadrake (disciplined)
-Gloomtoad -> Hollowking (neglect)           | Aurelith (big turnaround, high spirit)
-```
-
-So good care tends toward Solarion, Citadrake and Aurelith, fighting with sloppy care tends toward Dreadmaw, and neglect leads to Hollowking. But there are recovery paths at every stage, so a rough start isn't a dead end.
-
-**Stage lengths (real time, tunable):** Egg 30 min (taps can shave off up to about a third), Baby 6 hours, In-Training 1 day, Rookie 3 days, Champion 5 days, Ultimate stays.
-
-**Soften mode:** the tree stays the same for everyone (fairer between siblings, and simpler for you to maintain). Instead, the 6 forms with a scary edge (Smudge, Grumblot, Thornback, Gloomtoad, Dreadmaw, Hollowking) each get a second "soft look": rounder shapes, big friendly eyes, brighter palette, no fangs, and a cute nickname shown to that profile (Dreadmaw becomes "Shadowpup", say). The others are already cute or cool. Death becomes "fell asleep", followed by a new egg.
+Soften mode (Phase 5) still applies: creatures with a scary edge get a rounder, friendlier "soft look" and a cute nickname for that profile, and death becomes "fell asleep" followed by a new egg. Which of the 64 forms get a soft look is decided when Phase 5 starts.
 
 ## 7. Gameplay systems
 

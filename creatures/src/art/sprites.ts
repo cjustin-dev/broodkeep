@@ -1,7 +1,7 @@
 // Pictures that are not creatures: icons, eggs and poop. PLACEHOLDER ART.
 // One shared set of colors, so every icon matches.
 
-import type { EggPattern } from "../game/types";
+import type { EggPattern, Place } from "../game/types";
 import type { Sprite } from "./pixel";
 
 export const colors: Record<string, string> = {
@@ -33,16 +33,22 @@ export type IconName =
   | "lights"
   | "medicine"
   | "settings"
-  | "berry"
+  | "pellet"
+  | "treat"
   | "meat"
+  | "carrot"
+  | "worm"
   | "fish"
-  | "candy"
   | "zzz"
   | "cloud"
   | "sick"
   | "poop"
   | "house"
   | "tree"
+  | "go"
+  | "land"
+  | "water"
+  | "sky"
   | "coin"
   | "lock"
   | "fiber"
@@ -157,14 +163,34 @@ export const icons: Record<IconName, Sprite> = {
     ".S.SS.S.",
     "...SS...",
   ]),
-  berry: icon([
-    "....GG..",
+  pellet: icon([
+    "........",
+    "...YY...",
+    "...YO...",
+    "..YYYY..",
+    "..YOYO..",
+    ".YYYYYY.",
+    ".YOYOYO.",
+    "........",
+  ]),
+  carrot: icon([
+    "..GGG...",
     "...GG...",
-    "..RRRR..",
-    ".RRRRRR.",
-    ".RWRRRR.",
-    ".RRRRRR.",
-    "..RRRR..",
+    "..OOOO..",
+    "..OYOO..",
+    "..OOOO..",
+    "...OOO..",
+    "...OO...",
+    "....O...",
+  ]),
+  worm: icon([
+    "........",
+    "..PPP...",
+    ".PPKPP..",
+    ".PPPP...",
+    "..PPPP..",
+    "...PPPP.",
+    ".PPPPP..",
     "........",
   ]),
   meat: icon([
@@ -187,13 +213,13 @@ export const icons: Record<IconName, Sprite> = {
     "...BBB.B",
     "........",
   ]),
-  candy: icon([
+  treat: icon([
     "........",
-    "P..PP..P",
-    "PP.PP.PP",
-    "P.PPPP.P",
-    "..PWPP..",
-    "..PPPP..",
+    "........",
+    "R.PPPP.R",
+    "RRPWPPRR",
+    "RRPPPWRR",
+    "R.PPPP.R",
     "........",
     "........",
   ]),
@@ -246,6 +272,47 @@ export const icons: Record<IconName, Sprite> = {
     ".CCCCCC.",
     ".CCDDCC.",
     ".CCDDCC.",
+  ]),
+  // The button that opens the list of places to take the creature, and the three fields in it.
+  go: icon([
+    "...DD...",
+    "...DD...",
+    ".YYYYYY.",
+    "YYYYYYYY",
+    ".YYYYYY.",
+    "...DD...",
+    "...DD...",
+    "..DDDD..",
+  ]),
+  land: icon([
+    "...LL...",
+    "..LSSS..",
+    ".LSSSSS.",
+    "LSSSSSSS",
+    "SSSSSSSS",
+    "GGGGGGGG",
+    "GGNGGGNG",
+    "NNNNNNNN",
+  ]),
+  water: icon([
+    "...B....",
+    "...BB...",
+    "..BBBB..",
+    ".BBBBBB.",
+    ".BLBBBB.",
+    ".BLBBBB.",
+    "..BBBB..",
+    "........",
+  ]),
+  sky: icon([
+    "..Y.Y...",
+    "...YY.Y.",
+    ".YYYYY..",
+    "..YYYWW.",
+    "..WWWWWW",
+    ".WWWWWWW",
+    "WWWWWWWW",
+    ".WWWWWW.",
   ]),
   tree: icon([
     "..GGGG..",
@@ -399,6 +466,9 @@ export function eggSprite(pattern: EggPattern): Sprite {
   );
   return { rows, palette: { K: "#1a1020", E: "#f5e6c8", S: eggColors[pattern] } };
 }
+
+// The icon for each place a creature can be: home, or one of the fields.
+export const placeIcon: Record<Place, IconName> = { home: "house", land: "land", water: "water", sky: "sky" };
 
 export const allSprites: Record<string, Sprite> = {
   ...Object.fromEntries(Object.entries(icons).map(([name, sprite]) => [`icon:${name}`, sprite])),

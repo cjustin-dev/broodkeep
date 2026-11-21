@@ -364,3 +364,56 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   fight started because the dock got shorter, so every arena state now keeps the same dock height. A cheap-model review found 3
   points, all tests whose titles promised more than they checked, all fixed.
 
+## 2026-11-21: the Land art (milestone 2 of the Paradise plan)
+
+- **One file per growth line** (`land_cragpup.py`, `land_dugling.py`, `land_frillet.py`, `land_sporeling.py`), a list file
+  `land_all.py` and `baby.py`, instead of one 800 line `land.py`. Why: each young and its four adults share a palette family
+  and are reviewed together.
+- **Palette family per line, silhouette by tier.** Tier 1 is the biggest and most striking (horns, a sun frill), tier 2 round and
+  friendly, tier 3 scrappy and grumpy, tier 4 thin or limp and sad. Dugling is a tan halfway between Pebblin and Barrowbun, then
+  made warmer so it is not mistaken for Pebblin.
+- **The field is a straight port.** `land_field.py` is the approved gritty-sheet code with one change: the creature paste became
+  an optional argument. The game side decides how the picture reaches the game (milestone 3).
+- **Blind review before the owner sees anything.** A cheap model gets the unlabeled sheets with no intent and describes each
+  row; the differences from the intent became the redraws above. A second cheap model reviews the code.
+
+
+## 2026-11-21: the game side of the Paradise growth (milestone 3)
+
+- **The engine stamps the face; drawings are body only.** Each form has a `face: { x, y, mouth, mouths? }` anchor (the left eye's top
+  left pixel and the mouth's top row). `src/art/face.ts` stamps eyes, brows, tear, blush and mouth from `src/data/face-patterns.json`,
+  the same file the Python tools read, and a test hashes 308 stamped pictures (22 forms x 7 looks x 2 drawings) against a Python
+  fixture (`tests/fixtures/face-hashes.json`, written by `face_hashes.py`), so a contact sheet shows what the game shows. The right
+  eye is the left one moved over; brows, tear and blush are mirrored; mouths are centered with even widths. Why: 64 creatures
+  with hand-drawn faces in seven looks each would be 448 pictures to keep in step.
+- **Face letters are reserved.** A body may not use I, W, A, P, U or M (K and T are fine), so the stamp never has to guess what it
+  may overwrite. `lib.problems` reports a body that does; the two drawings of a form must also share one face.
+- **Tears are static.** The old animated tear and `eyeSpots` went with the old art; the stamped tear is part of the sad look.
+- **The creature data is generated.** `tools/art/paradise/emit_ts.py` writes `src/data/forms/baby.ts` and `land.ts` from the Python
+  drawings and refuses (exit 3) on any art problem; `--check` finds a hand edit. Stats come from the stage and a role (fighter,
+  tank, caster, quick) in `forms/stats.ts`: stage budgets baby 20, kid 29, young 44, adult 93, worked out from the old forms.
+- **Sizes and the 128 pixel room.** Egg 16, baby 20, kid 24, young 36, adult 48. The room, the fields, the habitat and the arena
+  are 128 x 128. The bed is 56 wide (an adult plus 8, `BED_WIDTH`); a lying or slumped picture is `min(size + 8, 56)` wide.
+- **The walking limit keeps food off the bed.** `walkRight` is 84, which is `bedLeft + 16` (16 is the smallest picture, the egg), so
+  a walking creature's left edge is never past the bed's left edge, and food put on its left side can never land on the bed. A
+  first version used 120 and the eating test caught it. A creature in a field walks the same left part of the picture.
+- **The Land field reaches the game as a sprite.** `emit_ts.py` also writes `src/art/field-land.ts`: the 128 x 128 picture as
+  palette letters (41 colors of the 62 letters it may use), like every other sprite, drawn once into a cached canvas. Not a PNG:
+  the art stays text, the CSP needs nothing new, and the test can check it. A field that is not 128 x 128, not RGB or needs more
+  than 62 colors stops the emitter. Why not draw it at runtime: the gritty sheet is Python code with dithering.
+- **When the field shows.** Only for a living creature that is not away on a job and whose place is a field with a picture.
+  Anything else (home, an egg, a dead creature, Water and Sky until their slices) shows the room. The field is always dusk.
+- **The place picker is a tray.** A fifth care button ("Go somewhere", a signpost) opens a tray of Home, Land, Water and Sky above
+  the buttons, like the food tray. The current place is pressed. A locked field shows the lock badge and, when tapped, the creature
+  shakes its head. Both trays fit on one row whatever the count (a creature of the kid stage or older has five foods).
+- **The habitat shows where a field creature is.** A creature out in a field is not drawn at home in the habitat: the habitat is
+  empty with a bubble of that field's icon (like the house bubble while it sleeps), and the screen reader sentence says "out in the
+  Land field". One `placeIcon` map in `art/sprites.ts` serves both the picker and the habitat. Found by the layer B review.
+- **Working in the habitat moves a big creature in.** `workingPlace(spot, size)` clamps the middle so a 48 pixel creature at the
+  meadow, which is near the left edge, does not hang off the picture.
+- **The first poop spot moved right** (26 to 30) because the poop icon covered the last two columns of the food bowl; a test now
+  keeps every spot off the bowl.
+- **Icons.** The pellet was a brown mound like the poop icon; it is now a pile of yellow kibble. The treat is a wrapped candy. The
+  signpost, Land, Water and Sky icons are new 8 x 8 placeholders.
+- **Old saves are not read** (owner, 2026-11-21). Save version 3 starts a new egg; an unreadable save is kept as `save-unreadable`.
+  Tell the owner at pull request 1 time that existing saves reset.

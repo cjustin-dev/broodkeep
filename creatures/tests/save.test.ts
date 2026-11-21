@@ -1,78 +1,48 @@
-// Reading saves back from storage: the version 1 saves made before the habitat are upgraded, and anything else is refused.
+// Reading saves back from storage. Only version 3 (the Paradise growth rules) is read: the old forms are gone, so an older
+// save has no creature that could carry on. The loader keeps an unreadable save under another name (sync/local.ts).
 import { describe, expect, it } from "vitest";
-import { startJob } from "../src/game/actions";
+import { goTo, startJob } from "../src/game/actions";
 import { simulateTo } from "../src/game/sim";
 import { isSave, migrateSave, newSave } from "../src/game/state";
 import type { Save } from "../src/game/state";
 import { MINUTE } from "../src/game/time";
 import { aliveSave, at } from "./helpers";
 
-// A save as the game wrote it before the habitat: version 1, with no coins, bag or finished jobs.
-function oldSave(): Record<string, unknown> {
-  const save = JSON.parse(JSON.stringify(aliveSave("fennix", at(10)))) as Record<string, unknown>;
-  save.version = 1;
-  delete save.coins;
-  delete save.inventory;
-  delete save.hauls;
+// A save as the game wrote it before the Paradise rules: version 2, with the old counters and a creature of an old form.
+function oldSave(version: number): Record<string, unknown> {
+  const save = JSON.parse(JSON.stringify(aliveSave("blip", at(10)))) as Record<string, unknown>;
+  save.version = version;
   return save;
 }
 
-describe("migrating a version 1 save", () => {
-  it("gives it an empty purse, an empty bag and no finished jobs, and keeps everything else", () => {
-    const before = oldSave();
-    const save = migrateSave(before);
-    expect(save).not.toBeNull();
-    expect(save!.version).toBe(2);
-    expect(save!.coins).toBe(0);
-    expect(save!.inventory).toEqual({});
-    expect(save!.hauls).toEqual([]);
-    expect(save!.creature?.formId).toBe("fennix");
-    expect(save!.rngState).toBe(before.rngState);
-    expect(save!.log).toEqual(before.log);
-  });
-
-  it("does not change the object it was given", () => {
-    const before = oldSave();
-    const copy = JSON.parse(JSON.stringify(before));
-    migrateSave(before);
-    expect(before).toEqual(copy);
-  });
-
-  it("gives a save that plays on: the creature can set off, and come home", () => {
-    const save = migrateSave(oldSave())!;
-    const t = save.lastSimulatedAt;
-    expect(startJob(save, "meadow", t)).toBe("started");
-    simulateTo(save, t + 10 * MINUTE);
-    expect(save.coins).toBeGreaterThan(0);
-  });
-
-  it("works for an egg that has not hatched yet", () => {
-    const egg = JSON.parse(JSON.stringify(newSave(at(10), 3))) as Record<string, unknown>;
-    egg.version = 1;
-    delete egg.coins;
-    delete egg.inventory;
-    delete egg.hauls;
-    expect(migrateSave(egg)?.phase).toBe("egg");
-  });
-});
-
 describe("reading a current save", () => {
-  it("accepts a version 2 save as it is, also after a round trip through JSON", () => {
+  it("accepts a version 3 save as it is, also after a round trip through JSON", () => {
     const save = aliveSave("blip", at(10));
+    goTo(save, "land", at(10));
     startJob(save, "meadow", at(10));
     simulateTo(save, at(10, 10));
     const again = JSON.parse(JSON.stringify(save)) as Save;
     expect(migrateSave(again)).toEqual(save);
     expect(isSave(again)).toBe(true);
+    expect(again.version).toBe(3);
+  });
+
+  it("starts new games at version 3, with the egg and the creature remembering their pattern and place", () => {
+    const egg = newSave(at(10), 1);
+    expect(egg.version).toBe(3);
+    const save = aliveSave("blip", at(10));
+    expect(save.creature).toMatchObject({ place: "home", counters: { fieldMinutes: {}, servings: {}, hungerCells: 0, happyCells: 0 } });
+    expect(["speckled", "striped", "swirled"]).toContain(save.creature!.eggPattern);
+    simulateTo(save, at(10) + 5 * MINUTE);
+    expect(save.phase).toBe("alive");
   });
 });
 
 describe("refusing what is not a save", () => {
-  it("refuses other versions, missing pieces and plain wrong data", () => {
+  it("refuses older and other versions, missing pieces and plain wrong data", () => {
     const good = JSON.parse(JSON.stringify(newSave(at(10), 1))) as Record<string, unknown>;
-    expect(migrateSave({ ...good, version: 3 })).toBeNull();
-    expect(migrateSave({ ...good, version: 0 })).toBeNull();
-    expect(migrateSave({ ...good, version: "2" })).toBeNull();
+    for (const version of [0, 1, 2, 4]) expect(migrateSave({ ...good, version }), `version ${version}`).toBeNull();
+    expect(migrateSave({ ...good, version: "3" })).toBeNull();
     const noCoins = { ...good };
     delete noCoins.coins;
     expect(migrateSave(noCoins)).toBeNull();
@@ -82,8 +52,9 @@ describe("refusing what is not a save", () => {
     for (const junk of [null, undefined, 7, "save", [], {}]) expect(migrateSave(junk)).toBeNull();
   });
 
-  it("refuses a version 1 save that is also missing the old pieces", () => {
-    expect(migrateSave({ version: 1 })).toBeNull();
-    expect(migrateSave({ ...oldSave(), log: "none" })).toBeNull();
+  it("refuses a save from before the Paradise rules, so the loader keeps it aside and starts a new egg", () => {
+    expect(migrateSave(oldSave(2))).toBeNull();
+    expect(migrateSave(oldSave(1))).toBeNull();
+    expect(migrateSave({ ...oldSave(2), log: "none" })).toBeNull();
   });
 });

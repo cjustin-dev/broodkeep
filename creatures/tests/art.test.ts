@@ -2,14 +2,20 @@
 import { describe, expect, it } from "vitest";
 import { addHeart, addSparkles, createView, poseOffsets, startEating, triggerPose, updateView } from "../src/art/idle";
 import type { Mood } from "../src/art/idle";
-import { POOP_SPOTS, ROOM, STONE_WIDTH, bedSpot, deadX, standY, stoneX, walkMaxX, wideWidth } from "../src/art/layout";
+import { BED_WIDTH, POOP_SPOTS, ROOM, STONE_WIDTH, bedSpot, deadX, standY, stoneX, walkMaxX, wideWidth } from "../src/art/layout";
 import { allSprites } from "../src/art/sprites";
+import { forms } from "../src/data/forms";
 import { makeRng } from "../src/game/rng";
 
 const awake: Mood = { asleep: false, sad: false, sick: false };
-const SIZES = [16, 22, 28, 32]; // the pictures a creature can have (16 is also the egg)
+// The pictures a creature can have, from the forms themselves (16 is the egg, which is not a form).
+const SIZES = [...new Set([ROOM.sprite, ...Object.values(forms).map((f) => f.idle.length)])].sort((a, b) => a - b);
 
 describe("sprites", () => {
+  it("the picture sizes are the egg and one per stage", () => {
+    expect(SIZES).toEqual([16, 20, 24, 36, 48]);
+  });
+
   for (const [name, sprite] of Object.entries(allSprites)) {
     it(`${name} is a clean grid that only uses palette letters`, () => {
       const width = sprite.rows[0]!.length;
@@ -35,6 +41,14 @@ describe("sprites", () => {
     }
   });
 
+  it("no poop spot is on the food bowl", () => {
+    const bowl = { x: 9, y: 108, w: 19, h: 10 }; // as drawn in room.ts (the bowl and its foot)
+    for (const [x, y] of POOP_SPOTS) {
+      const apart = x + 8 <= bowl.x || bowl.x + bowl.w <= x || y + 8 <= bowl.y || bowl.y + bowl.h <= y;
+      expect(apart, `spot ${x},${y}`).toBe(true);
+    }
+  });
+
   it("a dead creature and its tombstone lie clear of the bed, at every size", () => {
     for (const size of SIZES) {
       const lyingLeft = deadX(size) - (wideWidth(size) - size) / 2;
@@ -42,7 +56,7 @@ describe("sprites", () => {
       expect(stoneX(size) + STONE_WIDTH, `size ${size}`).toBeLessThan(ROOM.bedLeft);
       expect(stoneX(size), `size ${size}`).toBeLessThan(lyingLeft + wideWidth(size)); // beside it, touching its end
     }
-    expect(stoneX(16)).toBe(24 + 18); // where the 16 pixel creature's stone has always been
+    expect(stoneX(48) + STONE_WIDTH).toBeLessThan(ROOM.bedLeft); // even the widest lying creature leaves its stone clear of the bed
   });
 
   it("a standing creature fits the room above the floor, at every size and anywhere it walks", () => {
@@ -52,7 +66,7 @@ describe("sprites", () => {
       expect(walkMaxX(size), `size ${size}`).toBeGreaterThan(ROOM.walkMinX); // some room to walk
       expect(walkMaxX(size) + size, `size ${size}`).toBeLessThanOrEqual(ROOM.w);
     }
-    expect([standY(16), walkMaxX(16)]).toEqual([56, 60]); // the 16 pixel creature walks where it always did
+    expect([standY(16), walkMaxX(16)]).toEqual([96, 68]); // a 16 pixel picture stands on the ground and stops where food beside it still clears the bed
   });
 
   it("a sleeping creature lies on the bed at every size, on the line a 16 pixel one rests on", () => {
@@ -60,10 +74,10 @@ describe("sprites", () => {
       const spot = bedSpot(size);
       expect(spot.y + size, `size ${size}`).toBe(ROOM.bedY + ROOM.sprite);
       const lyingLeft = spot.x - (wideWidth(size) - size) / 2;
-      expect(lyingLeft, `size ${size}`).toBeGreaterThanOrEqual(ROOM.bedLeft); // within the bed (it is 32 wide)
-      expect(lyingLeft + wideWidth(size), `size ${size}`).toBeLessThanOrEqual(ROOM.bedLeft + 32);
+      expect(lyingLeft, `size ${size}`).toBeGreaterThanOrEqual(ROOM.bedLeft); // within the bed
+      expect(lyingLeft + wideWidth(size), `size ${size}`).toBeLessThanOrEqual(ROOM.bedLeft + BED_WIDTH);
     }
-    expect(bedSpot(16).y).toBe(54); // the 16 pixel creature rests where it always did
+    expect(bedSpot(16).y).toBe(ROOM.bedY); // a 16 pixel picture rests on the bed line itself
   });
 
   it("the wide pictures are a whole number of pixels wider, so they stay centered", () => {
@@ -71,7 +85,8 @@ describe("sprites", () => {
       expect(wideWidth(size)).toBeGreaterThanOrEqual(size);
       expect(Number.isInteger((wideWidth(size) - size) / 2)).toBe(true);
     }
-    expect([16, 22, 28, 32].map(wideWidth)).toEqual([24, 30, 32, 32]); // never wider than the bed
+    expect(SIZES.map(wideWidth)).toEqual([24, 28, 32, 44, 56]); // 8 wider, never wider than the bed
+    expect(Math.max(...SIZES.map(wideWidth))).toBe(BED_WIDTH);
   });
 });
 
@@ -112,11 +127,11 @@ describe("idle movement", () => {
     const view = createView();
     expect(view.size).toBe(ROOM.sprite);
     view.x = walkMaxX(16); // far right as a small creature
-    updateView(view, 0.05, awake, makeRng(1).next, 32);
-    expect(view.size).toBe(32);
-    expect(view.x).toBe(walkMaxX(32)); // pulled back in, so the big one does not stand in the wall
+    updateView(view, 0.05, awake, makeRng(1).next, 48);
+    expect(view.size).toBe(48);
+    expect(view.x).toBe(walkMaxX(48)); // pulled back in, so the big one does not stand in the wall
     updateView(view, 0.05, awake, makeRng(1).next); // no size given: keeps the last one
-    expect(view.size).toBe(32);
+    expect(view.size).toBe(48);
   });
 
   it("a sad creature never hops around by itself", () => {

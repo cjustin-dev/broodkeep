@@ -1,30 +1,56 @@
-// Faces and poses made from a creature's one standing picture:
-//   closed eyes     (sleeping, saying no, chewing, blinking)
-//   heavy eyelids   (tired, sad, sick)
-//   eyes looking up (watching food fall)
-//   happy eyes      (a little arch each, the way a smiling face shuts its eyes: for joyful moments)
-//   open mouth      (yawning)
-//   drooping        (sad or sick: slumped and a bit wider, with heavy eyelids, or with eyes shut,
-//                    yawning or happy, so a slumped creature never pops upright for those)
-//   lying down      (sleeping, and after death): squashed flat and wider
+// Faces and poses made from a creature's standing pictures:
+//   the looks   open, half (heavy lids), closed, up (watching food fall), happy (an arch each), yawn, sad (worried brows, a tear)
+//   drooping    (sad or sick: slumped and a bit wider, with the sad or half look, or with eyes shut, yawning or happy, so a
+//                slumped creature never pops upright for those)
+//   lying down  (sleeping, and after death): squashed flat and wider
 //
-// A creature has two standing drawings: `idle` and, for every form but the two babies, `idle2` (a
-// second frame for idle and walking). The eye, blink, happy and yawn pictures are made from
+// A drawing has no face. The engine stamps one from the pattern file (data/face-patterns.json, the same file the Python drawing
+// tools read, so a contact sheet shows what the game shows) at the form's anchor: the left eye's top left pixel and the top row of
+// the mouth. The right eye is the left one moved over; brows, tears and blush are mirrored; mouths are centered. See
+// tools/art/paradise/lib.py (stamp_face), which this file must match pixel for pixel (tests/face.test.ts checks it).
+//
+// A creature has two standing drawings: `idle` and `idle2` (a second frame for idle and walking). The looks are stamped on
 // whichever frame is showing; drooping and lying are always made from the first.
-//
-// The standing picture follows one rule so this works: each eye is a 2 x 2 block of
-//   WW
-//   WK     (white, white / white, dark pupil)
-// and the mouth is the letter M. A creature with no such blocks simply keeps its standing look.
-// All 20 creatures follow these rules (a test checks it), so every emote works on every form.
 
-import type { Form } from "../game/types";
+import patterns from "../data/face-patterns.json";
+import type { Face, Form, Stage } from "../game/types";
 import { MEAL, YAWN, blinking, eyesClosed } from "./idle";
 import type { View } from "./idle";
 import { wideWidth } from "./layout";
 import type { Sprite } from "./pixel";
 
-export type FaceKind = "open" | "closed" | "half" | "up" | "happy" | "yawn" | "droop" | "droopClosed" | "droopYawn" | "droopHappy" | "lie0" | "lie1";
+export type Look = "open" | "half" | "closed" | "up" | "happy" | "yawn" | "sad";
+export type FaceKind =
+  | "open"
+  | "closed"
+  | "half"
+  | "up"
+  | "happy"
+  | "yawn"
+  | "droop"
+  | "droopSad"
+  | "droopClosed"
+  | "droopYawn"
+  | "droopHappy"
+  | "lie0"
+  | "lie1";
+
+// Which stamped look each picture is made from.
+const lookOf: Record<FaceKind, Look> = {
+  open: "open",
+  closed: "closed",
+  half: "half",
+  up: "up",
+  happy: "happy",
+  yawn: "yawn",
+  droop: "half", // sick: heavy lids
+  droopSad: "sad",
+  droopClosed: "closed",
+  droopYawn: "yawn",
+  droopHappy: "happy",
+  lie0: "closed",
+  lie1: "closed",
+};
 
 // Pictures that are wider than the standing one (lying, drooping) are drawn on a canvas that is
 // wideWidth(size) across (see layout.ts). The standing picture is `size` across.
@@ -33,136 +59,90 @@ export const isWide = (kind: FaceKind): boolean => kind.startsWith("droop") || k
 // How much a drooping body is squashed, compared with 0.33 for lying flat.
 const DROOP_SQUISH = 0.15;
 
-export function findEyes(rows: string[]): Array<{ x: number; y: number }> {
-  const eyes: Array<{ x: number; y: number }> = [];
-  rows.forEach((row, y) => {
-    const below = rows[y + 1] ?? "";
-    for (let x = 0; x < row.length - 1; x++) {
-      if (row[x] === "W" && row[x + 1] === "W" && below[x] === "W" && below[x + 1] === "K") eyes.push({ x, y });
-    }
-  });
-  return eyes;
+// ---- the pattern file ----
+
+interface Piece {
+  dx: number;
+  dy: number;
+  rows: string[];
+}
+interface MouthPiece {
+  x?: number;
+  dy?: number;
+  rows: string[];
+}
+interface StylePatterns {
+  eye: { w: number; h: number };
+  eyes: Record<string, string[]>;
+  brows: Record<string, Piece>;
+  tear: Piece;
+  blush: Piece | null;
+  mouths: Record<string, MouthPiece>;
+  looks: Record<Look, { eyes: string; mouth: string; brows?: string; tear?: boolean; blush?: boolean }>;
+}
+const styles = patterns.styles as unknown as Record<"kid" | "young" | "adult", StylePatterns>;
+const styleOf: Record<Stage, "kid" | "young" | "adult"> = { baby: "kid", kid: "kid", young: "young", adult: "adult" };
+
+// A face stamped on a body drawing: the new rows, and which rows and columns the stamp touched (so the slump and the lying
+// picture know what to keep).
+export interface Stamped {
+  rows: string[];
+  faceRows: number[];
+  faceCols: number[];
 }
 
-// A copy of the picture that can be changed one letter at a time.
-function editable(sprite: Sprite): { grid: string[][]; set: (x: number, y: number, letter: string) => void } {
-  const grid = sprite.rows.map((row) => row.split(""));
+// Stamp the face for a look onto a body drawing. Throws if a piece lands off the picture or a mouth is not centered: the data
+// tests stamp every look of every form, so a bad anchor is found there and never while drawing.
+export function stampFace(body: readonly string[], stage: Stage, face: Face, look: Look): Stamped {
+  const h = body.length;
+  const w = body[0]?.length ?? 0;
+  const grid = body.map((row) => row.split(""));
+  const rowsTouched = new Set<number>();
+  const colsTouched = new Set<number>();
+  const put = (x: number, y: number, letter: string): void => {
+    if (x < 0 || x >= w || y < 0 || y >= h) throw new Error(`a face piece lands off the picture at (${x}, ${y})`);
+    grid[y]![x] = letter;
+    rowsTouched.add(y);
+    colsTouched.add(x);
+  };
+  const paste = (rows: string[], x0: number, y0: number): void => {
+    rows.forEach((row, dy) =>
+      [...row].forEach((letter, dx) => {
+        if (letter !== ".") put(x0 + dx, y0 + dy, letter);
+      }),
+    );
+  };
+  // A mirrored piece (brows, tear, blush) is placed at the left eye and reflected across the picture for the right one.
+  const pair = (piece: Piece): void => {
+    piece.rows.forEach((row, dy) =>
+      [...row].forEach((letter, dx) => {
+        if (letter === ".") return;
+        const x = face.x + piece.dx + dx;
+        const y = face.y + piece.dy + dy;
+        put(x, y, letter);
+        put(w - 1 - x, y, letter);
+      }),
+    );
+  };
+
+  const style = styles[styleOf[stage]];
+  const spec = style.looks[look];
+  for (const x of [face.x, w - style.eye.w - face.x]) paste(style.eyes[spec.eyes]!, x, face.y); // the right eye is the left one moved over
+  if (spec.brows) pair(style.brows[spec.brows]!);
+  if (spec.tear) pair(style.tear);
+  if (spec.blush && style.blush) pair(style.blush);
+  if (face.mouth !== null) {
+    const mouth = face.mouths?.[spec.mouth] ?? style.mouths[spec.mouth]!;
+    const width = Math.max(...mouth.rows.map((row) => row.length));
+    const left = mouth.x ?? Math.floor((w - width) / 2);
+    if (left * 2 + width !== w) throw new Error(`a ${width} wide mouth at x ${left} is not centered on a ${w} wide picture`);
+    paste(mouth.rows, left, face.mouth + (mouth.dy ?? 0));
+  }
   return {
-    grid,
-    set: (x, y, letter) => {
-      const row = grid[y];
-      if (row && x >= 0 && x < row.length) row[x] = letter;
-    },
+    rows: grid.map((row) => row.join("")),
+    faceRows: [...rowsTouched].sort((a, b) => a - b),
+    faceCols: [...colsTouched].sort((a, b) => a - b),
   };
-}
-
-const rebuild = (grid: string[][], sprite: Sprite): Sprite => ({ rows: grid.map((row) => row.join("")), palette: sprite.palette });
-
-// Eyes shut: the top half of each eye becomes the body color above it, the bottom half a dark line.
-export function closeEyes(sprite: Sprite): Sprite {
-  const { grid, set } = editable(sprite);
-  for (const { x, y } of findEyes(sprite.rows)) {
-    const lid = grid[y - 1]?.[x] ?? ".";
-    set(x, y, lid);
-    set(x + 1, y, lid);
-    set(x, y + 1, "K");
-    set(x + 1, y + 1, "K");
-  }
-  return rebuild(grid, sprite);
-}
-
-// Heavy eyelids: a dark lid line over the top of each eye, the bottom half left open.
-export function halfEyes(sprite: Sprite): Sprite {
-  const { grid, set } = editable(sprite);
-  for (const { x, y } of findEyes(sprite.rows)) {
-    set(x, y, "K");
-    set(x + 1, y, "K");
-  }
-  return rebuild(grid, sprite);
-}
-
-// Happy eyes: each eye becomes a small arch, two pixels on the top row of the eye with a foot one
-// pixel out on each side of the row below:
-//    KK
-//   K  K
-// The arch is dark (K) unless the body is too dark for that to show, then it takes the creature's
-// eye color (W), which is bright on those forms. Under the arch is the body color beside the eye
-// (the pixel above the eye can be outline), taken from the side toward the middle of the picture so
-// that the two eyes of a face agree. A foot only goes on a body pixel (outline, mouth and
-// empty space are left alone, and an outline pixel already is dark, so it works as the foot).
-const MIN_ARCH_CONTRAST = 3;
-
-// Brightness of a "#rrggbb" color from 0 (black) to 1 (white), or null for any other format.
-function brightness(color: string | undefined): number | null {
-  const hex = /^#([0-9a-f]{6})$/i.exec(color ?? "");
-  if (!hex) return null;
-  const n = parseInt(hex[1]!, 16);
-  const channel = (value: number): number => {
-    const c = value / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
-}
-
-export function happyEyes(sprite: Sprite): Sprite {
-  const { grid, set } = editable(sprite);
-  const isBody = (letter: string | undefined): letter is string => letter !== undefined && !".KWM".includes(letter);
-  const middle = (sprite.rows[0]?.length ?? 0) / 2;
-  for (const { x, y } of findEyes(sprite.rows)) {
-    const sides = x + 1 < middle ? [x + 2, x - 1] : [x - 1, x + 2]; // the inner side first
-    const beside = sides.map((col) => sprite.rows[y + 1]?.[col]).find(isBody);
-    const fill = beside ?? grid[y - 1]?.[x] ?? ".";
-    const dark = brightness(sprite.palette.K);
-    const body = brightness(sprite.palette[fill]);
-    const showsDark = dark === null || body === null || (Math.max(dark, body) + 0.05) / (Math.min(dark, body) + 0.05) >= MIN_ARCH_CONTRAST;
-    const arch = showsDark ? "K" : "W";
-    set(x, y, arch);
-    set(x + 1, y, arch);
-    set(x, y + 1, fill);
-    set(x + 1, y + 1, fill);
-    for (const foot of [x - 1, x + 2]) if (isBody(sprite.rows[y + 1]?.[foot])) set(foot, y + 1, arch);
-  }
-  return rebuild(grid, sprite);
-}
-
-// Looking up: the pupil moves to the top row of each eye.
-export function lookUp(sprite: Sprite): Sprite {
-  const { grid, set } = editable(sprite);
-  for (const { x, y } of findEyes(sprite.rows)) {
-    set(x, y, "W");
-    set(x + 1, y, "K");
-    set(x, y + 1, "W");
-    set(x + 1, y + 1, "W");
-  }
-  return rebuild(grid, sprite);
-}
-
-// A wide open mouth: a small mouth (M) becomes a rounded oval, one pixel wider on each side
-// and one row taller above and two below:
-//    MM
-//   MMMM
-//   MMMM
-//    MM
-// Outline (K), eye whites (W) and empty space are never painted over, so the body keeps its shape.
-export function openMouth(sprite: Sprite): Sprite {
-  const { grid, set } = editable(sprite);
-  const free = (x: number, y: number): boolean => {
-    const letter = grid[y]?.[x];
-    return letter !== undefined && letter !== "." && letter !== "K" && letter !== "W";
-  };
-  sprite.rows.forEach((row, y) => {
-    const first = row.indexOf("M");
-    if (first < 0) return;
-    const last = row.lastIndexOf("M");
-    const grow = (rowY: number, from: number, to: number): void => {
-      for (let x = from; x <= to; x++) if (free(x, rowY)) set(x, rowY, "M");
-    };
-    grow(y - 1, first, last);
-    grow(y, first - 1, last + 1);
-    grow(y + 1, first - 1, last + 1);
-    grow(y + 2, first, last);
-  });
-  return rebuild(grid, sprite);
 }
 
 // Squash a sprite flat like a creature lying down: about a third fewer rows and a third more
@@ -224,63 +204,23 @@ export function lieDown(sprite: Sprite, keepRows: number[], keepCols: number[], 
   return { rows: out, palette: sprite.palette };
 }
 
-// The slumped version of a picture. Its face rows (the eye rows and every row with a mouth in it)
-// are kept, and so are the eye columns.
-function slump(base: Sprite, eyeRows: number[], eyeCols: number[]): Sprite {
-  const mouthRows = base.rows.flatMap((row, y) => (row.includes("M") ? [y] : []));
-  return lieDown(base, [...eyeRows, ...mouthRows], eyeCols, 0, DROOP_SQUISH);
-}
-
+// The picture for a look, made once per form and reused. `frame` picks the standing drawing (0 is `idle`, 1 is `idle2`) the look
+// is stamped on. The drooping and lying looks always use the first, and keep every row and column the face touched, so the face
+// is never squashed or doubled.
 const made = new Map<string, Sprite>();
 
-// The creature's picture for each look. Made once per form, then reused. `frame` picks the
-// standing drawing (0 is `idle`, 1 is `idle2`) that the look is made from. Forms with no second
-// drawing, and the drooping and lying looks, always use the first.
 export function faceSprite(form: Form, kind: FaceKind, frame: 0 | 1 = 0): Sprite {
-  const rows = frame === 1 && form.idle2 && !isWide(kind) ? form.idle2 : form.idle;
+  const rows = frame === 1 && !isWide(kind) ? form.idle2 : form.idle;
   const key = `${form.id}:${kind}:${rows === form.idle ? 0 : 1}`;
   const hit = made.get(key);
   if (hit) return hit;
 
-  const open: Sprite = { rows, palette: form.palette };
-  const eyes = findEyes(rows);
-  const mouthRows = rows.flatMap((row, y) => (row.includes("M") ? [y] : []));
-  const eyeCols = eyes.flatMap((eye) => [eye.x, eye.x + 1]);
+  const stamped = stampFace(rows, form.stage, form.face, lookOf[kind]);
+  const base: Sprite = { rows: stamped.rows, palette: form.palette };
   let sprite: Sprite;
-  switch (kind) {
-    case "open":
-      sprite = open;
-      break;
-    case "closed":
-      sprite = closeEyes(open);
-      break;
-    case "half":
-      sprite = halfEyes(open);
-      break;
-    case "up":
-      sprite = lookUp(open);
-      break;
-    case "happy":
-      sprite = happyEyes(open);
-      break;
-    case "yawn":
-      sprite = openMouth(closeEyes(open));
-      break;
-    case "droop": // both rows of each eye stay: the lid line and the open half
-      sprite = slump(halfEyes(open), eyes.flatMap((eye) => [eye.y, eye.y + 1]), eyeCols);
-      break;
-    case "droopClosed": // slumped with the eyes shut: the shut-eye line stays
-      sprite = slump(closeEyes(open), eyes.map((eye) => eye.y + 1), eyeCols);
-      break;
-    case "droopYawn":
-      sprite = slump(openMouth(closeEyes(open)), eyes.map((eye) => eye.y + 1), eyeCols);
-      break;
-    case "droopHappy": // both rows of each arch stay, and the columns of its feet are never doubled
-      sprite = slump(happyEyes(open), eyes.flatMap((eye) => [eye.y, eye.y + 1]), [...eyeCols, ...eyes.flatMap((eye) => [eye.x - 1, eye.x + 2])]);
-      break;
-    default: // lying: the shut-eye line and the mouth stay
-      sprite = lieDown(closeEyes(open), [...eyes.map((eye) => eye.y + 1), ...mouthRows], eyeCols, kind === "lie1" ? 1 : 0);
-  }
+  if (kind.startsWith("lie")) sprite = lieDown(base, stamped.faceRows, stamped.faceCols, kind === "lie1" ? 1 : 0);
+  else if (kind.startsWith("droop")) sprite = lieDown(base, stamped.faceRows, stamped.faceCols, 0, DROOP_SQUISH);
+  else sprite = base;
   made.set(key, sprite);
   return sprite;
 }
@@ -297,7 +237,7 @@ export function pickFace(view: View, asleep: boolean, dead: boolean): FaceKind {
   if (eyesClosed(view)) return slumped ? "droopClosed" : "closed";
   if (view.pose === "happy") return slumped ? "droopHappy" : "happy"; // fed, petted, cleaned, cured, hatched, evolved
   if (view.pose === "eat" && view.poseTime < MEAL.drop * 0.6 && !slumped) return "up"; // watching the food fall
-  if (slumped) return "droop";
+  if (slumped) return view.mood.sick ? "droop" : "droopSad"; // sick: heavy lids. Sad: worried brows, a frown and a tear
   if (blinking(view)) return "closed";
   return view.mood.sleepy ? "half" : "open";
 }
@@ -320,13 +260,4 @@ export function blanketBox(sprite: Sprite): { left: number; right: number; top: 
   const fallback = first + Math.ceil((last - first + 1) * 0.55);
   const top = Math.min(last, Math.max(first + 1, mouth >= 0 ? mouth : fallback));
   return { left: left - 1, right: right + 1, top, bottom: last };
-}
-
-// Where a tear can start: the left end of each white run of an eye. Used on the drooping picture.
-export function eyeSpots(sprite: Sprite): Array<{ x: number; y: number }> {
-  const spots: Array<{ x: number; y: number }> = [];
-  sprite.rows.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) if (row[x] === "W" && row[x - 1] !== "W") spots.push({ x, y });
-  });
-  return spots;
 }

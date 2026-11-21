@@ -1,12 +1,15 @@
-// Foods the creature can eat. Phase 1 has unlimited food. Crops and cooking come later.
+// Foods the creature can eat. Foods are unlimited for now. Crops and cooking come later.
+// Pellets and the treat are for everyone. Each field has three foods of its own (growth.ts counts them toward the young).
 import type { Food, FoodId } from "../game/types";
 
 export const foods: Record<FoodId, Food> = {
-  berry: { id: "berry", name: "Berry", hunger: 20, happiness: 2, wellness: 3, digestMinutes: [60, 90] },
-  meat: { id: "meat", name: "Meat", hunger: 35, happiness: 3, wellness: 0, digestMinutes: [90, 130] },
-  fish: { id: "fish", name: "Fish", hunger: 25, happiness: 5, wellness: 0, digestMinutes: [70, 100] },
+  pellet: { id: "pellet", name: "Pellets", hunger: 20, happiness: 1, wellness: 2, digestMinutes: [60, 90] },
   // Big happiness, but bad for wellness, and too many in a row make the creature sick.
-  candy: { id: "candy", name: "Candy", hunger: 8, happiness: 25, wellness: -8, digestMinutes: [40, 60] },
+  treat: { id: "treat", name: "Treat", hunger: 8, happiness: 25, wellness: -8, digestMinutes: [40, 60] },
+  // Land
+  meat: { id: "meat", name: "Meat", hunger: 35, happiness: 3, wellness: 0, digestMinutes: [90, 130] },
+  carrot: { id: "carrot", name: "Carrot", hunger: 20, happiness: 2, wellness: 3, digestMinutes: [60, 90] },
+  worm: { id: "worm", name: "Worm", hunger: 25, happiness: 5, wellness: 0, digestMinutes: [70, 100] },
 };
 
 export const foodIds = Object.keys(foods) as FoodId[];

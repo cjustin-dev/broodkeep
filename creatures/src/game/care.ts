@@ -37,6 +37,10 @@ function updateSleep(save: Save, c: Creature, t: number): void {
   if (night) {
     if (c.sleep !== "night") {
       c.sleep = "night";
+      if (c.place !== "home") {
+        c.place = "home"; // it sleeps in its own bed
+        logEvent(save, t, "Went home to sleep");
+      }
       logEvent(save, t, "Fell asleep for the night");
     }
   } else if (c.sleep === "night") {
@@ -152,7 +156,4 @@ function updateCalls(save: Save, c: Creature, asleep: boolean, t: number): void 
       logEvent(save, t, `Care mistake: "${want}" went unanswered (${c.counters.careMistakes} this stage)`);
     }
   }
-  if (c.call) c.counters.neglectMinutes += 1;
-  c.counters.happinessSum += c.stats.happiness;
-  c.counters.happinessMinutes += 1;
 }

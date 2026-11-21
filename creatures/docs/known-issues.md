@@ -1,5 +1,9 @@
 # Broodkeep known issues and gotchas
 
+> 2026-11-21: sections below that talk about the 20 forms, the old evolution tree, the old 16 to 32 pixel sizes or the 96 pixel
+> room are history. The Paradise growth design (docs/paradise-plan.md, milestone 3) replaced them; the live list is
+> "Paradise growth, game side" at the end of this file.
+
 ## Cloudflare Pages
 
 - **`_headers` does not apply to Functions responses.** Only static files get them. `functions/_lib/response.ts` must set
@@ -169,3 +173,46 @@
   `executablePath` for a cached one. `page.clock` fakes JS timers and `Date` but not CSS animations, so wait in real time
   (about 450 ms) after opening a panel or a half faded screenshot results. `clock.fastForward` rejects `72:00:00`, pass
   milliseconds.
+- **Pixel drawings end in two outline layers.** In `tools/art/bk.py`, `put(ring=True)` rings each part and `outline()` rings the
+  whole drawing, so a part ends up with a 2 pixel dark edge and a drawing that fills its canvas has outline pixels on the
+  canvas edge. That is fine. A part is cut off only if a non-outline letter sits on the edge. The Python sample scripts
+  (session scratch folder) draw an unknown palette letter as magenta without complaint, so check that every letter used is in
+  the palette before looking at a sheet. Odd-width faces or mouths on an even-width canvas sit half a pixel off centre.
+  `tools/art/paradise/lib.py` now enforces these: a missing palette letter, a cut-off edge, a detached piece of any size (not
+  joined up, down, left or right to the biggest piece), a face piece that lands off the picture (`Canvas.px` drops those
+  silently, so `put_face` raises), and a mouth that is not centered, custom `x` included. A custom mouth gives its own `x` and
+  must still have equal margins, so draw a jaw or beak symmetric about the picture's middle line: teeth must stay on columns the
+  cavity has (Murkfang's first jaw had one tooth column too many and sat half a pixel right).
+- **Art library gaps left on purpose** (2026-11-21, cheap-model review): a custom mouth with no `rows` key, or a face-patterns
+  look with no `eyes` key, can still crash the checks with a `KeyError` instead of a report, and custom mouths are not checked
+  for face letters (their other letters are caught by the palette check). Only the Paradise art scripts write these, so a
+  traceback is acceptable. Fix them if a second person ever writes creature files.
+- **Land art, seen in the blind reviews (2026-11-21).** (1) The sad look reads mainly through the 2 pixel blue tear, and on
+  grey or blue-grey bodies (Moonlop, Gutterfang, Tuskmole) it is faint; a body-specific `tear` color through `with_face` fixes
+  one creature without touching the face system. (2) Frame two of every drawing is a small accent (an ear, a tail, a claw), on
+  purpose: `idle.ts` already bobs and squashes every sprite. (3) The nine creatures drawn before milestone 2 (Gravelhorn and the
+  Water and Sky creatures) place feet claws with `int(x + cx - 1)` from a left-side formula, so the right foot's claws are a
+  shifted copy of the left one's, up to 3 px off a true mirror. The new files use `sym()` for them. The nine are not changed
+  because the owner has seen them. (4) Mossheap's fringe and Needlecap's needles were off by one from a mirror before the
+  review; both now mirror about the middle.
+
+## Paradise growth, game side (accepted for now)
+
+- **A creature in a field walks only the left part of the picture.** The walking limit is shared with the room (`walkRight` 84, so
+  food never lands on the bed), so the right side of the Land field (the arch and the bog) is never reached.
+- **The field is always dusk.** The room follows the clock, the field picture does not.
+- **A tap on a locked field only makes the creature shake its head.** The habitat's spots show a small icon saying why; the
+  picker does not. The lock badge on the button is the only explanation.
+- **The wall rule for food cannot be reached any more.** `startEating` turns the creature away from a wall closer than 8 pixels,
+  but the walking area now stops at 8, where the food just fits. The test uses x = 4 to check the rule itself.
+- **The new screen code has no automated test.** The places tray, the field drawing and the Stage hookup were checked with
+  Playwright screenshots of the running game (a script in the session scratch folder, not in the repo). The placement numbers, the
+  field data, `goTo` and the face stamping are tested.
+- **Icons are placeholders.** The signpost, Land, Water and Sky icons and the redrawn pellet and treat are 8 x 8 and crude.
+- **`emit_ts.py` needs Pillow** (the field is drawn with it). `selftest.py` skips its field cases without it.
+- **A job does not send a creature home from a field.** `startJob` and `callBack` leave `place` alone, so after the job the
+  creature is back in the field it left and its field minutes count again. Bedtime and naps do send it home. The owner has not
+  been asked which is wanted (see progress.md, Next).
+- **The dev tree's option lists have no `key`s.** No visible effect in Preact for these short, fixed lists.
+- **Water and Sky have no pictures yet.** `drawField` returns false for them and the room is drawn; `goTo` refuses them, so a
+  player cannot get there (the dev panel can force it).

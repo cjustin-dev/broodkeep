@@ -9,10 +9,11 @@ import { MEAL, eyesClosed, foodLeft, frameOf, poseOffsets, snackCut } from "./id
 import type { Mood, Snack, View } from "./idle";
 import type { Sprite } from "./pixel";
 import { POOP_SPOTS, ROOM, STONE_WIDTH, bedSpot, deadX, standY, stoneX } from "./layout";
-import { blanketBox, eyeSpots, faceSprite, isWide, pickFace } from "./face";
+import { blanketBox, faceSprite, isWide, pickFace } from "./face";
 import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
+import { drawField } from "./field";
 import { drawMomentOver, drawMomentUnder } from "./moment";
 import { drawRoom } from "./room";
 
@@ -60,10 +61,10 @@ export function drawBubble(ctx: CanvasRenderingContext2D, name: IconName, x: num
 
 export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View, gameNowMs: number): void {
   ctx.imageSmoothingEnabled = false;
-  drawRoom(ctx, hourOf(gameNowMs));
-
   const c = save.creature;
   const alive = save.phase === "alive" && c;
+  // A living creature that is out in a field (and not away on a job) is drawn in the field. Anything else is the room.
+  if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hourOf(gameNowMs));
 
   // Poop on the floor.
   if (alive) {
@@ -85,7 +86,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     if (progress > 0.6) drawCracks(ctx, x, ROOM.eggY, progress);
   } else if (alive && c.job) {
     // Out working in the habitat: the room is empty, with a bubble that says where it went.
-    drawBubble(ctx, "tree", ROOM.w / 2 - 6, 40);
+    drawBubble(ctx, "tree", ROOM.w / 2 - 6, 54);
   } else if (c) {
     const form = getForm(c.formId);
     const asleep = c.sleep !== null;
@@ -105,7 +106,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       const kind = pickFace(view, asleep, dead);
       const size = form.idle.length;
       // Only a standing creature has two drawings to swap between (the slumped and lying ones come from the first).
-      const frame = isWide(kind) || !form.idle2 ? 0 : frameOf(view);
+      const frame = isWide(kind) ? 0 : frameOf(view);
       const picture = faceSprite(form, kind, frame);
       const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}`, tint);
       const onBed = asleep && !dead;
@@ -118,8 +119,6 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       drawSprite(ctx, sprite, drawX, y, { flipX: flip, height: sprite.height - (lying ? 0 : off.squash) });
 
       if (onBed) drawBlanket(ctx, picture, drawX, y, flip);
-      // The body is drawn one row lower on a sigh frame, so the tears move down with it.
-      if (kind === "droop" && c.sick === false) drawTears(ctx, picture, drawX, y + (lying ? 0 : off.squash), flip, view.clock);
       if (view.pose === "rumble" && !lying) drawRumble(ctx, x, y, size, view.poseTime);
 
       if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
@@ -178,18 +177,6 @@ function drawBlanket(ctx: CanvasRenderingContext2D, lying: Sprite, x: number, y:
   ctx.fillRect(x + left, top, right - left + 1, 1);
   ctx.fillStyle = "#e0455b"; // the hem
   ctx.fillRect(x + left, top + height - 1, right - left + 1, 1);
-}
-
-// A tear rolls down from each eye every few seconds.
-function drawTears(ctx: CanvasRenderingContext2D, droop: Sprite, x: number, y: number, flip: boolean, clock: number): void {
-  const progress = (clock % 2.6) / 0.9; // 0 to 1 while the tear falls, then a pause
-  if (progress >= 1) return;
-  ctx.fillStyle = "#9fe0ff";
-  const width = droop.rows[0]?.length ?? 0;
-  for (const spot of eyeSpots(droop)) {
-    const column = flip ? width - 1 - spot.x : spot.x;
-    ctx.fillRect(x + column, y + spot.y + 1 + Math.round(progress * 5), 1, 2);
-  }
 }
 
 // Little tremble marks either side of a hungry tummy, flickering. The three marks sit at 9, 11 and

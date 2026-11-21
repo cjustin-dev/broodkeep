@@ -9,6 +9,7 @@ import { ROOM, bedSpot, standY } from "../art/layout";
 import { stepMoment } from "../art/moment";
 import { drawHabitat } from "../art/habitat";
 import { drawScene, moodOf, sizeOf } from "../art/scene";
+import { fields } from "../data/fields";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
 import { tapEgg, touch } from "../game/actions";
@@ -40,9 +41,11 @@ function describe(save: Save, game: Game): string {
     if (b.over === "lost") return `${name} lost to ${foe} and needs a rest.`;
     return `${name} is fighting ${foe}. ${name} has ${percent(b.me)} percent health, and ${foe} has ${percent(b.foe)} percent.`;
   }
-  if (game.atHabitat) return `The habitat. ${name} is at home.`;
+  const place = save.creature.place;
+  if (game.atHabitat) return `The habitat. ${name} is ${place === "home" ? "at home" : `out in the ${fields[place].name} field`}.`;
   if (save.creature.sleep) return `${name} is asleep.`;
-  return save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`;
+  const where = place === "home" ? "" : `In the ${fields[place].name} field. `;
+  return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`);
 }
 
 interface Hold {
@@ -55,7 +58,7 @@ interface Hold {
 export function Stage({ game }: { game: Game }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // The room is 96 x 96 "game pixels". Each one is drawn k screen pixels wide, where k is a
+  // The room is 128 x 128 "game pixels". Each one is drawn k screen pixels wide, where k is a
   // whole number of DEVICE pixels, so every game pixel is exactly the same size and stays sharp,
   // while the room still fills the width of the screen. css is the size on the page.
   const [size, setSize] = useState({ k: 3, css: ROOM.w * 3 });

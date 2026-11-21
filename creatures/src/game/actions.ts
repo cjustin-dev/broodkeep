@@ -2,6 +2,7 @@
 // so it always acts on up-to-date stats. nowMs is GAME time (see time.ts), not real time.
 // Each action returns a short word saying what happened, so the screen can react.
 
+import { fields } from "../data/fields";
 import { foods } from "../data/foods";
 import { spots } from "../data/habitat";
 import type { SpotId } from "../data/habitat";
@@ -9,6 +10,7 @@ import { tuning } from "../data/tuning";
 import { beginFight, fightRefusal, finishFight } from "./combat/fight";
 import type { FightRefusal, FightResult } from "./combat/fight";
 import type { Battle } from "./combat/battle";
+import { countCareCells, countServing, menuOf } from "./growth";
 import { beginJob, jobRefusal } from "./habitat/jobs";
 import type { JobRefusal } from "./habitat/jobs";
 import { hatchIfReady, simulateTo } from "./sim";
@@ -16,7 +18,7 @@ import { makeRng } from "./rng";
 import { clamp, logEvent, newEgg } from "./state";
 import type { Creature, Save } from "./state";
 import { MINUTE } from "./time";
-import type { FoodId } from "./types";
+import type { FoodId, Place } from "./types";
 import { eggPatterns } from "../data/eggs";
 
 // The living creature, after catching up. Null if there is none (egg, or dead), or if it is away
@@ -36,20 +38,22 @@ export type FeedResult = "ate" | "full" | "sleeping" | "unavailable";
 
 export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
   const c = alive(save, nowMs);
-  if (!c) return "unavailable";
+  if (!c || !menuOf(c).includes(foodId)) return "unavailable"; // only what the menu offers (pellets, the treat, its own field's foods)
   if (c.sleep) return "sleeping";
   if (c.stats.hunger >= tuning.fullAtHunger) return "full";
 
   const food = foods[foodId];
   const rng = makeRng(save.rngState);
+  const hungerBefore = c.stats.hunger;
+  const happinessBefore = c.stats.happiness;
 
-  if (foodId === "candy") {
-    // Too much candy makes the creature sick. Each candy eaten lately adds to the risk.
+  if (foodId === "treat") {
+    // Too many treats make the creature sick. Each treat eaten lately adds to the risk.
     c.recentCandy = c.recentCandy.filter((at) => nowMs - at < tuning.sickness.candyWindowMinutes * MINUTE);
     const risk = c.recentCandy.length * tuning.sickness.candyChancePerRecent;
     if (!c.sick && risk > 0 && rng.chance(risk)) {
       c.sick = true;
-      logEvent(save, nowMs, "Got sick (too much candy)");
+      logEvent(save, nowMs, "Got sick (too many treats)");
     }
     c.recentCandy.push(nowMs);
   }
@@ -57,7 +61,8 @@ export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
   c.stats.hunger = clamp(c.stats.hunger + food.hunger);
   c.stats.happiness = clamp(c.stats.happiness + food.happiness);
   c.stats.wellness = clamp(c.stats.wellness + food.wellness);
-  c.counters.foodEaten[foodId] += 1;
+  countServing(c, foodId);
+  countCareCells(c, hungerBefore, happinessBefore);
   c.digestQueue.push(rng.int(food.digestMinutes[0], food.digestMinutes[1]));
   save.rngState = rng.state();
   logEvent(save, nowMs, `Ate ${food.name}`);
@@ -104,8 +109,27 @@ export function toggleLights(save: Save, nowMs: number): LightsResult {
   }
   if (c.stats.energy >= tuning.napBelowEnergy) return "not-tired";
   c.sleep = "nap";
+  if (c.place !== "home") {
+    c.place = "home"; // it naps in its own bed
+    logEvent(save, nowMs, "Went home to nap");
+  }
   logEvent(save, nowMs, "Went down for a nap");
   return "napping";
+}
+
+export type GoResult = "went" | "already" | "locked" | "sleeping" | "unavailable";
+
+// Take the creature home or to a field. Only an open field can be visited, and only a creature that is awake and at home
+// in the app (not away on a job).
+export function goTo(save: Save, place: Place, nowMs: number): GoResult {
+  const c = alive(save, nowMs);
+  if (!c) return "unavailable";
+  if (c.sleep) return "sleeping";
+  if (place === c.place) return "already";
+  if (place !== "home" && !fields[place].plan) return "locked";
+  c.place = place;
+  logEvent(save, nowMs, place === "home" ? "Went home" : `Went to the ${fields[place].name} field`);
+  return "went";
 }
 
 export type EggTapResult = "tapped" | "hatched" | "unavailable";
@@ -143,7 +167,9 @@ export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   const want = kind === "pet" ? tuning.affection.pet : tuning.affection.tickle;
   const gained = Math.max(0, Math.min(want, tuning.affection.maxGainPerWindow - a.gained));
   a.gained += gained;
+  const happinessBefore = c.stats.happiness;
   c.stats.happiness = clamp(c.stats.happiness + gained);
+  countCareCells(c, c.stats.hunger, happinessBefore); // (hunger did not change, so it cannot count)
   return { gained, asleep: false };
 }
 

@@ -4,15 +4,14 @@
 import { eggPatterns } from "../data/eggs";
 import { getForm } from "../data/forms";
 import { combatTuning } from "../data/combat";
-import { countedValue } from "./metrics";
-import type { LaterMetric } from "./metrics";
+import { tuning } from "../data/tuning";
 import { rungOf } from "./combat/fight";
 import { currentHp, maxHp } from "./combat/stats";
 import { makeCreature, evolveTo, simulateTo } from "./sim";
 import { clamp, logEvent, newEgg, newSave } from "./state";
 import type { Save, Stats } from "./state";
 import { HOUR, gameNow } from "./time";
-import type { EggPattern } from "./types";
+import type { EggPattern, FieldId, FoodId, Place } from "./types";
 
 // Jump the game clock forward. The creature then lives through those hours
 // (hunger, sleep, poop, sickness, even death) exactly as if you had waited.
@@ -32,15 +31,25 @@ export function setStat(save: Save, stat: keyof Stats, value: number): void {
   if (save.creature) save.creature.stats[stat] = clamp(value);
 }
 
-// Set one of the numbers of a system that is not in the game yet (training, battles, strength and
-// so on), or the total of one that is (jobs), so the evolution paths that need them can be tested.
-// For a counted one only the difference is stored, so what you type is what the tree reads.
-// They reset at each evolution.
-export function setLaterCounter(save: Save, metric: LaterMetric, value: number): void {
-  if (!save.creature) return;
-  const whole = Number.isFinite(value) ? Math.max(0, Math.min(999, Math.round(value))) : 0;
-  const extra = Math.max(0, whole - countedValue(save.creature, metric));
-  save.creature.counters.later = { ...save.creature.counters.later, [metric]: extra };
+const wholeNumber = (value: number, max: number): number => (Number.isFinite(value) ? Math.max(0, Math.min(max, Math.round(value))) : 0);
+
+// Set the numbers growth reads (docs/paradise-plan.md section 2), so every path in the tree can be tested without waiting.
+// They reset at each evolution, like the real ones.
+export function setFieldMinutes(save: Save, field: FieldId, minutes: number): void {
+  if (save.creature) save.creature.counters.fieldMinutes[field] = wholeNumber(minutes, 999);
+}
+
+export function setServings(save: Save, food: FoodId, servings: number): void {
+  if (save.creature) save.creature.counters.servings[food] = wholeNumber(servings, 99);
+}
+
+export function setCareCounter(save: Save, which: "hungerCells" | "happyCells" | "careMistakes", value: number): void {
+  if (save.creature) save.creature.counters[which] = wholeNumber(value, which === "careMistakes" ? 99 : tuning.growth.careCellsMax);
+}
+
+// Move the creature to a place without the checks the real action makes (a sleeping creature, a locked field).
+export function setPlace(save: Save, place: Place): void {
+  if (save.creature) save.creature.place = place;
 }
 
 // Set battle HP as a share of the maximum (0 to 100). Full means "never hurt".
@@ -83,7 +92,7 @@ export function setPoop(save: Save, count: number): void {
 export function forceHatch(save: Save, formId: string, nowMs: number): void {
   getForm(formId); // throws on an unknown form BEFORE anything is changed
   simulateTo(save, nowMs);
-  save.creature = makeCreature(formId, nowMs);
+  save.creature = makeCreature(formId, nowMs, save.egg?.pattern ?? save.creature?.eggPattern);
   save.egg = null;
   save.death = null;
   save.phase = "alive";

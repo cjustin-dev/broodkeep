@@ -32,7 +32,7 @@ export function careForUntil(save: Save, startMs: number, endMs: number): number
     }
     if (c.sick) giveMedicine(save, t);
     if (c.poop > 0) clean(save, t);
-    if (c.stats.hunger < 50) feed(save, "meat", t);
+    if (c.stats.hunger < 50) feed(save, "pellet", t);
     if (c.stats.happiness < 60) for (let i = 0; i < 5; i++) touch(save, "pet", t);
     if (c.stats.energy < 20) toggleLights(save, t);
   }
