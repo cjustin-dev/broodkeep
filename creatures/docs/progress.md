@@ -4,7 +4,14 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-20)
 
-Scaffold done on branch `broodkeep-scaffold`, committed locally, NOT pushed. No game code. Phase 1 not started.
+Scaffold is MERGED to `main` (PR #1, merge commit 389934e) and LIVE at https://broodkeep.pages.dev (second Pages project,
+root dir `creatures`, built from `main`). No game code. Phase 1 not started.
+Live check 2026-11-21: all security headers present on `/` and `/api/*` (`no-store`), and source files such as
+`/package.json` and `/wrangler.toml` return the placeholder page, not the real files. The placeholder D1 id did not
+break the deploy.
+Local branch `remove-old-site` (not pushed) holds the root-site deletion plus the notes-only commits that are not on `main`.
+Pages gotcha seen: "Retry deployment" rebuilds the OLD commit. After a merge, look for the new deployment instead.
+Dashboard gotcha seen: the Workers setup flow shows a "Deploy command" box; the Pages flow does not. Use the Pages flow.
 
 Verified locally: `npm run build`, `npm run typecheck` and `npm test` exit 0. `public/_headers` was checked
 by serving `dist` with `wrangler pages dev` (headers present on `/`, `/api/*` and assets, absent when the
@@ -12,8 +19,14 @@ file is removed). The built `index.html` has no inline script or style, so the C
 
 ## Open decisions for the owner
 
-- Root `_redirects` to hide `creatures/` source on the old site. A 404 rule is not supported by Cloudflare Pages
-  (tested: silently ignored). `/creatures/* / 302` works (tested on a scratch copy). Waiting for a yes.
+- DECIDED 2026-11-20: the owner said the old Cloudflare project (`kharbranth`) is disposable (just made, nothing depends on
+  it). Plan: delete it, then create one new Pages project `broodkeep` (root dir `creatures`). That makes the root
+  `_redirects` rule, the build watch paths and the old-connection test unnecessary. Kept for reference if the old
+  project is ever kept: a 404 rule in `_redirects` is not supported (tested: silently ignored), and `/creatures/* / 302`
+  works (tested on a scratch copy).
+- Old site files are deleted on branch `remove-old-site` (37 files incl. the template README; not on `main` until that
+  PR is merged). Kept: `LICENSE` (the template author's MIT notice, which could read as the game's license; owner's call)
+  and the root `.gitignore`. Plan sections 1 and 2 and the handoff notes still describe the old site; left as written.
 - Placeholder D1 `database_id` in wrangler.toml: unknown whether the first Pages deploy accepts it.
   If the first build fails with a D1 error, comment out the `[[d1_databases]]` block until Phase 5.
 
@@ -27,7 +40,8 @@ file is removed). The built `index.html` has no inline script or style, so the C
 
 ## Next
 
-1. Owner: yes/no on the `_redirects` rule.
-2. Owner: say when to push `broodkeep-scaffold`.
-3. Owner: create the second Cloudflare Pages project (steps given at hand-off).
-4. Then Phase 1 (single local creature), only on the owner's go-ahead.
+1. Owner: confirm the old Cloudflare project is deleted (or leave it; it is disposable).
+2. Owner: say "push" so `remove-old-site` goes to GitHub, then merge its PR. It carries the notes-only commits too.
+3. Phase 1 (single local creature), only on the owner's go-ahead.
+4. Phase 5 note: the host falls back to `index.html` with 200 for unknown paths, so `/api/typo` returns 200 HTML today.
+   Once Functions exist, unknown API routes should return a JSON 404.
