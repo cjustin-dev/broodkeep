@@ -221,4 +221,14 @@ recommended options: full bodies that grow by stage, two drawings per creature, 
   an emote silently. The first version of the sleeping picture still needed a look: sizes that passed the tests had a
   blanket slab hanging 5 pixels past the bed, found only by viewing the room, which is why the cap at the bed width exists.
 - **The drawing toolkit stays out of the repo** (a Python script set in the hub session's work area). The grids in the
-  form files are the source of truth. Offered to the owner to add under `creatures/tools/art/`.
+  form files are the source of truth. Offered to the owner to add under `creatures/tools/art/`. *Superseded the same day,
+  see "the drawing toolkit moved into the repo" below.*
+
+## 2026-11-21: the drawing toolkit moved into the repo
+
+The owner said to move it (it had stayed out of the repo until the redesign was approved). It lives in `creatures/tools/art/`:
+the canvas toolkit, the three stage files that draw the 18 creatures, `emit.py` (writes the drawings into the form files,
+with `--check` to compare without writing) and `preview.py` (contact sheet, needs Pillow). It is plain Python that the game,
+the build and the tests never run, so a Python file cannot break a deploy. The generators were first brought in line with the
+form files (Dreadmaw's and Hollowking's `M` mouth pixels had only been patched into the grids), so `emit.py --check` reports
+no differences. This replaces the "stays out of the repo" bullet in the redesign section above. `__pycache__` is ignored.

@@ -14,6 +14,14 @@ evolutions are "the same circle like mass with some small affections", and the o
 **The creature redesign is merged (PR #9, 2026-11-21).** The owner approved the concept sheet first. See the redesign section
 below and [art-direction.md](art-direction.md). Waiting for the owner's phone feedback on it.
 
+**The drawing toolkit is in the repo** (`tools/art/`, 2026-11-21, owner said to move it): the Python that drew the 18 creatures,
+`emit.py` to write drawings into the form files and `python3 tools/art/emit.py --check` to see whether they still agree
+(0 differ today), `preview.py` for a contact sheet. The game and the tests never run it. Cheap-model review: 11 points, 10 fixed
+(a header check, check-everything-before-writing, three wrong README or docstring claims, an old decisions.md bullet marked
+superseded, three unused pieces of code, two unused baby entries), 1 left alone on purpose (the Phase 2 decisions.md entry about
+its own throwaway script, still true). The scripts have no automated tests: they are checked by `emit.py --check` and by
+breaking them on purpose (a bad first line and a broken later drawing both exit 1 with nothing written).
+
 What Phase 1 contains (plan section 9): egg with tap-to-hatch, six care stats, feeding (4 foods, candy makes it ill),
 poop and cleaning, night sleep by the clock plus naps, sickness and medicine, calls for attention, offline catch-up,
 death and a new egg, idle behaviours, tap reactions (poke, pet, tickle), a settings panel (sleeping hours) and a dev panel
@@ -113,7 +121,6 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 - Play the redesign on a phone and report what feels wrong
   (how the creatures look, whether the two-drawing animation pace feels right, the happy eyes). Dev mode (gear, tap the
   version line 7 times) skips the waits and can hatch any form.
-- Decide whether the Python drawing toolkit goes into the repo (`creatures/tools/art/`). It is not there now.
 - Add GitHub branch protection on `main`. The hub's deploy key can push any branch.
 
 ## Facts that are easy to get wrong

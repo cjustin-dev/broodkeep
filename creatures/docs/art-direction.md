@@ -87,8 +87,8 @@ of the bed.
 
 ## Adding or redrawing a creature
 
-1. Draw the two grids at the stage's size, following the rules above. Put them in `idle` and `idle2` in the form file. Start
-   from an existing form of the same stage to see how a face and feet sit.
+1. Draw the two grids at the stage's size, following the rules above (with `tools/art/`, or by hand), and put them in `idle`
+   and `idle2` in the form file. Start from an existing form of the same stage to see how a face and feet sit.
 2. Run the tests. `tests/data.test.ts` checks size, eyes, mouth, empty last row, palette and the second drawing, and
    `tests/face.test.ts` checks every derived look on both drawings.
 3. **Look at it.** Render every look for the form (standing, both frames, shut, tired, up, happy, yawn, slumped, lying) on one
@@ -99,10 +99,12 @@ of the bed.
 
 ## Where the drawing tools are
 
-The grids in the form files are the source of truth. The 18 redrawn creatures were made with a small Python drawing
-toolkit (shapes, mirroring, outlines, a checker for the eye rule) that lives in the hub session's work area, not in the
-repo. It is not needed to change a creature: the grids are plain text and can be edited by hand, though a 32 x 32 grid is
-slow that way. If the toolkit is wanted in the repo, say so and it can go in `creatures/tools/art/`.
+`tools/art/` has the Python toolkit that drew the 18 redesigned creatures (ellipses, rectangles, polygons and lines,
+outlines, a checker for the eye rule), plus `emit.py` that writes the drawings into the form files and
+`preview.py` that draws a contact sheet. See [../tools/art/README.md](../tools/art/README.md). The game never runs it.
+The grids in the form files are what the game uses, and `python3 tools/art/emit.py --check` says whether the drawings
+and the form files still agree. A form can also be changed by editing its grid by hand (it is plain text), though a
+32 x 32 grid is slow that way.
 
 ## Per creature
 
