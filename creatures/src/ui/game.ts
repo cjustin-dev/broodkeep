@@ -10,8 +10,11 @@ import type { Save } from "../game/state";
 import { gameNow } from "../game/time";
 import { writeSave } from "../sync/local";
 
+export type Screen = "room" | "habitat";
+
 export class Game {
   save: Save;
+  screen: Screen = "room"; // which picture is showing (not saved: a new visit starts in the room, and so does a new egg)
   view: View = createView(); // looks only (position, pose), never saved
   devSpeed = 1; // dev mode time multiplier
   private lastReal = Date.now();
@@ -29,6 +32,17 @@ export class Game {
     return gameNow(this.save, Date.now());
   }
 
+  // True while the habitat is showing. It only makes sense for a living creature (changed() sends an egg or a death back to the room).
+  get atHabitat(): boolean {
+    return this.screen === "habitat" && this.save.phase === "alive";
+  }
+
+  setScreen(screen: Screen): void {
+    if (this.screen === screen) return;
+    this.screen = screen;
+    this.listeners.forEach((listener) => listener());
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -36,6 +50,7 @@ export class Game {
 
   // Tell the screens something changed, and save soon.
   changed(): void {
+    if (this.screen === "habitat" && this.save.phase !== "alive") this.screen = "room"; // an egg or a death goes back to the room, and stays there when the next creature hatches
     this.listeners.forEach((listener) => listener());
     this.scheduleSave();
   }
@@ -57,6 +72,7 @@ export class Game {
 
   replaceSave(save: Save): void {
     this.save = save;
+    this.screen = "room";
     this.view.moment = null; // a scene belongs to the old game
     this.view.shown = shownOf(save);
     this.lastReal = Date.now();

@@ -3,7 +3,11 @@
 // Each action returns a short word saying what happened, so the screen can react.
 
 import { foods } from "../data/foods";
+import { spots } from "../data/habitat";
+import type { SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
+import { beginJob, jobRefusal } from "./habitat/jobs";
+import type { JobRefusal } from "./habitat/jobs";
 import { hatchIfReady, simulateTo } from "./sim";
 import { makeRng } from "./rng";
 import { clamp, logEvent, newEgg } from "./state";
@@ -12,8 +16,15 @@ import { MINUTE } from "./time";
 import type { FoodId } from "./types";
 import { eggPatterns } from "../data/eggs";
 
-// The living creature, after catching up. Null if there is none (egg, or dead).
+// The living creature, after catching up. Null if there is none (egg, or dead), or if it is away
+// working: care needs the creature to be at home.
 function alive(save: Save, nowMs: number): Creature | null {
+  simulateTo(save, nowMs);
+  return save.phase === "alive" && !save.creature?.job ? save.creature : null;
+}
+
+// The living creature even if it is away (for the habitat actions).
+function aliveOrAway(save: Save, nowMs: number): Creature | null {
   simulateTo(save, nowMs);
   return save.phase === "alive" ? save.creature : null;
 }
@@ -145,4 +156,32 @@ export function startNewEgg(save: Save, nowMs: number): boolean {
   save.phase = "egg";
   logEvent(save, nowMs, "A new egg appeared");
   return true;
+}
+
+export type StartJobResult = "started" | JobRefusal | "unavailable";
+
+// Send the creature to work at a habitat spot.
+export function startJob(save: Save, spotId: SpotId, nowMs: number): StartJobResult {
+  const c = aliveOrAway(save, nowMs);
+  if (!c || !spots[spotId]) return "unavailable";
+  const refusal = jobRefusal(c, spotId);
+  if (refusal) return refusal;
+  beginJob(save, c, spotId, nowMs);
+  return "started";
+}
+
+export type CallBackResult = "called" | "nothing";
+
+// Bring the creature home early. It brings nothing back and the energy it spent is not given back.
+export function callBack(save: Save, nowMs: number): CallBackResult {
+  const c = aliveOrAway(save, nowMs);
+  if (!c?.job) return "nothing";
+  logEvent(save, nowMs, `Called back from the ${spots[c.job.spot].name} early`);
+  c.job = null;
+  return "called";
+}
+
+// The player has seen the oldest finished job. Returns false if there was none.
+export function dismissHaul(save: Save): boolean {
+  return save.hauls.shift() !== undefined;
 }

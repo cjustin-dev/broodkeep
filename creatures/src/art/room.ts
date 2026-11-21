@@ -10,7 +10,7 @@ function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number
 }
 
 // Sky color and what hangs in it, for an hour of the day (0 to 23).
-function sky(hour: number): { color: string; body: "sun" | "moon"; stars: boolean } {
+export function sky(hour: number): { color: string; body: "sun" | "moon"; stars: boolean } {
   if (hour >= 7 && hour < 17) return { color: "#8fd3ff", body: "sun", stars: false };
   if (hour >= 17 && hour < 20) return { color: "#ffb27a", body: "sun", stars: false };
   if (hour >= 5 && hour < 7) return { color: "#c9a6e8", body: "sun", stars: false };

@@ -6,7 +6,10 @@ import { startNewEgg } from "../game/actions";
 import { ActionBar } from "./ActionBar";
 import { DevPanel } from "./DevPanel";
 import type { Game } from "./game";
+import { HabitatBar } from "./HabitatBar";
+import { HaulCard } from "./HaulCard";
 import { Icon, Pic } from "./Icon";
+import { Nav } from "./Nav";
 import { SettingsPanel } from "./SettingsPanel";
 import { Stage } from "./Stage";
 import { StatBars } from "./StatBars";
@@ -64,7 +67,17 @@ export function App({ game }: { game: Game }) {
         </button>
       </header>
       <Stage game={game} />
-      <div class="dock">{save.phase === "dead" ? <DeathCard game={game} /> : <ActionBar game={game} />}</div>
+      <div class="dock">
+        {save.phase === "dead" ? (
+          <DeathCard game={game} />
+        ) : (
+          <>
+            {save.phase === "alive" && <Nav game={game} />}
+            {game.atHabitat ? <HabitatBar game={game} /> : <ActionBar game={game} />}
+          </>
+        )}
+      </div>
+      <HaulCard game={game} />
       {panel === "settings" && <SettingsPanel game={game} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
     </main>

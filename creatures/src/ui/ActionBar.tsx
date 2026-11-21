@@ -12,10 +12,11 @@ export function ActionBar({ game }: { game: Game }) {
   const [tray, setTray] = useState(false);
   const c = game.save.phase === "alive" ? game.save.creature : null;
   const asleep = c?.sleep != null;
+  const away = c?.job != null; // out working in the habitat: it cannot be cared for until it is home
 
   useEffect(() => {
-    if (asleep) setTray(false); // the food tray makes no sense while it sleeps
-  }, [asleep]);
+    if (asleep || away) setTray(false); // the food tray makes no sense while it sleeps or is out
+  }, [asleep, away]);
 
   if (!c) return null;
 
@@ -62,26 +63,26 @@ export function ActionBar({ game }: { game: Game }) {
           class="btn"
           aria-label="Feed"
           aria-expanded={tray}
-          disabled={asleep}
+          disabled={asleep || away}
           data-attention={c.call === "hungry"}
           onClick={() => setTray(!tray)}
         >
           <Icon name="feed" px={48} />
         </button>
-        <button class="btn" aria-label="Clean up" data-attention={c.call === "dirty"} onClick={onClean}>
+        <button class="btn" aria-label="Clean up" disabled={away} data-attention={c.call === "dirty"} onClick={onClean}>
           <Icon name="clean" px={48} />
         </button>
         <button
           class="btn"
           aria-label="Lights off"
           aria-pressed={c.sleep !== null}
-          disabled={c.sleep === "night"}
+          disabled={c.sleep === "night" || away}
           data-attention={c.call === "sleepy"}
           onClick={onLights}
         >
           <Icon name="lights" px={48} />
         </button>
-        <button class="btn" aria-label="Give medicine" data-attention={c.call === "sick"} onClick={onMedicine}>
+        <button class="btn" aria-label="Give medicine" disabled={away} data-attention={c.call === "sick"} onClick={onMedicine}>
           <Icon name="medicine" px={48} />
         </button>
       </div>

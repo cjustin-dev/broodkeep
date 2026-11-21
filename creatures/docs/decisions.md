@@ -232,3 +232,69 @@ with `--check` to compare without writing) and `preview.py` (contact sheet, need
 the build and the tests never run, so a Python file cannot break a deploy. The generators were first brought in line with the
 form files (Dreadmaw's and Hollowking's `M` mouth pixels had only been patched into the grids), so `emit.py --check` reports
 no differences. This replaces the "stays out of the repo" bullet in the redesign section above. `__pycache__` is ignored.
+
+## 2026-11-21: Phase 3 in four slices, and slice 1: the habitat (jobs, coins, bag)
+
+Phase 3 (habitat, jobs, coins, HP, combat, Creature Book, legacy shelf) is too big for one pull request. The owner chose
+the order, and that food stays unlimited:
+
+1. **Habitat jobs, coins, the bag and the new save format** (this slice).
+2. Turn-based combat: HP and recovery, wild creature ladders, stat gains (these feed `battles`, `wins`, `strength`,
+   `defense` and `spirit`).
+3. Garden plots, standing chores and habitat upgrades (the first thing coins buy).
+4. The Creature Book and the legacy shelf.
+
+- **Food stays unlimited.** The habitat does not supply food (plan section 7.2 says crops and catches become foods). A busy
+  day cannot starve a creature, and the kitchen in Phase 4 can turn gathered materials into hot meals.
+- **A job is a timer on the creature** (`creature.job`: spot, start, end). It pays out inside `stepMinute`, so it also
+  finishes while the app is closed, and splitting time into pieces gives the same save (tested). Randomness is only used at
+  the payout, so a game with no jobs behaves exactly as before.
+- **Checks are made when it sets off** (`jobRefusal`): not busy, not asleep, not sick, old enough for the spot, and energy
+  left over the floor afterwards. A creature that is already out still finishes if night falls or it falls sick on the way
+  (a job is 3 to 8 minutes). The refused tap shows a picture of the reason (zzz, sick, low energy, lock).
+- **Away means away.** One creature cannot be in two places, so while it works the room is empty with a bubble that says it
+  went out, and feeding, cleaning, lights, medicine and petting are unavailable (`alive()` returns null for it). "Call back"
+  brings it home at once with nothing and no energy refunded, as the way out if it needs care. Considered: leaving the
+  creature in the room while it "works", which breaks the picture the moment the screens are switched.
+- **Stage gates** (plan 7.3: light jobs for the young, heavier spots as it grows): baby and in training use the meadow and
+  the herb patch, rookies add trees and the pond, champions add the rock pile. A locked spot shows a lock.
+- **The numbers** (first guesses, in `src/data/habitat.ts`, written from the data):
+
+| Spot | Gives | From stage | Minutes | Energy | Coins | Amount |
+|---|---|---|---|---|---|---|
+| Bug meadow | Fiber | baby | 3 | 5 | 1 to 2 | 1 to 2 |
+| Herb patch | Herbs | baby | 3 | 5 | 1 to 2 | 1 to 2 |
+| Trees | Wood | rookie | 5 | 10 | 2 to 3 | 1 to 2 |
+| Pond | Fish | rookie | 6 | 10 | 2 to 4 | 1 to 2 |
+| Rock pile | Stone | champion | 8 | 15 | 3 to 5 | 1 to 3 |
+
+  A creature sets off only if it keeps at least 20 energy afterwards. The welcome-back cards keep at most 5 unseen jobs
+  (the oldest card is forgotten, never the coins).
+- **Save version 2.** `coins`, `inventory` (materials) and `hauls` (finished jobs not yet seen) were added; `creature.job` and
+  `counters.chores` are optional, so no creature needs converting. `migrateSave` upgrades a version 1 save (empty purse, empty
+  bag, no cards) and refuses anything else, and `loadSave` uses it. A refused save is still kept under `save-unreadable`.
+- **`chores` is now a counted evolution metric** (jobs finished this stage, reset at each evolution; it feeds Pip to Shellby
+  and Shellby to Bastion). Dev mode's number is the TOTAL the tree reads: it stores only the difference above the real count,
+  so it cannot be set below what was really done. A job that finishes in the very minute an evolution opens counts toward it
+  (`stepJob` runs before `evolveIfReady`; tested).
+- **Spots are buttons under the picture,** not taps on it: big, keyboard reachable, and the same pattern as the care buttons.
+  Each shows the picture of what it gives (the fish icon is the food one). While the creature is out, the row is replaced by
+  one "Call back" button of the same height so the picture does not jump.
+- **Two big switch buttons** (house and tree) sit above the care buttons for a living creature. The screen shown is not saved:
+  a new visit starts in the room, and a death or a new game goes back to it.
+- **In the habitat** a working creature stands in front of its spot, hops, and a progress bar fills over the spot (drawn on
+  top, because a 32 pixel creature covers a whole spot). At home it stands on the path. A sleeping creature is not drawn
+  outside: a bubble with a house says it is in bed (found by looking, the first version had it lying on the path).
+- **A job is never more than its own length away.** `stepJob` pulls a finishing time that is further ahead than the job's
+  length back to that length. Without it, setting the device clock back by more than an hour (the case where the game starts
+  again from the new time) would keep the creature out, and care locked, until the old finishing time (found by the review).
+- **The screen goes back to the room** whenever the creature is not alive (`Game.changed()`), so a new egg and its hatch open
+  in the room even if the player died on the habitat screen (found by the review).
+- **Tests and checks:** 39 deliberate code mutations of the job, save, metric and placement code were all caught (25 on the
+  first pass, 7 on the placement tests, 7 on the review fixes; one test measured the purse against itself and was rewritten
+  after a mutation survived). The screen reset has no unit test: a headless phone browser run (die on the habitat, new egg,
+  hatch) opens in the room, and fails the same run with the reset removed. The habitat was driven in a headless phone browser
+  (baby, rookie, champion and ultimate sizes, night, a refused tap, a job, the room while away, the welcome-back card,
+  calling back) with no console problems. A cheap-model review found 9 points: 6 fixed, 2 written down (below), and 1 left
+  alone on purpose (two result types exported but unused, like the other action result types).
+

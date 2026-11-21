@@ -8,6 +8,9 @@ export type EggPattern = "speckled" | "striped" | "swirled";
 // Life stages, from youngest to oldest.
 export type Stage = "baby" | "training" | "rookie" | "champion" | "ultimate";
 
+// The stages in order, so one can be compared with another by position.
+export const stageOrder: Stage[] = ["baby", "training", "rookie", "champion", "ultimate"];
+
 // The numbers an evolution rule can look at (see src/game/metrics.ts for what each one means).
 export type Metric =
   | "careMistakes"

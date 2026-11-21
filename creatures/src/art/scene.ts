@@ -48,7 +48,7 @@ function icon(name: IconName): HTMLCanvasElement {
 }
 
 // A round speech bubble above the creature with an icon inside.
-function drawBubble(ctx: CanvasRenderingContext2D, name: IconName, x: number, y: number): void {
+export function drawBubble(ctx: CanvasRenderingContext2D, name: IconName, x: number, y: number): void {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(x + 1, y, 10, 12);
   ctx.fillRect(x, y + 1, 12, 10);
@@ -83,6 +83,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     const x = ROOM.eggX + wobble;
     drawSprite(ctx, sprite, x, ROOM.eggY);
     if (progress > 0.6) drawCracks(ctx, x, ROOM.eggY, progress);
+  } else if (alive && c.job) {
+    // Out working in the habitat: the room is empty, with a bubble that says where it went.
+    drawBubble(ctx, "tree", ROOM.w / 2 - 6, 40);
   } else if (c) {
     const form = getForm(c.formId);
     const asleep = c.sleep !== null;

@@ -4,15 +4,23 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-21)
 
-**Phase 1, the emotes, Phase 2, happy eyes and the creature redesign are merged** (PR #3 to #6, #8 and #9, `main` at a580b6a;
-the first four are confirmed live at https://broodkeep.pages.dev, the deploys after that were not checked).
+**Phase 1, the emotes, Phase 2, happy eyes, the creature redesign and the drawing toolkit are merged** (PR #3 to #6, #8, #9 and
+#11, `main` at 5015162; the first four are confirmed live at https://broodkeep.pages.dev, the deploys after that were not checked).
 Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The
 owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), the request for
 more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
 evolutions are "the same circle like mass with some small affections", and the owner wants real changes like Digimon.
 
-**The creature redesign is merged (PR #9, 2026-11-21).** The owner approved the concept sheet first. See the redesign section
-below and [art-direction.md](art-direction.md). Waiting for the owner's phone feedback on it.
+**The creature redesign is merged (PR #9, 2026-11-21) and the owner confirmed it is fine** ("the redesign is fine"). See the
+redesign section below and [art-direction.md](art-direction.md).
+
+**Phase 3 is being built in four slices** (the owner chose the order and that food stays unlimited): 1) habitat jobs, coins and
+the bag (built, pushed on branch `phase-3a-habitat` 2026-11-21, pull request not merged yet), 2) turn-based combat with HP, 3) garden plots, standing chores and
+habitat upgrades, 4) the Creature Book and the legacy shelf. See "Phase 3 slice 1" below.
+
+**Branch protection is on for `main`** (owner set it 2026-11-21: pull request required, 0 approvals because GitHub has no 0 option
+to pick, force pushes and deletions not allowed; the public API reports `protected: true`). Not tested: whether the hub's deploy
+key can still push to `main` (it must never try).
 
 **The drawing toolkit is in the repo** (`tools/art/`, 2026-11-21, owner said to move it): the Python that drew the 18 creatures,
 `emit.py` to write drawings into the form files and `python3 tools/art/emit.py --check` to see whether they still agree
@@ -31,6 +39,21 @@ death and a new egg, idle behaviours, tap reactions (poke, pet, tickle), a setti
 Phase 1 checks: typecheck, tests and build exit 0, a cheap-model review that found 5 real defects (all fixed), and the
 built game driven in a headless phone browser through the whole flow with no console errors. Not checked: a real phone,
 and iOS Safari save-on-close.
+
+## Phase 3 slice 1: the habitat (built and pushed 2026-11-21, branch `phase-3a-habitat`, waiting for the owner to merge)
+
+What it adds: a habitat screen (switch with the house and tree buttons) with five gathering spots. The player taps a spot, the
+creature works there for 3 to 8 real minutes (also while the app is closed) and comes home with coins and a material, shown on
+a welcome-back card. Younger creatures can only use the light spots. While it is out the room is empty and care is
+unavailable (a "Call back" button brings it home with nothing). Save version 2 (`coins`, `inventory`, `hauls`, `creature.job`,
+`counters.chores`) with a migration for version 1 saves. `chores` is now a counted evolution metric. Version label "0.3 (Phase 3a)".
+Design notes and the numbers are in [decisions.md](decisions.md), accepted gaps in [known-issues.md](known-issues.md).
+
+Checks: typecheck and build exit 0, 593 tests (13 files; 547 before), 39 deliberate code mutations all caught (one test was
+rewritten after a mutation survived), a headless phone browser run of the whole flow with no console problems (all four
+creature sizes, night, a refused tap, a job, the room while away, the welcome-back card, calling back, and a death on the
+habitat screen followed by a new egg), and a cheap-model review that found 9 points (6 fixed, 2 written down, 1 left alone on
+purpose). Not checked: a real phone, and the drawing code beyond its placement tests.
 
 ## Creature redesign (merged in PR #9, 2026-11-21)
 
@@ -118,13 +141,13 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Open for the owner
 
-- Play the redesign on a phone and report what feels wrong
-  (how the creatures look, whether the two-drawing animation pace feels right, the happy eyes). Dev mode (gear, tap the
-  version line 7 times) skips the waits and can hatch any form.
-- Add GitHub branch protection on `main`. The hub's deploy key can push any branch.
+- When slice 1 is on the live site: play the habitat on a phone and report what feels wrong (is 3 to 8 minutes of work about
+  right, are the coins and bag worth having before anything can be bought, does the empty room while it is away feel ok). Dev
+  mode (gear, tap the version line 7 times) skips the waits and can hatch any form.
 
 ## Facts that are easy to get wrong
 
+- Anything stored in the save as an absolute time (a job's finishing time, stage starts) can end up hours ahead if the device clock is set back by more than an hour, because the game then starts again from the new time. Jobs clamp their finishing time to their own length; other stored times (egg start, stage start) do not.
 - Pages `_headers` does not apply to Functions responses, so `functions/_lib/response.ts` must set headers itself.
 - Workers may cap PBKDF2 at 100,000 iterations (reported, not confirmed in primary docs). Check before Phase 5.
 - Unknown paths return `index.html` with 200 (SPA fallback). Once Functions exist, unknown API routes should return a JSON 404.
@@ -135,9 +158,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 
 ## Next
 
-1. Owner plays the redesign on a phone and reports. Fix what feels wrong (pace of the second
-   drawing, a bigger bed or blanket, creatures that still look dopey, shut eyes on dark bodies).
-2. Collect the owner's feedback on the emotes and the redesign, and tune the tree numbers after real play.
-3. Phase 3 (habitat, jobs, turn-based combat, coins, the Creature Book) only after that. It makes most Champion and
-   Ultimate paths reachable.
+1. The owner opens and merges the pull request for `phase-3a-habitat` (github.com/cjustin-dev/broodkeep/pull/new/phase-3a-habitat), then plays the habitat.
+2. Phase 3 slice 2: turn-based combat (HP and recovery, wild creature ladders, stat gains that feed `battles`, `wins`,
+   `strength`, `defense` and `spirit`). Then slice 3 (garden plots, standing chores, habitat upgrades: the first thing coins
+   buy) and slice 4 (the Creature Book and the legacy shelf). Phase 3 makes most Champion and Ultimate paths reachable.
+3. Tune the tree and job numbers after real play.
    Work on a new branch, never push `main`, and the owner merges the pull request.

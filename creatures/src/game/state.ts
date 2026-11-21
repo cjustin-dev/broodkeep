@@ -2,6 +2,7 @@
 // so it can be stored as JSON in IndexedDB and, in Phase 5, sent to the cloud.
 
 import { eggPatterns } from "../data/eggs";
+import type { MaterialId, SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
 import { makeRng } from "./rng";
 import type { LaterMetric } from "./metrics";
@@ -29,6 +30,23 @@ export interface Counters {
   happinessSum: number; // add the happiness of every awake minute...
   happinessMinutes: number; // ...and count the minutes, to get the average
   later?: Partial<Record<LaterMetric, number>>;
+  chores?: number; // jobs finished in this stage (optional so older saves still load)
+}
+
+// A creature out working at a habitat spot. It is back when game time reaches endsAt.
+export interface Job {
+  spot: SpotId;
+  startedAt: number;
+  endsAt: number;
+}
+
+// What a finished job brought home. Kept until the player has seen it.
+export interface Haul {
+  spot: SpotId;
+  at: number;
+  coins: number;
+  material: MaterialId;
+  amount: number;
 }
 
 export interface Creature {
@@ -46,6 +64,7 @@ export interface Creature {
   recentCandy: number[]; // times candy was eaten lately
   affection: { windowStart: number; gained: number };
   counters: Counters;
+  job?: Job | null; // set while the creature is away working (optional so older saves still load)
 }
 
 export interface Egg {
@@ -60,7 +79,7 @@ export interface LogEntry {
 }
 
 export interface Save {
-  version: 1;
+  version: 2;
   phase: Phase;
   egg: Egg | null;
   creature: Creature | null; // kept after death, so the last form can still be shown
@@ -70,6 +89,9 @@ export interface Save {
   rngState: number;
   settings: { sleepStartHour: number; sleepEndHour: number };
   log: LogEntry[]; // event log for dev mode, newest last
+  coins: number;
+  inventory: Partial<Record<MaterialId, number>>; // materials gathered so far
+  hauls: Haul[]; // finished jobs the player has not looked at yet, oldest first
 }
 
 export function freshCounters(): Counters {
@@ -79,6 +101,7 @@ export function freshCounters(): Counters {
     neglectMinutes: 0,
     happinessSum: 0,
     happinessMinutes: 0,
+    chores: 0,
   };
 }
 
@@ -90,7 +113,7 @@ export function newEgg(nowMs: number, pattern?: EggPattern): Egg {
 export function newSave(nowMs: number, seed: number): Save {
   const rng = makeRng(seed);
   const save: Save = {
-    version: 1,
+    version: 2,
     phase: "egg",
     egg: newEgg(nowMs, rng.pick(eggPatterns)),
     creature: null,
@@ -100,6 +123,9 @@ export function newSave(nowMs: number, seed: number): Save {
     rngState: rng.state(),
     settings: { sleepStartHour: tuning.sleepDefaults.startHour, sleepEndHour: tuning.sleepDefaults.endHour },
     log: [],
+    coins: 0,
+    inventory: {},
+    hauls: [],
   };
   logEvent(save, nowMs, "A new egg appeared");
   return save;
@@ -119,10 +145,24 @@ export function isSave(value: unknown): value is Save {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Partial<Save>;
   return (
-    v.version === 1 &&
+    v.version === 2 &&
     (v.phase === "egg" || v.phase === "alive" || v.phase === "dead") &&
     typeof v.lastSimulatedAt === "number" &&
     typeof v.rngState === "number" &&
-    Array.isArray(v.log)
+    Array.isArray(v.log) &&
+    typeof v.coins === "number" &&
+    typeof v.inventory === "object" &&
+    v.inventory !== null &&
+    Array.isArray(v.hauls)
   );
+}
+
+// Turn data read from storage into a current save, or null if it is not one. A version 1 save
+// (made before the habitat) gets an empty purse, an empty bag and no finished jobs.
+export function migrateSave(value: unknown): Save | null {
+  if (typeof value === "object" && value !== null && (value as { version?: unknown }).version === 1) {
+    const old = value as Record<string, unknown>;
+    value = { ...old, version: 2, coins: 0, inventory: {}, hauls: [] };
+  }
+  return isSave(value) ? value : null;
 }

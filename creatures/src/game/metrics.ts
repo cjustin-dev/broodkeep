@@ -1,7 +1,8 @@
 // The numbers evolution rules are written in. Each one is read from the creature right now.
 // "tracked" metrics are counted by the game today. The others belong to systems that come in
-// later phases (training, battles, jobs, trained stats). They read as 0 until then, and dev
-// mode can set them (counters.later) so every path in the tree can still be tested.
+// later phases (training, battles, trained stats). They read as 0 until then, and dev
+// mode can set them (counters.later) so every path in the tree can still be tested. Dev mode
+// can also add to a counted one (jobs); the number shown is the real count plus what it added.
 // Discipline is the exception: it is a real stat that nothing raises yet, so it is read from the
 // stat and dev mode sets it with the Discipline slider.
 
@@ -21,7 +22,7 @@ export const METRICS: Record<Metric, { label: string; tracked: boolean }> = {
   training: { label: "training sessions", tracked: false },
   battles: { label: "battles fought", tracked: false },
   wins: { label: "battles won", tracked: false },
-  chores: { label: "chores and jobs done", tracked: false },
+  chores: { label: "chores and jobs done", tracked: true },
   strength: { label: "strength", tracked: false },
   defense: { label: "defense", tracked: false },
   spirit: { label: "spirit", tracked: false },
@@ -29,6 +30,11 @@ export const METRICS: Record<Metric, { label: string; tracked: boolean }> = {
 
 export type LaterMetric = "training" | "battles" | "wins" | "chores" | "strength" | "defense" | "spirit";
 export const laterMetrics: LaterMetric[] = ["training", "battles", "wins", "chores", "strength", "defense", "spirit"];
+
+// What the game really counted for a metric, before dev mode adds anything. Only jobs are counted so far.
+export function countedValue(creature: Creature, metric: Metric): number {
+  return metric === "chores" ? (creature.counters.chores ?? 0) : 0;
+}
 
 // Average happiness while awake in this stage. A stage with no awake time counts as 50.
 export function happinessAverage(counters: Creature["counters"]): number {
@@ -58,6 +64,6 @@ export function metricValue(creature: Creature, metric: Metric): number {
     case "candy":
       return c.foodEaten.candy;
     default:
-      return c.later?.[metric] ?? 0; // not counted yet, unless dev mode set it
+      return countedValue(creature, metric) + (c.later?.[metric as LaterMetric] ?? 0); // counted for real, plus whatever dev mode added
   }
 }

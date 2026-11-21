@@ -3,6 +3,7 @@
 
 import { eggPatterns } from "../data/eggs";
 import { getForm } from "../data/forms";
+import { countedValue } from "./metrics";
 import type { LaterMetric } from "./metrics";
 import { makeCreature, evolveTo, simulateTo } from "./sim";
 import { clamp, logEvent, newEgg, newSave } from "./state";
@@ -28,12 +29,15 @@ export function setStat(save: Save, stat: keyof Stats, value: number): void {
   if (save.creature) save.creature.stats[stat] = clamp(value);
 }
 
-// Set one of the numbers of a system that is not in the game yet (training, battles, jobs, strength
-// and so on), so the evolution paths that need them can be tested. They reset at each evolution.
+// Set one of the numbers of a system that is not in the game yet (training, battles, strength and
+// so on), or the total of one that is (jobs), so the evolution paths that need them can be tested.
+// For a counted one only the difference is stored, so what you type is what the tree reads.
+// They reset at each evolution.
 export function setLaterCounter(save: Save, metric: LaterMetric, value: number): void {
   if (!save.creature) return;
   const whole = Number.isFinite(value) ? Math.max(0, Math.min(999, Math.round(value))) : 0;
-  save.creature.counters.later = { ...save.creature.counters.later, [metric]: whole };
+  const extra = Math.max(0, whole - countedValue(save.creature, metric));
+  save.creature.counters.later = { ...save.creature.counters.later, [metric]: extra };
 }
 
 export function setSick(save: Save, sick: boolean): void {
