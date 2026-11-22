@@ -1,6 +1,7 @@
 // The save shape: everything the game remembers. It is plain data (no functions),
 // so it can be stored as JSON in IndexedDB and, in Phase 5, sent to the cloud.
 
+import { lineageOf } from "../data/book";
 import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
@@ -27,6 +28,7 @@ export interface Counters {
   hungerCells: number; // feedings that filled the creature up, at most tuning.growth.careCellsMax (the young stage)
   happyCells: number; // times happiness reached 100, at most the same (the young stage)
   careMistakes: number; // calls left unanswered too long
+  neglectMinutes?: number; // awake minutes since the last care (baby and kid stages); at tuning.growth.neglectHours it turns into the special
   chores?: number; // jobs finished in this stage
   battles?: number; // fights fought in this stage, won or lost
   wins?: number; // fights won in this stage
@@ -96,6 +98,7 @@ export interface Save {
   coins: number;
   inventory: Partial<Record<MaterialId, number>>; // materials gathered so far
   hauls: Haul[]; // finished jobs the player has not looked at yet, oldest first
+  book: string[]; // the Creature Book: ids of the forms the player has raised, in the order they were first met (game/book.ts)
 }
 
 export function freshCounters(): Counters {
@@ -105,6 +108,7 @@ export function freshCounters(): Counters {
     hungerCells: 0,
     happyCells: 0,
     careMistakes: 0,
+    neglectMinutes: 0,
     chores: 0,
     battles: 0,
     wins: 0,
@@ -132,6 +136,7 @@ export function newSave(nowMs: number, seed: number): Save {
     coins: 0,
     inventory: {},
     hauls: [],
+    book: [],
   };
   logEvent(save, nowMs, "A new egg appeared");
   return save;
@@ -167,5 +172,9 @@ export function isSave(value: unknown): value is Save {
 // rules replaced every old form, so an older save has no creature that could carry on (the owner chose a clean start, and the
 // loader keeps an unreadable save under another name, see sync/local.ts).
 export function migrateSave(value: unknown): Save | null {
-  return isSave(value) ? value : null;
+  if (!isSave(value)) return null;
+  // A save from before the Creature Book has no `book` (the version stays 3: the field is added here). It starts with the forms the living
+  // creature must have been through to be what it is.
+  if (!Array.isArray(value.book)) value.book = value.creature ? lineageOf(value.creature.formId) : [];
+  return value;
 }

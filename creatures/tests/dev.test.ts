@@ -17,6 +17,7 @@ import {
 import { forms } from "../src/data/forms";
 import { simulateTo } from "../src/game/sim";
 import { HOUR, gameNow } from "../src/game/time";
+import { specialId } from "../src/data/special";
 import { aliveSave, at, withLockedField } from "./helpers";
 
 describe("dev tools", () => {
@@ -26,7 +27,7 @@ describe("dev tools", () => {
     skipAhead(save, 6, t0);
     expect(save.clockOffsetMs).toBe(6 * HOUR);
     expect(gameNow(save, t0)).toBe(t0 + 6 * HOUR);
-    expect(save.creature?.formId).toBe("pebblin"); // 6 hours is the length of the baby stage
+    expect(save.creature?.formId).toBe(specialId); // the skip was simulated: six hours with no care turned the baby into the special
   });
 
   it("time multiplier adds the extra game time, and 1x adds nothing", () => {

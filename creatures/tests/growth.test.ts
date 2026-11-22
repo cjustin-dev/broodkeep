@@ -7,7 +7,7 @@ import { killCreature, setCareCounter, setPlace, setServings, setStat, spawnEgg 
 import { countCareCells, fieldCells, foodCells, leadingForm, menuOf, nextForm, stageHours, tierOf } from "../src/game/growth";
 import { evolveTo, simulateTo } from "../src/game/sim";
 import { HOUR, MINUTE } from "../src/game/time";
-import { aliveSave, at, withLockedField } from "./helpers";
+import { aliveSave, at, petUntil, withLockedField } from "./helpers";
 
 const t0 = at(8); // eight in the morning, so a whole stretch of awake time follows
 
@@ -68,7 +68,7 @@ describe("field cells (baby to kid)", () => {
 
   it("grows up after 6 hours even if it never went outside", () => {
     const save = aliveSave("blip", t0);
-    simulateTo(save, t0 + 6 * HOUR - MINUTE);
+    petUntil(save, t0, t0 + 6 * HOUR - MINUTE); // looked after at home, never taken out (with no care at all it would turn into the special)
     expect(save.creature!.formId).toBe("blip");
     simulateTo(save, t0 + 6 * HOUR);
     expect(save.creature!.formId).toBe("pebblin"); // the field of its egg: Land is the only open one
@@ -154,7 +154,7 @@ describe("food cells (kid to young)", () => {
   it("grows up when 24 hours are over, not a minute sooner", () => {
     const save = aliveSave("pebblin", t0);
     serve(save, "meat", 2);
-    simulateTo(save, t0 + 24 * HOUR - MINUTE);
+    petUntil(save, t0, t0 + 24 * HOUR - MINUTE); // (with no care for a few hours it would turn into the special)
     expect(save.creature!.formId).toBe("pebblin");
     simulateTo(save, t0 + 24 * HOUR);
     expect(save.creature!.formId).toBe("cragpup");

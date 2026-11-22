@@ -10,7 +10,7 @@ import { tuning } from "../data/tuning";
 import { beginFight, fightRefusal, finishFight } from "./combat/fight";
 import type { FightRefusal, FightResult } from "./combat/fight";
 import type { Battle } from "./combat/battle";
-import { countCareCells, countServing, menuOf } from "./growth";
+import { countCareCells, countServing, menuOf, noteCare } from "./growth";
 import { beginJob, jobRefusal } from "./habitat/jobs";
 import type { JobRefusal } from "./habitat/jobs";
 import { hatchIfReady, simulateTo } from "./sim";
@@ -63,6 +63,7 @@ export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
   c.stats.wellness = clamp(c.stats.wellness + food.wellness);
   countServing(c, foodId);
   countCareCells(c, hungerBefore, happinessBefore);
+  noteCare(c);
   c.digestQueue.push(rng.int(food.digestMinutes[0], food.digestMinutes[1]));
   save.rngState = rng.state();
   logEvent(save, nowMs, `Ate ${food.name}`);
@@ -78,6 +79,7 @@ export function clean(save: Save, nowMs: number): CleanResult {
   logEvent(save, nowMs, c.poop > 0 ? `Cleaned up ${c.poop} poop` : "Cleaned the creature");
   c.poop = 0;
   c.stats.hygiene = 100;
+  noteCare(c);
   return "cleaned";
 }
 
@@ -91,6 +93,7 @@ export function giveMedicine(save: Save, nowMs: number): MedicineResult {
   c.sick = false;
   c.stats.wellness = clamp(Math.max(c.stats.wellness + tuning.medicine.wellnessBoost, tuning.medicine.wellnessFloor));
   c.wellnessZeroMinutes = 0;
+  noteCare(c);
   logEvent(save, nowMs, "Took medicine and got better");
   return "cured";
 }
@@ -158,6 +161,7 @@ export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   if (!c) return { gained: 0, asleep: false };
   if (c.sleep) return { gained: 0, asleep: true };
   if (kind === "poke") return { gained: 0, asleep: false };
+  noteCare(c); // a pet or a tickle is care even when the hourly happiness limit gives nothing more
 
   const a = c.affection;
   if (nowMs - a.windowStart >= tuning.affection.windowMinutes * MINUTE) {

@@ -489,3 +489,90 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   the lock check removed, the lock helper not restoring the plan, two Sky adults swapped, a Sky face anchor moved, the Sky picture
   dropped, a Sky food number zeroed, a bogus field picture added, and the sad-beak fix undone. Each file was restored and compared with
   its saved copy.
+
+## 2026-11-21: the Creature Book (owner chose it as the next item)
+
+- **What it is.** CLAUDE.md section 7.8's collection page, in a small form: a header button opens a panel listing all 64 creatures.
+  A form nobody has raised is a flat dark shape and "???". It fills in (picture and name) the first time a creature of that form is
+  raised. It is per save: the family-wide book waits for accounts (Phase 5). Not built: the legacy shelf, soften mode wording.
+- **The record is `Save.book`**, a list of form ids in the order they were first met, kept when a creature dies and a new egg
+  hatches. `discover()` (`game/book.ts`) adds a form once and writes one log line ("New in the Creature Book: Name (n of 64)"). It is
+  called in `hatchIfReady` (the baby), `evolveTo` (every growth, and so the dev tool `forceEvolve`) and `forceHatch`.
+- **No save version bump.** Version 3 stays. `migrateSave` gives a save with no `book` (or one that is not a list) the forms its living
+  creature must have been through (`lineageOf`: baby, kid, young, adult, cut at itself), or an empty book when there is no creature.
+  So a creature already grown does not make the player raise it again.
+- **`forceHatch` adds only the form it names.** The kid and young it would have grown from were not raised, so the dev tool does not
+  claim them.
+- **The pages are laid out so a column is one line of the family tree.** "Baby", then one page per open field with six rows: the kid, the
+  four young (the order of the field's foods, then the fourth "other" young), then four rows of adults, tier 1 at the top, where
+  column n holds the adults of young n. Rows of one picture (baby, kid) are centred.
+- **The layout is built on first use, not at import.** `state.ts` imports `data/book.ts` (for `lineageOf`), and
+  `growth-fields.test.ts` mocks `data/fields`; a layout computed when the file loaded read the mock and the test file failed to
+  load. `bookPages()`, `bookIds()` and `bookTotal()` are functions that build once. Rule: a module the save code imports must not
+  read the growth tree at load.
+- **Hints are words, and only for the next step.** A missing form shows a hint only when the form it grows from has been raised, so the
+  book guides without giving the whole tree away. Kid: "Take a baby to the Land" (or Water, Sky). Young: "Feed it lots of
+  {food}", and for the fourth young "Pellets only, or an even mix" (what `pickYoung` does when no field food leads, or two tie). Adult
+  by tier: "Perfect care", "Good care", "A few care mistakes", "Neglect it". No numbers: those are in `tuning.ts`.
+- **The dark shape** is the real picture with every palette letter set to one colour, `#6a58a8` (`art/silhouette.ts`). The first colour
+  was about 1.1 to 1 against the page background and the review caught it; this one is about 3.2 to 1.
+- **Pictures are drawn at 1.5 times their own size** (rounded), so the five sizes keep their order against each other in a four column
+  grid. Names are bold and use `min(0.72rem, 2.85vw)`, a little under the app's 0.8rem floor and smaller on a narrow screen: the
+  widest name (Hollowbloom, 84 pixels at 0.72rem) has to fit a cell a quarter of the page wide. At a fixed 0.72rem it fit at 390 pixels wide
+  but Hollowbloom and Cindermane broke mid-word at 360, and 15 names at 320. With the width-based size a script measured every name
+  with all 64 raised: one line each at 390, 360 and 320 (`overflow-wrap: anywhere` stays as a last resort).
+- **The header button reuses the `.gear` square** and a new 8 x 8 book icon (red cover, cream pages), a placeholder like the other icons.
+- **Tests.** `tests/book.test.ts` has 18 tests: every creature listed once, the page structure, `lineageOf` for every form, each place
+  a form is discovered, older saves, the hints and the silhouette. `playthrough.test.ts` also checks that the book of a raised
+  creature equals the forms it went through, in order. The UI has no unit tests (Vitest runs in node); it was looked at in a headless
+  phone browser.
+- **Review and mutation checks.** A cheap-model fresh-eyes review (run before the tests, as the home rule says) made 9 findings, all
+  checked and fixed: the dark colour, the "pellets or a mix" hint wording, columns stretched by long names, hint text under the size
+  floor, single-picture rows left-aligned, a wrong row count in a test, an unasserted `hatchIfReady`, an impossible save ("alive with no
+  creature") in a test, and a comment for the dev path. Ten mutation checks each failed a test and the file was restored and compared:
+  no check for a repeat, evolve without `discover`, hatch without it, dev hatch without it, migrate without the lineage, a wrong young in
+  the lineage, a tier hint off by one, hints without the parent rule, a silhouette in two colours, the tier rows in the wrong order.
+
+## 2026-11-21: the special form (owner's answers; the name and look are my choice)
+
+- **The owner's answers** (a question with three options each; all recommended options): "no care" is 4 hours awake with no feed, clean or
+  play (sleeping hours do not count); it applies to a baby or a kid; the special wins over the 6 hour baby safety net; the special is one
+  creature that grows no further.
+- **The counter is `Creature.counters.neglectMinutes`**, optional like `chores` (a save from before it reads as 0), set to 0 by every new
+  stage (`freshCounters`) and by every piece of care. `countNeglectMinute` (called from `stepMinute`) adds a minute for a baby or kid that is
+  awake and not away on a job; at `tuning.growth.neglectHours` (4) times 60 minutes `nextForm` returns the special. No save version bump.
+- **A minute is named by its end.** The minute that ends at 20:00 is already night, so a baby hatched at 18:00 has 119 awake minutes at
+  night, not 120. The first test of that expected 120 and the reviewer caught it by reading `sim.ts`.
+- **What is care.** A meal it ate (a refused one is not), a clean-up that did something, medicine that cured, a pet or a tickle. A poke
+  is not. A pet counts even when the hourly happiness limit gives nothing more. My extension: medicine counts (the owner said "feed, clean
+  or play"). **A clean-up or medicine counts while it sleeps**, because the Clean up and Give medicine buttons are not disabled then
+  (Feed is, and a pet is refused). That means a player can stop the clock at night by cleaning; I kept it, since it is real care and the
+  buttons allow it, and put it in known-issues.md.
+- **The special is a form of stage "kid" in no field's plan.** That gives it the kid size (24 px) and the kid face style with no new art
+  rules. `canBecomeSpecial` is true only for a baby or a kid that is not the special itself, so it never turns into itself and counts
+  nothing; `stageHours`, `leadingForm` and `nextForm` give it nothing further (the dev tree says "Fully grown"). Tests that said "every kid
+  belongs to a field" now name the special as the exception (`data.test.ts`, `book.test.ts`).
+- **Precedence.** `pickSpecial` comes first in `nextForm` and `leadingForm` for a baby and a kid, so it beats the safety net and the kid's
+  growing up. A baby with 4 field cells and 4 hours of neglect cannot happen in play (the cells come after an hour), so no rule is needed
+  for that pair.
+- **Wild opponents.** `beginFight` picks a wild creature from every form of the player's stage. With the special in the kid pool, one kid
+  fight in four would meet a Dustpuff, so the special is left out of that pool (`fight.ts`). A test checks that two kinds of kid never meet it.
+- **Dustpuff** (`tools/art/paradise/special.py`): a grey-lilac lint clump with two strands of lint on top, 1 px tufts and specks of grit,
+  role quick. Two drawings differ by 100 cells (a squash, the lint flicking, shifting tufts). I looked at it twice and redrew once: the strands
+  were drawn over the forehead (dark lines above the eyes), so they are now drawn first and the head covers where they start.
+  `emit_ts.py` writes `forms/special.ts`; `face_hashes.py` and `selftest.py` include it (910 pictures, 121 cases).
+- **The Creature Book** has a "Special" page after the three fields; `lineageOf(special)` is [baby, special] (it can come from a baby or a
+  kid, and every route starts at the baby), so an older save with a living special is credited with both; the hint is
+  "Leave a baby or kid alone for hours" (words, no numbers), shown once a baby has been raised. The book now totals 65.
+- **Existing tests that left a baby or kid alone** now keep it looked after with `petUntil` (`tests/helpers.ts`: a pet an hour): the 6 hour
+  net (`growth.test.ts`, `sim.test.ts`) and the kid's 24 hours (`growth.test.ts`). The dev skip-ahead test (`dev.test.ts`) now expects the special, since
+  six hours of no care is the case. My own first "care starts the count again" tests failed for a design reason, not a bug: caring at
+  minute 230 and simulating 239 more minutes runs a baby past its 6 hour net, so they use a kid.
+- **Review and mutation checks.** The cheap-model review (before any test ran) made 6 findings: the 119 versus 120 expectation, a test title
+  that claimed more than it checked (it now asserts a kid), the sleeping-care rule above (a comment said the player could not care while it
+  sleeps; fixed, tested), the wild-opponent pool, a list of existing tests it expected to fail (it named 4 of the 5 that did; the
+  other failures were found by running), and an incomplete mouth-row list in a comment. 19 TypeScript mutations (the limit, sleep, the job, each
+  care action and the poke, precedence over the safety net and over the kid's growing up, the special counting itself, a young counting,
+  the sim hook, the opponent pool, `stageHours`, an old save, the fresh counter, the Book lineage and hint) and 2 drawing mutations (a face
+  anchor off the picture, a moved speck) each failed. A first drawing mutation (a lump drawn off the canvas) changed nothing, so it
+  proved nothing and was redone.

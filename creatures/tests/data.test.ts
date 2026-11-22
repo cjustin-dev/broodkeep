@@ -7,6 +7,7 @@ import { STATS, roleParts, stageBudget } from "../src/data/forms/stats";
 import { foodIds, foods } from "../src/data/foods";
 import { stageOrder } from "../src/game/types";
 import type { Role, Stage } from "../src/game/types";
+import { specialId } from "../src/data/special";
 import { withLockedField } from "./helpers";
 
 // How big each stage's picture is: the baby is small and each later stage grows (docs/paradise-plan.md section 1).
@@ -65,12 +66,12 @@ describe("creature forms", () => {
     for (const [key, form] of Object.entries(forms)) expect(form.id).toBe(key);
   });
 
-  it("has one baby, and every other form belongs to a field", () => {
+  it("has one baby and one special that belong to no field, and every other form belongs to a field", () => {
     const babies = Object.values(forms).filter((f) => f.stage === "baby");
     expect(babies.map((f) => f.id)).toEqual(["blip"]);
     for (const form of Object.values(forms)) {
-      if (form.stage !== "baby") expect(fieldOfForm(form.id), form.id).not.toBeNull();
-      else expect(fieldOfForm(form.id), form.id).toBeNull();
+      if (form.stage === "baby" || form.id === specialId) expect(fieldOfForm(form.id), form.id).toBeNull();
+      else expect(fieldOfForm(form.id), form.id).not.toBeNull();
     }
   });
 });

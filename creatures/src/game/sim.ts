@@ -6,11 +6,12 @@
 import { eggPatterns, hatchTable } from "../data/eggs";
 import { getForm } from "../data/forms";
 import { tuning } from "../data/tuning";
+import { discover } from "./book";
 import { stepCare } from "./care";
 import { maxHp } from "./combat/stats";
 import { stepRecovery } from "./combat/recovery";
 import { stepJob } from "./habitat/jobs";
-import { countFieldMinute, nextForm } from "./growth";
+import { countFieldMinute, countNeglectMinute, nextForm } from "./growth";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
 import { freshCounters, logEvent } from "./state";
@@ -57,6 +58,7 @@ function stepMinute(save: Save, rng: Rng, t: number): void {
       if (save.creature) {
         stepRecovery(save.creature);
         countFieldMinute(save.creature);
+        countNeglectMinute(save.creature);
       }
       evolveIfReady(save, t);
     }
@@ -75,6 +77,7 @@ export function hatchIfReady(save: Save, rng: Rng, t: number): boolean {
   save.egg = null;
   save.phase = "alive";
   logEvent(save, t, `The egg hatched into ${getForm(babyId).name}`);
+  discover(save, babyId, t);
   return true;
 }
 
@@ -121,4 +124,5 @@ export function evolveTo(save: Save, formId: string, t: number): void {
   delete c.rung;
   if (hpShare !== null) c.hp = Math.min(maxHp(c), Math.round(hpShare * maxHp(c)));
   logEvent(save, t, `${from} evolved into ${getForm(formId).name}`);
+  discover(save, c.formId, t);
 }
