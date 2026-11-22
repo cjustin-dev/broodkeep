@@ -330,3 +330,41 @@
 - **Three existing tests changed to keep a baby or kid looked after** (a pet an hour, `petUntil`). A new test that leaves a baby alone for
   more than 4 awake hours will find the special, not the safety net.
 - **The JavaScript is 441.9 KB (79.1 KB gzipped)**, up from 436.7 KB before the Book and the special (439.5 KB with the Book). See plan section 7.
+
+## Installable app (accepted for now)
+
+- **An update reaches a phone only when the player taps "Update now" in Settings, or after the app has been closed completely and opened
+  again.** Until then it keeps running the version it has. A later change to the save format would make the server refuse that old copy's
+  saves ("That save is not from a version this server knows.") until it updates.
+- **No install button in the game.** The player installs from the browser: Android Chrome menu, "Install app"; iPhone Safari, Share,
+  "Add to Home Screen". Chrome may also offer it by itself.
+- **Not tried on a real phone:** how the installed icon is cropped (the round and rounded masks), the start screen, the status bar colour
+  on iPhone (`black`), and whether an iPhone home screen app keeps its own storage apart from Safari (it may start with a new egg; signing in
+  to the account brings the game over, and the "which game to keep" question protects an existing one). The checks so far are a headless
+  desktop Chromium and the files themselves.
+- **The first visit is not controlled by the worker.** It starts working from the next load or visit. Starting offline needs one visit with a
+  connection first.
+- **No "ready offline" message.** The player cannot tell that the files were kept.
+- **Sign in and saving to the account still need a connection**, as before: offline they say so and the game stays saved on the device.
+- **`tools/pwa-icons.py --check` is not part of `npm test`** (it needs Python and Pillow, like the other art tools). `tests/pwa.test.ts`
+  checks the icon files' sizes, not their pictures.
+- **The JavaScript is 456.7 KB (84.6 KB gzipped, the figures `vite build` prints)** plus a 5.7 KB piece for the update helper, up from 453.0 KB (83.1 KB gzipped).
+- **Two windows of the game open at once** (the installed app next to a browser tab): tapping "Update now" in one reloads only that one. The other
+  keeps running the old version, still showing its own notice, until its player taps too (that tap reloads it at once, checked in a browser) or
+  reloads; the new worker already serves the new files.
+  Two windows also each hold their own copy of the game and both write the one saved game (the later write wins); that was so before the app.
+- **When saving is blocked in the browser (the red "Saving is blocked" warning), "Update now" still reloads** and the progress since the last
+  good save is lost, as it would be on closing the page. The notice then leaves out "Your game is saved first." `writeSave` reports no failure
+  to its caller, so `saveNow()` answers when the write was tried, not when it worked.
+- **On "Update now" the game is saved on the device before the reload, but the upload to the account is only started** (a keepalive request,
+  which the browser lets finish after the page goes; it is skipped for a save over 60 KB). If it does not arrive, the next visit sends it.
+- **The header has a narrow-screen rule under 360 px (`@media (max-width: 359px)` in `src/ui/app.css`), checked by hand only.** Before it, the page
+  scrolled sideways by 24 px at 320 px (the header needs 360 px at its normal sizes; found 2026-11-22, there since the Creature Book's second gear
+  button). Measured at 300 to 390 px with a script that is not in the repo; nothing under 300 px was looked at. A change to the header, the gear
+  buttons or the stat cells needs the same measurement at 320, 360 and 390 px (scrollWidth not above the width).
+- **The update notice reuses the red `.notice` look**, made for warnings, for good news.
+- **Empty stat bars hide their fill (`.stat[aria-valuenow="0"] .fill` in `src/ui/app.css`), checked by hand only.** Before, a one pixel reddish sliver could
+  show at the left edge of an empty bar where it sat at a fraction of a pixel (found 2026-11-22, there before the app; worst at 390 px and at
+  300 or 320 px on 2x and 3x screens). A script that reads screenshot pixels (not in the repo) measured 300 to 412 px at pixel ratios 1, 2 and 3:
+  worst deviation 88 before, 14 after (edge anti-aliasing alone reaches about 16). A change to the stat bars needs the same measurement.
+

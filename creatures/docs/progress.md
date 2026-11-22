@@ -307,6 +307,10 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
   section 6 of CLAUDE.md (done: it now points to paradise-plan.md) and approved the gate-script edit in ~/CLAUDE.md (done).
   The owner answered "proceed" to "do the Land creatures look right?", taken as yes; redraw notes can still come any time.
 
+- Installable app (item 5 of Next, once it is merged): install it on a phone and say how the icon, the start screen and the top bar look, and
+  whether the red "A new version is ready" notice reads as a warning (it reuses the existing `.notice` look).
+- Closed 2026-11-22 (owner: "can apply fix one in this branch"): the 320 px header overflow is fixed in the `pwa-install` branch (item 5 of Next). Do not ask again.
+
 ## Facts that are easy to get wrong
 
 - Anything stored in the save as an absolute time (a job's finishing time, stage starts) can end up hours ahead if the device clock is set back by more than an hour, because the game then starts again from the new time. Jobs clamp their finishing time to their own length; other stored times (egg start, stage start) do not.
@@ -441,12 +445,15 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    done"). **Checked live 2026-11-22 with fake credentials:** `GET /api/me` answers 401 JSON, a login for an unknown email answers 401 "not
    right" (so the D1 tables are there), a sign up with a wrong code answers 403 "That family code is not right." (so the secret is set).
    One earlier probe of the sign up route answered 500 once, right after the deploy, and never again in 3 more tries; the cause is not
-   known (no access to the function logs). **Still to do by the owner:** sign up on the live site, then sign in on a second device and check
-   the game follows. The probes added a few failed tries from this server's address to the rate limit (they expire after 15 minutes).
+   known (no access to the function logs). **Closed 2026-11-22 (owner, "all done", after the username change below):** the real sign up and the second
+   device check. The probes added a few failed tries from this server's address to the rate limit (they expire after 15 minutes).
    **Username instead of email (2026-11-22, owner: "can we just do user id instead of email?", read as a username the family picks):**
-   branch `username-login` in ~/broodkeep-cloud; plan section 7 of [cloud-saves.md](cloud-saves.md). Needs `migrations/0002_username.sql` run in
-   the D1 Console by the owner (numbered steps in section 7).
-   **Status (2026-11-22): built, checked, committed (0775bcc) and pushed to `origin/username-login` on the owner's "commit and push"; the owner opens and merges the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/username-login), after running 0002 in the D1 Console.** `npm run typecheck` and `npm run build` exit 0;
+   branch `username-login` in ~/broodkeep-cloud; plan section 7 of [cloud-saves.md](cloud-saves.md). **Live and closed 2026-11-22: the owner ran `migrations/0002_username.sql`
+   in the D1 Console, merged it (PR #21, `main` b743968) and said "all done".** Checked from here: the live site serves the same JavaScript file as my
+   local build (`index-NVgD0mj7.js`), a live login with a made up username answers 401 "That username or password is not right." (not 500, so the
+   migration ran), a request with the old `email` field answers 400, and a wrong family code answers 403. The owner's real sign up and second
+   device check is taken from their "all done", not seen by me. Plan section 7 of [cloud-saves.md](cloud-saves.md).
+   **Status (2026-11-22): built, checked, committed (0775bcc) and pushed to `origin/username-login` on the owner's "commit and push"; the owner merged it as PR #21 after running 0002 in the D1 Console.** `npm run typecheck` and `npm run build` exit 0;
    1279 tests in 24 files pass (`origin/main`: 1270), and 40 full runs in a row had no failure. A cheap-model review, before any test ran, found one
    broken test (my own global replace had turned an email shaped entry of a "refused" list into the valid name `kid`), one title that claimed more
    than it checked, and the Kelvin sign (a letter that lower cases to plain `k`: same account on both sides, now pinned by a test). Mutation
@@ -459,3 +466,56 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    the server answers on a real clock, so the send after the GET can already be there. They failed 4 of 32 full runs on this branch, 0 of 32 on
    `origin/main` (and 1 of 25 file only runs on `origin/main`); they now check only that the first request is the GET, and 40 full runs pass.
    **The owner approved the three reflect edits** ("make the edits and push", 2026-11-22; applied: two rules and an extension in the home CLAUDE.md, and the `accounts` line of this project's CLAUDE.md now says username). `origin/main` had moved (PR #20, the note above) and was merged into the branch; only this file conflicted.
+5. **Installable app (Phase 7, first slice; the owner said "go ahead with phase 7", 2026-11-22, read as the install slice first: sound and the desktop layout
+   follow as their own slices, and visitor befriending waits for Phase 5's soften mode).** Branch `pwa-install` in ~/broodkeep-cloud (off `main`
+   b743968, the username merge), **built and checked, committed and pushed to `origin/pwa-install` on the owner's "commit and push" (2026-11-22, with the header and stat bar fixes below); the owner opens and merges the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/pwa-install)**. What it adds: a web app
+   manifest (`pwa-manifest.ts`; standalone, the dusk colour, id and scope `/`), five icons drawn from Blip by `tools/pwa-icons.py` (192, 512, a 512 maskable
+   one inside the safe circle, the 180 iPhone one, a 48 favicon), the phone tags in `index.html`, a service worker from vite-plugin-pwa (precache of the
+   game's own files only, no runtime caching, `/api/` never answered by it, a typed in path opens the game), a `/sw.js` `no-cache` rule in `_headers`, and an
+   "Update now" notice in Settings (a new version waits; the game is saved on the device first, then the upload to the account is started, then the
+   page reloads; the hourly check for a new version runs while the app stays open). The page registers the worker from its own script, so the strict
+   policy is unchanged. `Game.saveNow()` now returns the write, so the update can wait for it. Decisions: decisions.md "the installable app"; limits:
+   known-issues.md "Installable app".
+   **Checks (2026-11-22):** `npm run typecheck` and `npm run build` exit 0 (456.7 KB of JavaScript, 84.6 KB gzipped as `vite build` prints them, plus a 5.7 KB piece for the update
+   helper; before: 453.0 KB, 83.1 KB); 1298 tests in 25 files pass, three full runs in a row (run again after the second review's fixes, same result) (18 of them in the new `tests/pwa.test.ts`, which runs a real
+   build into a temp folder; one more in `tests/game-save-hook.test.ts`); `tools/pwa-icons.py --check` exits 0; the dev server registers no worker and logs
+   no console problem. **Mutation checks:** 41 deliberate breaks of the manifest, page tags, headers, build settings, the registration and `saveNow`, each file
+   restored and compared (39 caught; the 2 others are equivalent, below; run again on the final tree, same result). The first run had 4 survivors: `registerType: "autoUpdate"` and `injectRegister: "script"` were real gaps (two tests added: the
+   config asks for "prompt", the built page loads exactly one script), and removing `cleanupOutdatedCaches: true` or `navigateFallback` changes nothing
+   because the plugin defaults to the same values (the explicit lines stay as documentation; breaking them to "off" is caught). **Real browser (headless
+   Chromium against `wrangler pages dev` with a local D1, scripts in the session scratchpad, not in the repo):** 21 checks on the first version (files and
+   headers, the worker registered and controlling, Chromium's own installability check finds nothing wrong, the manifest parses, the game starts with the
+   network off, `/api` is never answered by the worker online or off, a typed in path opens the game, a real sign up works through the worker) and 10 on
+   the update (the notice appears, nothing reloads by itself, "Update now" reloads onto the new version, still signed in, a second open window is not
+   reloaded), and 4 on two windows (see the second review), no policy violations. **A guard that only a browser run proved:** the page that taps "Update now" reloads itself, other open windows do not
+   (`onNeedReload` with a flag in `App.tsx`); without it the library reloads every window that saw the update. My first mutation run of this "survived", which
+   was my mistake and not the code's: during an update the windows run the OLD build's code, so the break has to be in the old build. With the guard removed from
+   the old build the second window is reloaded and the check fails. **Cheap-model review (before any test ran):** 10 findings. Refuted by a browser run: item 1
+   ("Update now never reloads the tapping tab without `clientsClaim`": it does, Chromium fires the controller change without a claim; so `clientsClaim` is
+   not added and a test pins that). Accepted and fixed: other windows reload by themselves (item 2, the flag above), the save and the upload were not ordered
+   before the reload (item 3: `saveNow` now returns the write and the update waits for it; the upload is a keepalive request that is started, not awaited),
+   a test that asserted a string that never appears (item 4), titles that claimed more than they checked (5), brittle regexes (6), a comment pointing at a
+   script that is not in the repo (7: it now says the worker is checked by hand), `__pycache__` written by `--check` (9) and a traceback on a corrupt PNG (10). Kept
+   as it was: the notice has `role="status"`, not the `alert` the account errors use (item 8: an update is not urgent, so a polite announcement fits). **One
+   more fix after the review:** `vite.config.ts` imported `./pwa-manifest` with no extension, which Vite warned would stop working when its config loader
+   changes; it now imports `./pwa-manifest.ts` (`allowImportingTsExtensions` in tsconfig).
+   **Second cheap-model review (on the final tree, after all of the above):** 6 findings. **Real, reproduced in a browser and fixed:** after one window had
+   applied the update, tapping "Update now" in the other did nothing (the library only posts "skip waiting" when a waiting worker exists, and none did): the
+   tap now checks for a waiting worker and, if there is none, reloads straight away. The browser run failed 'the second window reloads' before the fix and passes
+   after it; with the fallback removed from the old build it fails again on that same check. (My earlier known-issues line, that this tap works, was wrong
+   and is corrected.) **Real, fixed cheaply:** "Your game is saved first." was shown even when saving is blocked, so it now shows only when saving works (the
+   red warning below it was already there; the reload loses progress then, as closing the page would: known-issues.md). **Fixed:** a test title that claimed
+   what only a browser run shows, two doc figures that disagreed (456.5 vs 456.6 KB), "(an adult screen)" for Settings, which has no PIN yet, and a redundant
+   `pwa-manifest.ts` entry in tsconfig `include` (Vite's config imports it already; typecheck still exit 0). **Disclosed, kept:** the version label bump, the
+   "Loading Broodkeep…" text and the progress.md closure note for the username work (the owner said "all done") were not in the brief; they are in decisions.md
+   and can be reverted on request. **Not verified by anyone:** a first visit that never had a controlling worker cannot show the notice at all (a worker with no
+   controlled page activates at once), which is why that case is not built for; I did not test it. **Found, not mine, fixed in this branch on the owner's
+   word ("can apply fix one in this branch", 2026-11-22):** at 320 px wide the home screen scrolled sideways by 24 px (the header's two gear buttons ended
+   at 344 px; the header needs exactly 360 px at its normal sizes, so 360 and 390 were fine). `src/ui/app.css` now has one rule under 360 px
+   (`@media (max-width: 359px)`: gear buttons 40 px (they were already 40 at 360 px and reach 46 only from about 372 px up), gaps 6 and 5 px, columns `minmax(0, 1fr)`, 3 px side padding on a stat); 360 px and wider are
+   untouched. A scratch script (not in the repo, so not in `npm test`) measured 300, 320, 340, 359, 360 and 390 px, home and Settings open: no sideways scroll,
+   both buttons inside the page, all five icons inside their cells (28 px, never scaled), and it fails at 300, 320 and 340 on the old stylesheet (scrollWidth 344).
+   Looked at on one sheet at 300, 320, 359 and 360 px. **Cheap-model review of this rule:** 2 findings, both taken. The docs said "46 to 38", but the old layout already gave 40 px at 360 (measured: 40 at 360, 45.5 at 371, 46 from 372), so the gear is now 40 px, which also centres the 28 px icon exactly (in a 38 px button it sat 1 px right of centre: the button's 6 px side padding leaves a 26 px box; measured at 300 to 390 px) and is a slightly bigger touch target (40 x 60). **Found while looking, not mine, fixed on the owner's word ("fix it", 2026-11-22):** a one pixel reddish sliver at the left edge of an empty stat bar, from the fill sliding out at fractional positions (there at 390 px too, where the rule above does not apply). An empty bar now hides its fill once the slide out is done (`.stat[aria-valuenow="0"] .fill`, CSS only). A script reading screenshot pixels at 300 to 412 px and pixel ratios 1, 2 and 3 found a worst deviation of 88 before and 14 after (a sliver is 29 or more, edge anti-aliasing about 16); a browser run checked that a stat with a value shows its fill at once, an emptying one still slides out before hiding, and a refilled one shows again at once. Not checked: anything under 300 px, and a real phone. Not checked: a real phone (the icon's crop,
+   the iPhone start screen and status bar, iPhone storage), the free-plan CPU limit and the phone's PBKDF2 time (still the owner's from the cloud saves).
+   **After "commit and push" and the owner's merge:** check the live site (the manifest and icons are served, `/sw.js` answers `Cache-Control: no-cache`,
+   the JavaScript file matches my build), then the owner installs it on a phone: Android Chrome menu, "Install app"; iPhone Safari, Share, "Add to Home Screen".

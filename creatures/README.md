@@ -23,7 +23,7 @@ Right now this is only the scaffold: the folders, the tooling and the security s
 | `src/audio/` | Sound effects made in code. No sound files. |
 | `src/sync/` | Saving on the device and syncing to the cloud. |
 | `tests/` | Automatic checks of the game rules. |
-| `public/` | Files copied as-is to the live site: icons, manifest and `_headers` (security settings). |
+| `public/` | Files copied as-is to the live site: the app icons (drawn by `tools/pwa-icons.py`) and `_headers` (security settings). The manifest is built from `pwa-manifest.ts`. |
 | `functions/api/` | Backend routes (login, profiles, saves). Empty until Phase 5. |
 | `functions/_lib/` | Shared backend helpers: passwords, validation, responses, database. Notes only for now. |
 | `migrations/` | Database setup files. See the README inside. |

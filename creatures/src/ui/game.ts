@@ -156,11 +156,13 @@ export class Game {
     this.saveTimer = window.setTimeout(() => this.saveNow(), 600);
   }
 
-  saveNow(): void {
+  // Answers when the game is on the device, for a caller that is about to reload the page (the others do not wait).
+  saveNow(): Promise<void> {
     window.clearTimeout(this.saveTimer);
-    void writeSave(this.save);
+    const written = writeSave(this.save);
     const byPlayer = this.playerChanged;
     this.playerChanged = false;
     this.onSave?.(byPlayer);
+    return written;
   }
 }

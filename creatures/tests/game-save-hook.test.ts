@@ -3,8 +3,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { feed } from "../src/game/actions";
 import { MINUTE } from "../src/game/time";
+import { writeSave } from "../src/sync/local";
 import { Game } from "../src/ui/game";
 import { aliveSave, at } from "./helpers";
+
+// The write to the device is replaced by one the test can hold back (the real one needs a browser).
+vi.mock("../src/sync/local", () => ({ writeSave: vi.fn(() => Promise.resolve()) }));
 
 let game: Game;
 let told: boolean[];
@@ -28,6 +32,19 @@ const clockMovesOn = (minutes: number): void => {
 };
 
 describe("the save hook", () => {
+  it("answers saveNow with the write itself, so a caller can wait until the game is on the device", async () => {
+    let finish!: () => void;
+    vi.mocked(writeSave).mockReturnValueOnce(new Promise<void>((resolve) => (finish = resolve)));
+    let answered = false;
+    void game.saveNow().then(() => (answered = true));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(answered).toBe(false); // the write has not finished
+    expect(writeSave).toHaveBeenLastCalledWith(game.save);
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(answered).toBe(true);
+  });
+
   it("says a save is the player's when the player did something", () => {
     game.act((save, now) => feed(save, "meat", now));
     game.saveNow();

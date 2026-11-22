@@ -9,16 +9,17 @@ import type { Game } from "./game";
 const hours = Array.from({ length: 24 }, (_, h) => h);
 const hourLabel = (h: number): string => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;
 
-export const VERSION = "0.4 (Phase 3b)";
+export const VERSION = "0.5 (Phase 7a)";
 
 interface Props {
   game: Game;
   cloud: CloudSync;
+  update: (() => void) | null; // set when a new version of the game is ready (src/ui/App.tsx)
   onClose: () => void;
   onDev: () => void;
 }
 
-export function SettingsPanel({ game, cloud, onClose, onDev }: Props) {
+export function SettingsPanel({ game, cloud, update, onClose, onDev }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const versionTaps = useRef(0);
   useEffect(() => closeRef.current?.focus(), []);
@@ -73,6 +74,17 @@ export function SettingsPanel({ game, cloud, onClose, onDev }: Props) {
         </fieldset>
 
         <AccountSection cloud={cloud} />
+
+        {update && (
+          <div class="notice" role="status">
+            <p>A new version of Broodkeep is ready.{storage.persistent && " Your game is saved first."}</p>
+            <div class="row">
+              <button class="btn small" onClick={update}>
+                Update now
+              </button>
+            </div>
+          </div>
+        )}
 
         {!storage.persistent && (
           <p class="notice" role="alert">

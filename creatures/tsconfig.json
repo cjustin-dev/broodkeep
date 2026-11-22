@@ -15,6 +15,7 @@
     "strict": true,
 
     "isolatedModules": true,
+    "allowImportingTsExtensions": true, // vite.config.ts imports pwa-manifest.ts by its full name (see there)
     "skipLibCheck": true,
     "noEmit": true
   },
