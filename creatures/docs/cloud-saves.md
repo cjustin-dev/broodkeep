@@ -106,7 +106,10 @@ section in Settings). 6. tests. 7. cheap-model review before any test runs. 8. m
 
 1. Cloudflare dashboard, Storage and Databases, D1, Create database. Name it `broodkeep`. Copy its Database ID (it is not a secret)
    and tell me; I put it in `wrangler.toml`.
-2. Open that database, the Console tab, paste the whole of `migrations/0001_init.sql` and run it.
+2. Open that database, the Console tab. Paste the SQL that is written inside `migrations/0001_init.sql` (open the file and copy its text, which starts
+   with comment lines and `CREATE TABLE accounts`; pasting the file name does not work, SQLite answers "near migrations: syntax error") and run it. Afterwards
+   the tables `accounts`, `profiles`, `sessions`, `saves`, `save_backups` and `login_failures` should exist. Run it once only: a second run fails
+   with "table accounts already exists".
 3. Workers and Pages, the `broodkeep` project, Settings, Variables and Secrets: add a secret named `SIGNUP_CODE` (a word or phrase
    you choose, which your family uses once to sign up), for Production.
 4. Merge the pull request. After the deploy, sign up on the live site and sign in on a second device to check.
