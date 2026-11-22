@@ -303,7 +303,7 @@ its own pull request or leave) and the three proposed instruction file edits (tw
 the owner did not mention them. Slice 1 is not started; the owner has not said to build it. The branch is off `main` b743968, not off `pwa-install` (that pull request is not merged);
 both touch `App.tsx` and `SettingsPanel.tsx`, so the second to merge has a small conflict.
 
-## Adult expansion (adopted 2026-11-22, branch `adult-plan` in ~/broodkeep-adult, docs only, NOT committed)
+## Adult expansion (adopted 2026-11-22, branch `adult-plan` in ~/broodkeep-adult, docs only, committed 35fed3b and pushed on "commit and push")
 
 The owner added [adult-expansion-spec.md](adult-expansion-spec.md) to `main` (95f869b) and asked whether it can go into the game. The
 review against the code: yes, with corrections. The owner answered all six questions the same day (the sixth first with "not sure", then "yours is fine") and approved moving the spec into
@@ -317,7 +317,7 @@ disabled button, Growth Forecast, the feed and poke texts, a minimal Retire, dis
 A cheap-model review of these docs checked every code claim in decisions.md; it found 7 wrong or contradictory statements (planned values
 written as current, boss wins, which stats fights train, Pond being real, mistakes counting in every stage, the dev tree imports, a
 space figure that contradicted itself); all 7 were checked against the code and fixed, and the pointer and the Garden question were
-added. Not re-reviewed after the fixes. The branch is off `main`; the owner opens the pull request after "commit and push".
+added. Not re-reviewed after the fixes. The branch is off `main`; the owner opens the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/adult-plan.
 
 ## Open for the owner
 
