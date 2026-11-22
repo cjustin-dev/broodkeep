@@ -164,6 +164,8 @@ const play = (device: Device, coins: number): void => {
 const serverRow = (): { revision: number; saved_at: number; data: string } | undefined =>
   t.raw.prepare("SELECT revision, saved_at, data FROM saves").get() as { revision: number; saved_at: number; data: string } | undefined;
 const serverCoins = (): number => JSON.parse(serverRow()!.data).coins;
+const coinsOf = (username: string): number =>
+  JSON.parse((t.raw.prepare("SELECT s.data FROM saves s JOIN profiles p ON p.id = s.profile_id JOIN accounts a ON a.id = p.account_id WHERE a.username = ?").get(username) as { data: string }).data).coins;
 const backupCoins = (): number[] => (t.raw.prepare("SELECT data FROM save_backups ORDER BY id").all() as { data: string }[]).map((row) => JSON.parse(row.data).coins);
 const puts = (): number => requests.filter((request) => request.startsWith("PUT")).length;
 
@@ -282,6 +284,129 @@ describe("signed out", () => {
     await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(requests).toEqual([]);
     expect(d.sync.username).toBeNull();
+  });
+
+  it("stores nothing about an account the device has never met", () => {
+    const d = newDevice(gameWith(5));
+    d.sync.start();
+    play(d, 6);
+    expect(d.written).toEqual([]);
+  });
+});
+
+// Play done while signed out is marked as changed, so the next sign in sends it and the server's newest-save-wins rule decides
+// (the older game goes to the account's backups). Before, nothing marked it, and an account game saved by another device in the
+// meantime replaced it without a trace.
+describe("play done while signed out", () => {
+  // The tablet is signed in and matches the account (revision 1, coins 1), then signs out. The phone is another device of the account.
+  async function signedOutTablet(): Promise<{ tablet: Device; phone: Device }> {
+    const phone = newDevice(gameWith(1));
+    await signUp(phone);
+    const tablet = newDevice();
+    await signIn(tablet);
+    expect(tablet.game.save.coins).toBe(1);
+    await tablet.sync.signOut();
+    requests.length = 0;
+    return { tablet, phone };
+  }
+  const later = async (ms: number): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(ms);
+  };
+
+  it("is marked as changed, without calling the server or setting a timer", async () => {
+    const { tablet } = await signedOutTablet();
+    let woken = 0;
+    tablet.sync.subscribe(() => (woken += 1)); // the screen is told whenever a send starts or ends
+    const timers = vi.getTimerCount();
+    play(tablet, 7);
+    expect(vi.getTimerCount()).toBe(timers); // nothing was set to send it later
+    expect(tablet.written.at(-1)).toMatchObject({ signedIn: false, dirty: true, revision: 1 });
+    await later(10 * 60_000);
+    expect(requests).toEqual([]);
+    expect(woken).toBe(0); // no timer ran a send that finds nobody signed in
+  });
+
+  it("is sent at the next sign in when the account has not changed since", async () => {
+    const { tablet } = await signedOutTablet();
+    play(tablet, 7);
+    await signIn(tablet);
+    expect(serverCoins()).toBe(7);
+    expect(serverRow()!.revision).toBe(2);
+    expect(tablet.written.at(-1)).toMatchObject({ signedIn: true, revision: 2, dirty: false });
+  });
+
+  it("is kept in the account's backups, not lost, when another device saved a newer game in the meantime", async () => {
+    const { tablet, phone } = await signedOutTablet();
+    play(tablet, 7); // the tablet, signed out
+    await later(60_000);
+    play(phone, 3); // a minute later the phone plays on and sends
+    phone.sync.flush();
+    await settle(phone);
+    expect(serverCoins()).toBe(3);
+    await signIn(tablet);
+    expect(serverCoins()).toBe(3); // the phone's game is newer and stays
+    expect(tablet.game.save.coins).toBe(3);
+    expect(backupCoins()).toContain(7); // the tablet's play is kept
+  });
+
+  it("wins when it is newer than the account's game, and the account's game goes to the backups", async () => {
+    const { tablet, phone } = await signedOutTablet();
+    play(phone, 3);
+    phone.sync.flush();
+    await settle(phone);
+    await later(60_000);
+    play(tablet, 7); // a minute after the phone's last save
+    await signIn(tablet);
+    expect(serverCoins()).toBe(7);
+    expect(tablet.game.save.coins).toBe(7);
+    expect(backupCoins()).toContain(3);
+  });
+
+  it("is not marked when only the clock moved on (a save the player did not cause)", async () => {
+    const { tablet } = await signedOutTablet();
+    tablet.game.saveNow(); // nothing pending: the game moved on by itself
+    tablet.game.saveNow();
+    expect(tablet.written.at(-1)).toMatchObject({ signedIn: false, dirty: false });
+    await signIn(tablet);
+    expect(puts()).toBe(0);
+  });
+
+  it("is marked after the account ended this browser's session too, and sent at the next sign in", async () => {
+    const { tablet } = await signedOutTablet();
+    await signIn(tablet);
+    t.raw.exec("DELETE FROM sessions");
+    await settle(tablet); // the look at the account finds the session gone, with nothing waiting to be sent
+    expect(tablet.sync.username).toBeNull();
+    expect(tablet.written.at(-1)).toMatchObject({ signedIn: false, dirty: false });
+    play(tablet, 9); // keeps playing signed out
+    expect(tablet.written.at(-1)).toMatchObject({ signedIn: false, dirty: true });
+    await signIn(tablet);
+    expect(serverCoins()).toBe(9);
+  });
+
+  it("is still marked after the page is opened again, and sent at the next sign in", async () => {
+    const { tablet } = await signedOutTablet();
+    play(tablet, 7);
+    const reopened = tablet.restart();
+    reopened.start();
+    expect(reopened.username).toBeNull();
+    await later(10 * 60_000);
+    expect(requests).toEqual([]);
+    expect(await reopened.signIn(USERNAME, PASSWORD)).toBeNull();
+    await settle(tablet);
+    expect(serverCoins()).toBe(7);
+  });
+
+  // (A guard of what already held, kept next to the new ones: the mark must not turn an "ask" into a decision.)
+  it("does not decide for the player when the next sign in is another account: the player is asked", async () => {
+    const { tablet } = await signedOutTablet();
+    await signUp(newDevice(gameWith(50)), "sib"); // another account with a game of its own
+    play(tablet, 7);
+    await signIn(tablet, "sib");
+    expect(tablet.sync.choosing).not.toBeNull();
+    expect(tablet.game.save.coins).toBe(7);
+    expect(coinsOf(USERNAME)).toBe(1); // the first account's game is untouched
+    expect(coinsOf("sib")).toBe(50); // and so is the other's, until the player has chosen
   });
 });
 

@@ -1,5 +1,5 @@
 // Keeping the account's copy of the game up to date (docs/cloud-saves.md). The game is always saved on this device first; this file
-// only sends copies to the account and brings a newer one back. Nothing here is needed to play, and while signed out it does nothing.
+// only sends copies to the account and brings a newer one back. Nothing here is needed to play, and while signed out it sends nothing (it only marks play as changed, see noteSave).
 import { migrateSave } from "../game/state";
 import type { Save } from "../game/state";
 import type { CloudError, PutReply, Reply, SavePut, ServerSave } from "./cloud";
@@ -203,12 +203,15 @@ export class CloudSync {
 
   // The game was just saved on this device. A save that only carries the clock forward does not count: every device the player is not
   // using would otherwise keep a newer save than the one in use, and win. (The game moves on by itself, in the same way on every device.)
+  // Play done while signed out counts too, once this device has met an account: it is marked as changed (and dated) but not sent, so the
+  // next sign in sends it and the server's newest-save-wins rule decides. Without the mark, an account game saved by another device in
+  // the meantime would simply replace it, with no backup.
   private noteSave(byPlayer: boolean): void {
-    const meta = this.current();
+    const meta = this.meta;
     if (!meta || !byPlayer) return;
     this.edits += 1;
     void this.setMeta({ ...meta, dirty: true, savedAt: this.clock() });
-    if (!this.armed) this.arm(SYNC_DELAY_MS); // not pushed back by later saves, so a long run of taps cannot hold the send off for ever
+    if (meta.signedIn && !this.armed) this.arm(SYNC_DELAY_MS); // not pushed back by later saves, so a long run of taps cannot hold the send off for ever
   }
 
   private arm(ms: number): void {

@@ -285,6 +285,17 @@ cheap-model review; round 1 found 3 real issues and round 2 found 5, all fixed (
 yawning, chewing or saying no, tears line up with the eyes, the wander roll is spread correctly after the growl and yawn
 chances). Not checked: a real phone, and the motion as motion (tests cover sizes and timing, the pictures are stills).
 
+## Signed out play marked as changed (branch `signed-out-dirty`, 2026-11-22; committed and pushed on "commit and push")
+
+Found while planning profiles: a change made while signed out was never marked as changed (`CloudSync.noteSave` ignored it), so signing
+in again as the same account, after another device had saved, replaced that play with the account's game and left no backup. Now
+`noteSave` marks it (changed and dated) once the device has met an account, without arming the timer or calling the server; the next
+sign in sends it and the server's newest-save-wins rule decides, the older game going to the backups. A device that never met an
+account stores nothing. Owner asked for the fix ("fix and start", 2026-11-22). 9 new tests in `tests/cloud-sync.test.ts` (5 of them fail on the
+old code, each for the right reason; the others guard what already held); 6 deliberate breaks of `noteSave` all caught; typecheck 0, 24 files /
+1288 tests, build 0. A cheap-model review found 6 points: 1 (a tap that changes nothing counts as a touch) is the existing rule, now in
+known-issues.md and cloud-saves.md; 2 (flush before saving) does not hold, because `App.tsx` saves on hide by itself; 3 to 6 fixed.
+The owner opens and merges the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/signed-out-dirty. It and `profiles-slice-1` both edit this file (`docs/progress.md`), so the second to merge has a docs-only conflict (checked with `git merge-tree`; the code and the tests merge cleanly).
 ## Profiles and adult PINs (plan merged in PR #22; slice 1 built and committed on branch `profiles-slice-1` in ~/broodkeep-profiles, 2026-11-22)
 
 The owner said "move to the next phase. im not committing this yet." I read it as the next item of the order I gave: kid profiles
