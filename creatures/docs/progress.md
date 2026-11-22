@@ -285,6 +285,24 @@ cheap-model review; round 1 found 3 real issues and round 2 found 5, all fixed (
 yawning, chewing or saying no, tears line up with the eyes, the wander roll is spread correctly after the growl and yawn
 chances). Not checked: a real phone, and the motion as motion (tests cover sizes and timing, the pictures are stills).
 
+## Profiles and adult PINs (planned 2026-11-22, branch `profiles` in ~/broodkeep-profiles, nothing built or pushed)
+
+The owner said "move to the next phase. im not committing this yet." I read it as the next item of the order I gave: kid profiles
+and adult PINs (the rest of Phase 5). The plan is [profiles-plan.md](profiles-plan.md): profiles inside one account (adult or kid),
+a "who is playing" picker, one save per profile on the device and in the account, and an optional 4 digit adult PIN as a screen lock.
+Slice 1 is profiles without PINs (add and rename, no removal), slice 2 the PINs and the lock, each its own pull request. A cheap-model
+review of version 1 found 25 problems and a second review of version 2 found 15; version 3 of the plan (section 10 of the plan) keeps
+the first profile's device keys `save` and `cloud`, switches profiles by save, send and reload, takes the signed in state from one
+device record, and defers removal. The draft migration was run on SQLite 3.51.2 (scratch script, not in the repo) and behaves as the
+plan says; D1 itself is not checked. The owner asked how accounts work (answer: one household account, profiles inside it, another
+household signs up with its own account and shares nothing), then said "we are good then commit and push" (2026-11-22). Read as
+accepting the plan and my defaults for questions 1 to 5 of section 8: sign in required, the PIN lock as written with its holes, the
+header switch button, slice 1 then slice 2 as separate pull requests, removal and adult/kid change later. **Closed; do not ask
+again.** Still open: question 6 (the existing bug where play done while signed out can be overwritten on the next sign in; fix in
+its own pull request or leave) and the three proposed instruction file edits (two in this project's CLAUDE.md, one in ~/CLAUDE.md);
+the owner did not mention them. Slice 1 is not started; the owner has not said to build it. The branch is off `main` b743968, not off `pwa-install` (that pull request is not merged);
+both touch `App.tsx` and `SettingsPanel.tsx`, so the second to merge has a small conflict.
+
 ## Open for the owner
 
 - Slice 1 is on the live site: play the habitat on a phone and report what feels wrong (is 3 to 8 minutes of work about
