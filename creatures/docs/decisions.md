@@ -607,6 +607,44 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   anchor off the picture, a moved speck) each failed. A first drawing mutation (a lump drawn off the canvas) changed nothing, so it
   proved nothing and was redone.
 
+## 2026-11-22: the installable app (Phase 7, first slice)
+
+The owner asked "how do i install game as app?", I said there was no real install yet (no manifest, icons or service worker), and offered to
+build it now instead of in Phase 7; the owner answered "go ahead with phase 7". I read that as this first slice. Sound and the desktop
+layout are the next slices; visitor befriending waits for soften mode (Phase 5, not built).
+
+- **A new version waits for a tap.** `registerType: "prompt"`: the new service worker installs in the background, Settings shows "A new
+  version of Broodkeep is ready. Your game is saved first." and "Update now" saves the game on the device, starts the upload to the account
+  (`cloud.flush()`) and reloads onto the new version. `autoUpdate` would reload the page by itself in the middle of play. The app also asks
+  for a new version every hour while it stays open. The notice is only in Settings; a dot on the gear would be a small later addition.
+  With two windows open, only the one whose player tapped reloads (a flag in `App.tsx`; without it the library reloads every window). A tap in
+  a window that still shows the notice after the other one applied the update finds no waiting worker and reloads straight away: the worker
+  already serves the new files (found by a second review, reproduced and fixed in a browser run). When saving is blocked
+  (`storage.persistent` false, the red warning below) the notice leaves out "Your game is saved first."
+- **The worker is registered from the game's own script**, not from the page (`injectRegister: false`, `virtual:pwa-register/preact` in
+  `src/ui/App.tsx`): the default inline script would break the policy in `public/_headers` (`default-src 'self'`, no inline script). No
+  header had to be loosened: a worker and a manifest fall back to `default-src 'self'`.
+- **The worker never touches the server's routes.** It has no runtime caching, and a typed-in path gets `index.html` except under `/api/`
+  (`navigateFallbackDenylist`), so sign in and saves always reach the server. It keeps only the game's own files (10 files, listed once
+  each; `cleanupOutdatedCaches` removes older versions).
+- **The icon is Blip** (the baby every egg hatches into), the happy look, drawn by `tools/pwa-icons.py` from the same code that makes the
+  game's pictures, on the game's dusk colour (`--bg`, `#231a38`, also the manifest's theme and splash colour and the page's `theme-color`;
+  `tests/pwa.test.ts` checks they agree). Sizes: 192 and 512 (any), 512 maskable (Blip smaller, inside the middle 80% that a round or
+  rounded mask keeps), 180 for iPhones, 48 see through for the tab. Looked at on one sheet (light and dark ground) before anything was
+  written. `python3 tools/pwa-icons.py --check` compares the files with what the script draws.
+- **`display: standalone`, no orientation lock** (the desktop layout is a later slice). `start_url` and `scope` are `/`.
+- **`/sw.js` is sent with `Cache-Control: no-cache`** so the browser looks for a new worker on every visit.
+- **Small things changed on the way:** the version label is now "0.5 (Phase 7a)" (it is how to tell which build a phone is running, which
+  matters once files are cached), and the text in `index.html` that showed before the game loaded said "Broodkeep scaffold is live. The
+  game is not built yet." and now says "Loading Broodkeep…" (an installed app shows it while it starts).
+- **A narrow-screen rule for the header** (the owner: "can apply fix one in this branch"): under 360 px wide the gear buttons are 40 px (the width the old layout already squeezed them to at 360 px; they are 46 px only from about 372 px up), the
+  gaps 6 and 5 px, and the stat columns can shrink (`minmax(0, 1fr)`), so a 320 px phone no longer scrolls sideways. It is the first width
+  breakpoint in `app.css`; 360 px and wider are unchanged. Chosen over shrinking the icons because the pixel art stays at whole-pixel size (28 px).
+- **An empty stat bar hides its fill** (the owner: "fix it", about the one pixel sliver): at 0 the fill is hidden once its slide out ends (`visibility`, with a 0.6 s delay
+  on the way to hidden and none on the way back), so the layout and the markup are unchanged.
+- **Not built, on purpose:** an "ready to use offline" message, a dot on the gear for an update, loading each field's art only when needed
+  (still a suggestion), sound, the desktop layout.
+
 ## Adult expansion (adopted 2026-11-22)
 
 The owner added [adult-expansion-spec.md](adult-expansion-spec.md) to `main` and asked for a review against the code. The review found it

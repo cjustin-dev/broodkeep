@@ -1,5 +1,6 @@
 // The whole screen: stats on top, the room in the middle, care buttons underneath.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { useRegisterSW } from "virtual:pwa-register/preact";
 import { eggSprite } from "../art/sprites";
 import { getForm } from "../data/forms";
 import { startNewEgg } from "../game/actions";
@@ -19,6 +20,9 @@ import { SettingsPanel } from "./SettingsPanel";
 import { Stage } from "./Stage";
 import { StatBars } from "./StatBars";
 import { useGame } from "./useGame";
+
+// An app left open for days still looks for a new version now and then.
+const UPDATE_CHECK_MS = 60 * 60_000;
 
 const deathText = {
   hunger: "It went too long without food.",
@@ -44,6 +48,35 @@ function DeathCard({ game }: { game: Game }) {
 export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: CloudSync; roster: Roster; onSwitch: () => void }) {
   useGame(game);
   const [panel, setPanel] = useState<"settings" | "dev" | "book" | null>(null);
+
+  // The installed app keeps its own copy of the game's files (a service worker). A new version waits until the player taps "Update
+  // now" in Settings: reloading by itself could cut in on play. The game is saved and sent to the account first.
+  const askedForUpdate = useRef(false);
+  const {
+    needRefresh: [needRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    // When the new version takes over, only the window whose player asked reloads. A second window of the game is left alone.
+    onNeedReload: () => {
+      if (askedForUpdate.current) window.location.reload();
+    },
+    onRegisteredSW: (_url, registration) => {
+      if (!registration) return;
+      window.setInterval(() => registration.update().catch(() => undefined), UPDATE_CHECK_MS); // (fails while offline: nothing to do)
+    },
+  });
+  const update = needRefresh
+    ? async (): Promise<void> => {
+        askedForUpdate.current = true;
+        await game.saveNow(); // on this device first
+        cloud.flush(); // then to the account: a request that goes on after the reload
+        // The new worker waits for the message. If another window already applied the update, none waits: this window only has to
+        // reload onto the files the worker already serves.
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration?.waiting) await updateServiceWorker(true);
+        else window.location.reload();
+      }
+    : null;
 
   // Keep time moving, and save when the page is hidden or closed.
   useEffect(() => {
@@ -87,7 +120,7 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
         )}
       </div>
       <HaulCard game={game} />
-      {panel === "settings" && <SettingsPanel game={game} cloud={cloud} roster={roster} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
+      {panel === "settings" && <SettingsPanel game={game} cloud={cloud} update={update} roster={roster} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "book" && <BookPanel game={game} onClose={() => setPanel(null)} />}
     </main>

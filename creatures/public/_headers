@@ -13,3 +13,7 @@
 # API responses must never be cached.
 /api/*
   Cache-Control: no-store
+
+# The service worker script is checked again on every visit, so a new version of the game is noticed.
+/sw.js
+  Cache-Control: no-cache

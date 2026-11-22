@@ -11,17 +11,18 @@ import { PlayersSection, useRoster } from "./PlayersSection";
 const hours = Array.from({ length: 24 }, (_, h) => h);
 const hourLabel = (h: number): string => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;
 
-export const VERSION = "0.4 (Phase 3b)";
+export const VERSION = "0.5 (Phase 7a)";
 
 interface Props {
   game: Game;
   cloud: CloudSync;
+  update: (() => void) | null; // set when a new version of the game is ready (src/ui/App.tsx)
   roster: Roster;
   onClose: () => void;
   onDev: () => void;
 }
 
-export function SettingsPanel({ game, cloud, roster, onClose, onDev }: Props) {
+export function SettingsPanel({ game, cloud, update, roster, onClose, onDev }: Props) {
   useRoster(roster);
   const closeRef = useRef<HTMLButtonElement>(null);
   const versionTaps = useRef(0);
@@ -79,6 +80,17 @@ export function SettingsPanel({ game, cloud, roster, onClose, onDev }: Props) {
         <AccountSection cloud={cloud} signOutFrom={roster.signedIn && !roster.openIsFirst ? (roster.list?.[0]?.name ?? "the first player") : null} />
 
         <PlayersSection roster={roster} />
+
+        {update && (
+          <div class="notice" role="status">
+            <p>A new version of Broodkeep is ready.{storage.persistent && " Your game is saved first."}</p>
+            <div class="row">
+              <button class="btn small" onClick={update}>
+                Update now
+              </button>
+            </div>
+          </div>
+        )}
 
         {!storage.persistent && (
           <p class="notice" role="alert">
