@@ -4,7 +4,7 @@ import { killCreature, setPoop, setSick, setStat } from "../src/game/dev";
 import { simulateTo } from "../src/game/sim";
 import { newSave } from "../src/game/state";
 import { HOUR, MINUTE } from "../src/game/time";
-import { aliveSave, at } from "./helpers";
+import { aliveSave, at, withLockedField } from "./helpers";
 
 describe("feeding", () => {
   it("fills the creature, counts the food, and turns into poop later", () => {
@@ -251,7 +251,7 @@ describe("going to a field", () => {
     const t0 = at(9);
     const save = aliveSave("pebblin", t0);
     const logged = save.log.length;
-    expect(goTo(save, "sky", t0)).toBe("locked");
+    expect(withLockedField("sky", () => goTo(save, "sky", t0))).toBe("locked");
     expect(save.creature?.place).toBe("home");
     expect(save.log).toHaveLength(logged);
   });

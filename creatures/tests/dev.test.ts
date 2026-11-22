@@ -17,7 +17,7 @@ import {
 import { forms } from "../src/data/forms";
 import { simulateTo } from "../src/game/sim";
 import { HOUR, gameNow } from "../src/game/time";
-import { aliveSave, at } from "./helpers";
+import { aliveSave, at, withLockedField } from "./helpers";
 
 describe("dev tools", () => {
   it("skip ahead shifts the game clock and the creature lives through it", () => {
@@ -119,7 +119,7 @@ describe("dev tools", () => {
 
   it("puts the creature in any place, with none of the checks the real action makes", () => {
     const save = aliveSave("blip", at(8));
-    setPlace(save, "sky"); // locked, but dev mode may still go
+    withLockedField("sky", () => setPlace(save, "sky")); // locked, but dev mode may still go
     expect(save.creature!.place).toBe("sky");
     setPlace(save, "home");
     expect(save.creature!.place).toBe("home");

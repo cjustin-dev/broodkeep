@@ -7,7 +7,7 @@ import { killCreature, setCareCounter, setPlace, setServings, setStat, spawnEgg 
 import { countCareCells, fieldCells, foodCells, leadingForm, menuOf, nextForm, stageHours, tierOf } from "../src/game/growth";
 import { evolveTo, simulateTo } from "../src/game/sim";
 import { HOUR, MINUTE } from "../src/game/time";
-import { aliveSave, at } from "./helpers";
+import { aliveSave, at, withLockedField } from "./helpers";
 
 const t0 = at(8); // eight in the morning, so a whole stretch of awake time follows
 
@@ -300,12 +300,12 @@ describe("moving between places", () => {
       expect(goTo(save, id, t0), id).toBe("went");
       expect(save.creature!.place, id).toBe(id);
     }
-    expect(openFieldIds).toContain("water");
+    expect(openFieldIds).toEqual(["land", "water", "sky"]); // so the loop above really covers all three
   });
 
   it("refuses a locked field, a sleeping creature, and a creature that is away", () => {
     const save = aliveSave("blip", t0);
-    expect(goTo(save, "sky", t0)).toBe("locked");
+    expect(withLockedField("sky", () => goTo(save, "sky", t0))).toBe("locked");
     expect(save.creature!.place).toBe("home");
     save.creature!.sleep = "nap";
     expect(goTo(save, "land", t0)).toBe("sleeping");

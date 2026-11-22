@@ -9,7 +9,12 @@ https://broodkeep.pages.dev matched my local build). **The Water slice is built 
 ~/broodkeep-paradise/creatures, off `main` efb3f04): 18 new creatures, the Water field, 3 foods, Water open in the picker. It was
 **committed and pushed to `origin/water` on the owner's "commit and push" (2026-11-21); no pull request is open yet** (the owner opens and merges it); `npm run typecheck`, 830 tests in 17 files, `selftest.py` (102 cases),
 `emit_ts.py --check`, `face_hashes.py --check` and `npm run build` all exit 0. See "Next", item 1, and the Water section of
-decisions.md. The older text below was written before the Paradise work and still describes the old forms.
+decisions.md.
+**The Sky slice is built on local branch `sky`** (stacked on `water`; **nothing is committed yet**, I wait for the owner's "commit and push"):
+18 new creatures, the Sky field, 3 foods, and no field is locked any more. On that branch `npm run typecheck`, 1085 tests in 17 files,
+`selftest.py` (120 cases), `emit_ts.py --check`, `face_hashes.py --check` (896 pictures) and `npm run build` (436.7 KB of JavaScript, 77.9 KB
+gzipped) all exit 0. See "Next", item 1, and the Sky section of decisions.md. The older text below was written before the Paradise work and
+still describes the old forms.
 
 **Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slices 1 and 2 are merged** (PR #3
 to #6, #8, #9, #11, #12 and #13, `main` at 932497c; the first four are confirmed live at https://broodkeep.pages.dev, and so is
@@ -350,8 +355,26 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    all real, all fixed, plus three picture changes. Five mutation checks failed the new tests as they should. JavaScript is
    319 KB (64.6 KB gzipped), up from 205.6 KB. **Next for this branch:** the owner opens the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/water) and
    merges it. When they do, tell them the Water slice changes nothing for a Land creature except that a striped egg now grows into
-   Drizzle. Then the Sky slice (the Sky roster in the plan is still pending; Cinderling,
-   Scorchlet and Ashwing are drawn).
+   Drizzle.
+   **Sky slice built (2026-11-21, local branch `sky` off `water`, uncommitted):** the Sky roster is in paradise-plan.md section 4 (names and
+   animals are my choice). Drawn in `tools/art/paradise/`: `sky_scorchlet.py` (Hearthwing, Sootsnarl, Dimwick), `sky_chirplet.py`
+   (Chirplet, Gildcrest, Downwren, Peckjack, Slumpfinch), `sky_nectlet.py` (Nectlet, Paleveil, Honeyfuzz, Spitewing, Tatterwing),
+   `sky_wisplet.py` (Wisplet, Galecrown, Softnimbus, Smogrump, Fogsag), `sky_parts.py` (the beak as a mouth pattern), `sky_field.py` (a
+   floating island ruin in a morning sky, 40 colors) and `sky_all.py` (the 21 Sky forms in order). Cinderling, Scorchlet and Ashwing were
+   already in `sky.py`. `emit_ts.py` now also writes `forms/sky.ts` and `art/field-sky.ts`. Game side: chicken, corn and syrup (the Land
+   numbers in the same slot) with three icons, the Sky plan in `data/fields.ts`, `fieldPictures.sky`. A swirled egg now grows into
+   Cinderling. The playthrough test reaches all 48 adults of the three fields at the planned hours. **What the wiring found:** 11 forms
+   failed the sleeping-blanket test (Cinderling, Scorchlet and 9 beaked adults have no mouth pixel on a closed face, so the blanket
+   used its fallback); the test now checks "below the eyes" (decisions.md). Looked at: every Sky creature on the field on one contact sheet,
+   and the real game in a headless phone browser (kid and adult in the field, the places tray with all three open and none locked, the
+   Sky food tray, sleeping and sad creatures, the same sleepers in Land and Water for comparison); no page errors. Fresh-eyes review: 13
+   findings, 7 fixed (the sad beak did not lower on 8 forms, three second drawings that barely differed, dead code and palette entries, a
+   docstring, a test that could never fail), 6 left with reasons (decisions.md, known-issues.md). Nine mutation checks failed as they
+   should. **Next for this branch:** the owner says "commit and push"; then the pull request is opened (the owner does that). When the Water
+   pull request merges, `main` gets merged into `sky` (or `sky` is rebased) before its own pull request. Tell the owner then that a
+   swirled egg now grows into Cinderling, and that Sky's JavaScript brings the bundle to 436.7 KB. **Scope suggestions for the
+   owner:** give Scorchlet a beak that opens and lowers like Chirplet's (it has none now); load each field's forms only when needed
+   if the bundle starts to matter.
    **Closed 2026-11-21 (owner: "leave it as it is"):** a creature that starts a habitat job from a field comes back to that same
    field when the job ends (nothing sends it home), while bedtime and naps do send it home. Do not ask again.
 2. Later: the "no care for 4 hours" special form, the secret evolutions (two players, so after accounts), slice 3 of the old

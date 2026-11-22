@@ -370,7 +370,7 @@ describe("the wild creature", () => {
         expect(getForm(b.foe.formId).stage, id).toBe(stage);
         seen.add(b.foe.formId);
       }
-      const kin = Object.values(forms).filter((f) => f.stage === stage).length; // (the kid stage has only Pebblin until Water and Sky open)
+      const kin = Object.values(forms).filter((f) => f.stage === stage).length; // (a stage with a single form can only show that one)
       if (kin > 1) expect(seen.size, id).toBeGreaterThan(1);
       else expect(seen.size, id).toBe(1);
     }

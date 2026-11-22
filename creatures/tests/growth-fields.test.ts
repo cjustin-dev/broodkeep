@@ -1,5 +1,5 @@
-// The baby rules that only matter with more than one open field (a single field cannot tie or lose). Sky is still locked, so this
-// test opens all three on paper: the fields data is replaced by three made-up fields, and it stays valid as the real ones open.
+// The baby rules that only matter with more than one open field (a single field cannot tie or lose). This test lays out three made-up
+// fields on paper (the fields data is replaced), so it says the same whichever of the real fields are open.
 import { describe, expect, it, vi } from "vitest";
 import type { FieldId } from "../src/game/types";
 

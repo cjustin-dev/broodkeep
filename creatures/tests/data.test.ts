@@ -7,6 +7,7 @@ import { STATS, roleParts, stageBudget } from "../src/data/forms/stats";
 import { foodIds, foods } from "../src/data/foods";
 import { stageOrder } from "../src/game/types";
 import type { Role, Stage } from "../src/game/types";
+import { withLockedField } from "./helpers";
 
 // How big each stage's picture is: the baby is small and each later stage grows (docs/paradise-plan.md section 1).
 const SIZE_OF_STAGE: Record<Stage, number> = { baby: 20, kid: 24, young: 36, adult: 48 };
@@ -90,10 +91,14 @@ describe("stat budgets", () => {
 });
 
 describe("the growth tree", () => {
-  it("locks the fields that have no plan yet, and opens the rest", () => {
+  it("has three fields, and all of them have a plan", () => {
     expect(fieldIds).toEqual(["land", "water", "sky"]);
-    expect(openFieldIds).toEqual(["land", "water"]);
-    expect(() => planOf("sky")).toThrow();
+    expect(openFieldIds).toEqual(["land", "water", "sky"]);
+  });
+
+  it("refuses the plan of a locked field, and has it back afterwards", () => {
+    withLockedField("sky", () => expect(() => planOf("sky")).toThrow());
+    expect(() => planOf("sky")).not.toThrow();
   });
 
   for (const id of openFieldIds) {

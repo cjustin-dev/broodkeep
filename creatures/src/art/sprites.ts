@@ -41,6 +41,9 @@ export type IconName =
   | "seafood"
   | "seaweed"
   | "shrimp"
+  | "chicken"
+  | "corn"
+  | "syrup"
   | "fish"
   | "zzz"
   | "cloud"
@@ -227,6 +230,39 @@ export const icons: Record<IconName, Sprite> = {
     "..RROROR",
     ".RRRRRR.",
     "RR.RRR..",
+  ]),
+  // A roast chicken: a brown crust round a golden middle, with two cream bone ends at the bottom.
+  chicken: icon([
+    "........",
+    "..NNNN..",
+    ".NOOOON.",
+    "NOOYYOON",
+    "NOYYYOON",
+    ".NOOOON.",
+    "C.NNNN.C",
+    "CC....CC",
+  ]),
+  // An ear of corn: yellow kernels with orange dots, in green husk leaves.
+  corn: icon([
+    "...YY...",
+    "..YOYY..",
+    "..YYOY..",
+    "..YOYY..",
+    ".GYYOYG.",
+    ".GGYYGG.",
+    "..GGGG..",
+    "...GG...",
+  ]),
+  // A jar of amber syrup with a brown lid.
+  syrup: icon([
+    "..DDDD..",
+    "..NNNN..",
+    ".CCCCCC.",
+    ".COOOOC.",
+    ".COYOOC.",
+    ".COOOOC.",
+    ".COOOOC.",
+    "..CCCC..",
   ]),
   meat: icon([
     "....OOO.",

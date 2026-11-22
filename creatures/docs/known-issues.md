@@ -214,8 +214,8 @@
   creature is back in the field it left and its field minutes count again. Bedtime and naps do send it home. The owner chose to
   leave it this way (2026-11-21), so it is a decision, not a gap.
 - **The dev tree's option lists have no `key`s.** No visible effect in Preact for these short, fixed lists.
-- **Sky has no picture yet.** `drawField` returns false for it and the room is drawn; `goTo` refuses it, so a player cannot get
-  there (the dev panel can force it).
+- **A field with no picture would show the room.** `drawField` returns false for a field without a picture and the room is drawn. All
+  three fields have one now, so nothing tests that fallback (the old test of it checked nothing once Sky opened and was rewritten).
 
 ## Paradise Water slice (accepted for now)
 
@@ -234,3 +234,27 @@
   as a slumped starfish (medium), Wilteel's dim lure stalk as stray dots. Left as they are; the owner can ask for redraws.
 - **The `assert`s in `land_all.py` and `water_all.py` vanish under `python3 -O`**, so a drawn creature left out of `ORDER` would be
   dropped without a message. Run the tools without `-O`.
+
+## Paradise Sky slice (accepted for now)
+
+- **The Sky names and animals are my choice** (plan section 4); the owner has not been asked. "Cinderling" (Sky kid) and "Cindermane"
+  (Land adult, live) share a prefix; left alone because Cindermane is live.
+- **Cinderling and Scorchlet have no mouth** (`mouth: null`, the beak is part of the body), so their beak never opens or lowers. The
+  other beaked forms (Ashwing and the 8 new ones) draw the beak as a mouth pattern and do open and lower. Scorchlet could get
+  `beak_mouths` like Chirplet: a scope suggestion, not done.
+- **A beak and the claws are the creature's tooth colour.** They are drawn with the letter T, which `lib.with_face()` sets from
+  `tooth=` after the palette, so a palette entry "T" is overwritten without a message (8 such entries were removed). A bird with an
+  orange beak needs a different letter.
+- **A sleeping beaked form has no M pixel** (a closed beak is drawn in the beak's colours), so `blanketBox` falls back to starting
+  the blanket about 55 percent of the way down. Eyes still show above it (seen on Cinderling, Chirplet, Peckjack and Downwren in the running game); the per-form test now
+  checks "below the eyes" and "at the mouth when there is one".
+- **Weaker readings on a blind look** (cheap-model check, left as drawn): Cinderling's orange belly patch under the beak reads as a
+  second mouth; Ashwing and Sootsnarl have close silhouettes (the same line, tiers 1 and 3); Wisplet and Softnimbus are both pale
+  clouds; Gildcrest's teal wings read as arms; Paleveil's blue spots can read as headphones; Smogrump's smoke wisp as a chimney;
+  Fogsag as a ghost or tadpole (the hook reads like a question mark). On the field, the far islands read as downward triangles
+  and the fallen column as a fence.
+- **Smogrump's two feet are 1 px off a mirrored pair** and Wisplet's side lobes differ in size: smoke and cloud are meant to be lumpy.
+- **The chicken icon is close to the meat icon** (cream bone ends on a brown-orange roast). A Sky tray never shows meat, so they
+  are never side by side. 8 x 8 placeholders, like the rest.
+- **The Sky picture looks muted while a creature sleeps.** The "lights off" overlay (40 percent dark blue) is the same for every place.
+- **The JavaScript is 436.7 KB (77.9 KB gzipped)** with all three fields (64 forms), up from 319 KB. See plan section 7.

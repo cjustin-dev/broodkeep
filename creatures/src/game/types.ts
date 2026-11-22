@@ -1,8 +1,8 @@
 // Shared shapes for game content (creature forms, foods, eggs, fields).
 // The data files in src/data/ are written in these shapes.
 
-// Pellets and the treat are for every creature. Each field adds three foods of its own (Land has meat, carrot and worm, Water seafood, seaweed and shrimp).
-export type FoodId = "pellet" | "treat" | "meat" | "carrot" | "worm" | "seafood" | "seaweed" | "shrimp";
+// Pellets and the treat are for every creature. Each field adds three foods of its own (Land has meat, carrot and worm, Water seafood, seaweed and shrimp, Sky chicken, corn and syrup).
+export type FoodId = "pellet" | "treat" | "meat" | "carrot" | "worm" | "seafood" | "seaweed" | "shrimp" | "chicken" | "corn" | "syrup";
 
 export type EggPattern = "speckled" | "striped" | "swirled";
 
