@@ -285,7 +285,18 @@ cheap-model review; round 1 found 3 real issues and round 2 found 5, all fixed (
 yawning, chewing or saying no, tears line up with the eyes, the wander roll is spread correctly after the growl and yawn
 chances). Not checked: a real phone, and the motion as motion (tests cover sizes and timing, the pictures are stills).
 
-## Profiles and adult PINs (planned 2026-11-22, branch `profiles` in ~/broodkeep-profiles, nothing built or pushed)
+## Signed out play marked as changed (branch `signed-out-dirty`, 2026-11-22; committed and pushed on "commit and push")
+
+Found while planning profiles: a change made while signed out was never marked as changed (`CloudSync.noteSave` ignored it), so signing
+in again as the same account, after another device had saved, replaced that play with the account's game and left no backup. Now
+`noteSave` marks it (changed and dated) once the device has met an account, without arming the timer or calling the server; the next
+sign in sends it and the server's newest-save-wins rule decides, the older game going to the backups. A device that never met an
+account stores nothing. Owner asked for the fix ("fix and start", 2026-11-22). 9 new tests in `tests/cloud-sync.test.ts` (5 of them fail on the
+old code, each for the right reason; the others guard what already held); 6 deliberate breaks of `noteSave` all caught; typecheck 0, 24 files /
+1288 tests, build 0. A cheap-model review found 6 points: 1 (a tap that changes nothing counts as a touch) is the existing rule, now in
+known-issues.md and cloud-saves.md; 2 (flush before saving) does not hold, because `App.tsx` saves on hide by itself; 3 to 6 fixed.
+The owner opens and merges the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/signed-out-dirty. It and `profiles-slice-1` both edit this file (`docs/progress.md`), so the second to merge has a docs-only conflict (checked with `git merge-tree`; the code and the tests merge cleanly).
+## Profiles and adult PINs (plan merged in PR #22; slice 1 built and committed on branch `profiles-slice-1` in ~/broodkeep-profiles, 2026-11-22)
 
 The owner said "move to the next phase. im not committing this yet." I read it as the next item of the order I gave: kid profiles
 and adult PINs (the rest of Phase 5). The plan is [profiles-plan.md](profiles-plan.md): profiles inside one account (adult or kid),
@@ -298,9 +309,9 @@ plan says; D1 itself is not checked. The owner asked how accounts work (answer: 
 household signs up with its own account and shares nothing), then said "we are good then commit and push" (2026-11-22). Read as
 accepting the plan and my defaults for questions 1 to 5 of section 8: sign in required, the PIN lock as written with its holes, the
 header switch button, slice 1 then slice 2 as separate pull requests, removal and adult/kid change later. **Closed; do not ask
-again.** Still open: question 6 (the existing bug where play done while signed out can be overwritten on the next sign in; fix in
-its own pull request or leave) and the three proposed instruction file edits (two in this project's CLAUDE.md, one in ~/CLAUDE.md);
-the owner did not mention them. Slice 1 is not started; the owner has not said to build it. The branch is off `main` b743968, not off `pwa-install` (that pull request is not merged);
+again.** Question 6 (the existing bug where play done while signed out can be overwritten on the next sign in) was fixed in its own branch
+(`signed-out-dirty`, below). The two proposed edits to this file (section 3 PIN sentence, section 5 profiles row) were approved and applied on
+2026-11-22 ("apply the old profile edits to claude.md"). The branch was cut from `main` before `pwa-install` (that pull request is not merged);
 both touch `App.tsx` and `SettingsPanel.tsx`, so the second to merge has a small conflict.
 
 ## Adult expansion (adopted 2026-11-22, branch `adult-plan` in ~/broodkeep-adult, docs only, committed 35fed3b and pushed on "commit and push")
@@ -318,6 +329,28 @@ A cheap-model review of these docs checked every code claim in decisions.md; it 
 written as current, boss wins, which stats fights train, Pond being real, mistakes counting in every stage, the dev tree imports, a
 space figure that contradicted itself); all 7 were checked against the code and fixed, and the pointer and the Garden question were
 added. Not re-reviewed after the fixes. The branch is off `main`; the owner opens the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/adult-plan.
+**Slice 1 built (2026-11-22, on the owner's "fix and start"; committed and pushed to `origin/profiles-slice-1` on "commit and push", because `profiles` itself was already merged in PR #22).** Profiles without PINs: add and rename (no
+removal), a "who is playing" picker, a switch chip under the header, a Players part in Settings, one game per profile on the device and in
+the account. Server: migration `0003_profiles.sql` (`kind`, `name_key`, `pin_hash` unused), `GET/POST/PATCH /api/profiles`, `?profile=<id>`
+on `/api/save`. Device: `src/sync/profiles.ts` (names), `roster.ts` (keys, start rule, list), `choice.ts` (sessionStorage), the shell in
+`main.tsx`, `Picker.tsx`, `PlayersSection.tsx`. Checked on the final tree: typecheck 0, 27 files / 1441 tests (was 24 / 1279 on `main`),
+build 0, the only warning is node:sqlite's ExperimentalWarning. Mutation runs (break the code on purpose, read the failure, restore, `cmp`):
+server 42 mutants (all caught; the count-then-insert race mutant first SURVIVED because the D1 stand-in never overlaps two requests, so
+`slowReads` in `tests/cloud-helpers.ts` was added and it is now caught), device 45 mutants (2 survivors fixed), 3 UI mutants through the
+browser (CSS wrap rule, double tap guard, blocked-storage note: each fails exactly its own check). Browser run: Chromium against
+`wrangler pages dev` with a local D1 (migrations 0001 to 0003 applied), 64 checks, all pass: sign up, add and rename, switch, picker, a
+reload, a second window, 320 / 360 / 390 px layout with a 20-wide-letter name (contact sheet looked at), a session that ends in another
+profile, sign in again, sign out, a window with blocked storage, a double tap on a tile. The script is in the session scratchpad, not in
+the repo. It found two real defects my unit tests could not: the rename form made the Settings box 42 px too wide at 320 px, and
+one of its own checks could not fail (`|| true`; replaced). Two cheap-model reviews of the plan and two of the code (14 findings, then 8 on the fixes; each checked in the code, the real ones
+fixed with tests that failed first, the rest documented: plan section 10 has the list). Deviations from
+plan version 3, listed for the owner: the picker keeps the account's order (no "last used first"), names collapse inner spaces, and
+`GET /api/profiles` answers `{ profiles: [...] }` (decisions.md). Not checked: real D1 (migration and conditional insert ran on SQLite
+3.51.2 and wrangler's local D1), a real phone, the free plan's CPU limit and the PBKDF2 time on a phone, 320 x 568 shows the page 16 px
+taller (known-issues.md). Gate for the owner: run migration 0003 once in the D1 Console BEFORE merging (numbered steps are in plan section 9, written 2026-11-22).
+
+**Signed out play marked as changed (Q6, branch `signed-out-dirty` in ~/broodkeep-signedout, committed and pushed on the owner's "commit and push", 2026-11-22).** Fixed in its own branch, as
+the owner's "fix" was read; its notes are in that branch's `docs/progress.md` (section "Signed out play marked as changed").
 
 ## Open for the owner
 

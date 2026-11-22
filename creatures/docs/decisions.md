@@ -677,4 +677,15 @@ are called A1 to A5 in the repo (CLAUDE.md section 9).
   of profiles (+40 px) is folded into the status strip in Adult Mode. Every screen is measured at 320, 360 and 390.
 - A save is about 1 KB, and about 27 KB with a full dev log. The close-time upload only goes under 60,000 characters and the server stops
   at 256 KB, so new state stays compact: retired lives as short records, and initiatives never written to the dev log.
+## Profiles slice 1 (2026-11-22)
+
+- **The picker keeps the account's order.** Version 3 of the plan said the last profile used on the device is listed first. Not built:
+  a tile that moves between visits is a poor thing for a child who knows where their tile is, and it needs one more thing stored. The
+  first profile is always first.
+- **Names collapse runs of inner spaces** ("Mia   Lee" is kept as "Mia Lee"), so two names that look the same cannot both exist. The
+  plan only said trim and NFC; the owner can say if inner spaces should stay as typed.
+- **The first save from a profile that is still an untouched egg is not sent** (existing rule, [known-issues.md](known-issues.md)), so a
+  new profile that only had its sleep hours changed has no game in the account until it is played.
+- **Sign in and sign out are offered only in the first profile**, and a session that ends in another profile signs the device out and
+  reloads into single player (plan decision 11).
 

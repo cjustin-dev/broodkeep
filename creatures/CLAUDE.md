@@ -55,7 +55,7 @@ Why a subfolder with its own project still makes sense:
 
 **Why D1 over the other Cloudflare options:** accounts, profiles, sessions, saves and history are related records, which is what a SQL database is for. KV is "eventually consistent" (a save on your phone might not show up on the computer for up to a minute, and logins get flaky), and Durable Objects are built for real-time multiplayer, which this doesn't need. D1's free tier is far more than a family will ever use.
 
-**Security:** passwords are stretched with PBKDF2 in the browser and only a salted hash of the result is stored (the free plan gives a server 10 ms of CPU, too little for a safe amount of PBKDF2; see [docs/cloud-saves.md](docs/cloud-saves.md)), sessions as random tokens in an HttpOnly, Secure cookie, and only a hash of the token stored in the database. Adult PINs are handled the same way.
+**Security:** passwords are stretched with PBKDF2 in the browser and only a salted hash of the result is stored (the free plan gives a server 10 ms of CPU, too little for a safe amount of PBKDF2; see [docs/cloud-saves.md](docs/cloud-saves.md)), sessions as random tokens in an HttpOnly, Secure cookie, and only a hash of the token stored in the database. Adult PINs are a screen lock: stretched in the browser, stored as text on the profile, and never checked by the server.
 
 ## 4. Folder layout
 
@@ -127,7 +127,7 @@ export const fennix: Form = {
 **Cloud database (D1):**
 - `accounts` (username, password hash, created)
 - `sessions` (token hash, account, expiry)
-- `profiles` (account, name, adult or kid, optional PIN hash, soften mode, settings)
+- `profiles` (account, name, adult or kid, optional PIN hash, soften mode, settings). For now the settings (sleeping hours) stay inside the save, and soften mode comes with its own slice.
 - `saves` (profile, save JSON, revision number, saved-at time)
 - `save_backups` (the last few overwritten saves per profile, for safety)
 - `history` (past creatures: form reached, born, died or slept, cause, stats summary)

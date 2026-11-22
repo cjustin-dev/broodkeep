@@ -11,9 +11,9 @@ const STORE = "kv";
 export const storage = { persistent: true };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
-// Set when the saved game could not be read. Then we never write, so a record we merely
-// failed to read is not replaced by a new egg.
-let readFailed = false;
+// The keys of the games that could not be read. Then we never write to that key, so a record we merely
+// failed to read is not replaced by a new egg. (Each profile has its own key, see sync/roster.ts.)
+const readFailed = new Set<string>();
 
 function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
@@ -50,27 +50,28 @@ async function put(key: string, value: unknown): Promise<void> {
   });
 }
 
-// The saved game, or null if there is none yet. A save we cannot read is kept
+// The saved game under this key ("save" is the first profile's game), or null if there is none yet. A save we cannot read is kept
 // under another name instead of being thrown away.
-export async function loadSave(): Promise<Save | null> {
+export async function loadSave(key = "save"): Promise<Save | null> {
   try {
-    const raw = await get("save");
+    const raw = await get(key);
+    readFailed.delete(key); // a read that works lifts an earlier failure (the picker reads every profile's game for its picture)
     if (raw === undefined) return null;
     const save = migrateSave(raw);
     if (save) return save;
-    await put("save-unreadable", raw);
+    await put(`${key}-unreadable`, raw);
     return null;
   } catch {
-    readFailed = true;
+    readFailed.add(key);
     storage.persistent = false;
     return null;
   }
 }
 
-export async function writeSave(save: Save): Promise<void> {
-  if (readFailed) return;
+export async function writeSave(save: Save, key = "save"): Promise<void> {
+  if (readFailed.has(key)) return;
   try {
-    await put("save", save);
+    await put(key, save);
     storage.persistent = true; // a later write that works clears an earlier warning
   } catch {
     storage.persistent = false;
@@ -79,18 +80,35 @@ export async function writeSave(save: Save): Promise<void> {
 
 // What this device knows about the cloud account (sync/sync.ts): who is signed in and which revision it last synced. Read back
 // as it is; the caller checks its shape.
-export async function loadCloudMeta(): Promise<unknown> {
+export async function loadCloudMeta(key = "cloud"): Promise<unknown> {
   try {
-    return (await get("cloud")) ?? null;
+    return (await get(key)) ?? null;
   } catch {
     return null;
   }
 }
 
-export async function writeCloudMeta(meta: unknown): Promise<void> {
+export async function writeCloudMeta(meta: unknown, key = "cloud"): Promise<void> {
   try {
-    await put("cloud", meta);
+    await put(key, meta);
   } catch {
     // The account details are only a convenience: without them this device asks again on the next start.
+  }
+}
+
+// The last list of the account's profiles, so the "who is playing" screen works offline (sync/roster.ts says what it holds).
+export async function loadRoster(): Promise<unknown> {
+  try {
+    return (await get("profiles")) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeRoster(record: unknown): Promise<void> {
+  try {
+    await put("profiles", record);
+  } catch {
+    // The list is only a convenience: without it the next start asks the server again.
   }
 }
