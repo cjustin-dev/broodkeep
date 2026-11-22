@@ -1,4 +1,4 @@
-// A scripted player raises a creature from the egg to every Land and Water adult, and checks the times of docs/paradise-plan.md
+// A scripted player raises a creature from the egg to every adult of the three fields, and checks the times of docs/paradise-plan.md
 // section 2: the baby becomes a kid after 4 field cells (1 hour in a field), the kid a young after 24 hours, the young an adult after
 // 48 hours. Each field's 16 adults are reached by food (4 young) and by care (4 tiers). If a number in tuning.ts moves so that a
 // line or a tier can no longer be reached, this test says which.
@@ -43,6 +43,16 @@ const playable: Array<{ field: FieldId; kid: string; lines: Line[] }> = [
       { young: "kelpet", food: "seaweed", adults: ["coralback", "bubblebelly", "brinetusk", "limpseal"] },
       { young: "scuttlet", food: "shrimp", adults: ["rampclaw", "shellsnug", "chipclaw", "softshell"] },
       { young: "bellet", food: "pellet", adults: ["stormbell", "inkpot", "spinewad", "droopstar"] },
+    ],
+  },
+  {
+    field: "sky",
+    kid: "cinderling",
+    lines: [
+      { young: "scorchlet", food: "chicken", adults: ["ashwing", "hearthwing", "sootsnarl", "dimwick"] },
+      { young: "chirplet", food: "corn", adults: ["gildcrest", "downwren", "peckjack", "slumpfinch"] },
+      { young: "nectlet", food: "syrup", adults: ["paleveil", "honeyfuzz", "spitewing", "tatterwing"] },
+      { young: "wisplet", food: "pellet", adults: ["galecrown", "softnimbus", "smogrump", "fogsag"] },
     ],
   },
 ];

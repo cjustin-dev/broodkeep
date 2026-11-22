@@ -1,13 +1,27 @@
 // Shared helpers for the tests.
+import { fields } from "../src/data/fields";
 import { forceHatch } from "../src/game/dev";
 import { feed, clean, giveMedicine, toggleLights, touch } from "../src/game/actions";
 import { simulateTo } from "../src/game/sim";
 import { newSave } from "../src/game/state";
 import type { Save } from "../src/game/state";
 import { MINUTE } from "../src/game/time";
+import type { FieldId } from "../src/game/types";
 
 // A moment on the player's own clock (so the tests do not depend on the time zone).
 export const at = (hour: number, minute = 0, day = 5): number => new Date(2026, 0, day, hour, minute, 0).getTime();
+
+// Runs `check` with one field locked (its plan taken away), then puts the plan back, even if the check throws. All three fields are open now,
+// so a test of the locked case has to lock one itself. (`openFieldIds` is worked out when the data loads, so it does not change.)
+export function withLockedField<T>(id: FieldId, check: () => T): T {
+  const plan = fields[id].plan;
+  fields[id].plan = null;
+  try {
+    return check();
+  } finally {
+    fields[id].plan = plan;
+  }
+}
 
 // A save with a creature that just hatched.
 export function aliveSave(formId = "blip", t = at(8), seed = 1234): Save {

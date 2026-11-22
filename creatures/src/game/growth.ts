@@ -68,8 +68,8 @@ export function countCareCells(c: Creature, hungerBefore: number, happinessBefor
 // ---- choosing ----
 
 // The field with the most cells, if one is ahead; otherwise (none yet, which is a tie of all, or a tie at the top) the field of its
-// egg pattern. Only open fields count: while Water and Sky are locked, a striped or swirled egg that was never taken outside grows
-// into the Land kid (the plan's "the three egg patterns keep a job" starts when their slices open).
+// egg pattern. Only open fields count: a field with no plan can never be the kid's, and a tie whose egg pattern points at a
+// locked field goes to the first open one. (All three fields are open now, so the egg pattern always decides a tie.)
 function netField(c: Creature): FieldId {
   const cells = openFieldIds.map((id) => ({ id, cells: fieldCells(c, id) }));
   const best = Math.max(...cells.map((f) => f.cells));

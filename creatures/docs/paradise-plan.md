@@ -25,7 +25,8 @@ Where a rule below is the charts' it says "chart". Where it is my choice it says
 
 That is 1 + 3 + 12 + 48 = **64 creatures to draw** (the egg is not counted). Nine already exist as drawings on the "Gritty + cute
 blend" sheet: the kids Pebblin (Land), Drizzle (Water), Cinderling (Sky); the young Cragpup (Land), Lanternfin (Water), Scorchlet
-(Sky); the adults Gravelhorn (Land), Murkfang (Water), Ashwing (Sky). So 55 are still to draw: Land 19, Water 18, Sky 18.
+(Sky); the adults Gravelhorn (Land), Murkfang (Water), Ashwing (Sky). So 55 were still to draw: Land 19, Water 18, Sky 18. All 64
+are drawn now (Land, Water and the Sky slice, 2026-11-21).
 
 ## 2. The rules
 
@@ -98,7 +99,8 @@ needs a rule for which wins on a neglected baby, the 4 hour special or the 6 hou
 - The room and fields become 128 x 128 game pixels (96 today). An adult is 48, so it fills three eighths of the width.
 - Each drawing must pass the checks I wrote for the blend sheet, moved into `tools/art/`: no part cut off by the edge (only
   outline pixels may touch it), every letter in the palette, no floating pixel, faces centred (even widths on an even canvas).
-- Fields (areas): Land is the dusk ruins hollow from the gritty sheet. Water and Sky are designed when their slice starts.
+- Fields (areas): Land is the dusk ruins hollow from the gritty sheet, Water the sunken ruin (section 4), and Sky a floating island
+  ruin in a bright morning sky (section 4).
 
 ## 4. The Land roster (working names, final when drawn)
 
@@ -117,8 +119,6 @@ needs a rule for which wins on a neglected baby, the 4 hour special or the 6 hou
 | Dugling | Moonlop, crescent-horned stag-hare | Barrowbun, round warm digger | Tuskmole, grumpy tusked mole | Mudlop, muddy sulking rabbit |
 | Frillet | Sunfrill, huge sun-fan frill | Plateback, small stegosaur | Bogviper, snake | Slugwyrm, limp half-slug wyrm |
 | Sporeling | Hollowbloom, flower sprite with glowing fangs | Potterling, flower-pot creature | Needlecap, cactus | Mossheap, shaggy moss heap |
-
-Sky (chicken, corn, syrup) gets its roster when its slice starts. Its kid Cinderling and Scorchlet and Ashwing are drawn.
 
 ### The Water roster (slice 2, written 2026-11-21; names and animals are my choice and can change)
 
@@ -143,6 +143,34 @@ Colors: each line has a palette family; the young is halfway between the kid Dri
 Tier rules as for Land: tier 1 biggest and most striking, tier 2 round and friendly, tier 3 scrappy and grumpy, tier 4 thin or
 limp and sad. The Water field is a sunken ruin with a glowing pearl shell for the creature to stand on (the Land one is a rune
 slab); the baby that never went outside grows toward the field of its egg pattern, so a striped egg now gives Drizzle.
+
+### The Sky roster (slice 3, written 2026-11-21; names and animals are my choice and can change)
+
+Foods: chicken, corn, syrup (the chart's Sky foods). One family per line, so no two lines share a silhouette, and none repeats a
+Land or Water one: the drakes are winged and beaked (not the Land frill lizards), the songbirds are perching birds, the moths and
+bees are insects, and the cloud line is the one exception, with no animal body at all. Tier 2 is round in every line, so each
+round form gets a second cue that no other round form has. Colors: each line has a palette
+family; the young is halfway between the kid Cinderling and the line's tier 1.
+
+| Stage | Sky |
+|---|---|
+| Kid | Cinderling, a pale lavender bird with tiny wings and an ember belly (drawn) |
+| Young, chicken | Scorchlet, a small ember-winged drake (drawn) |
+| Young, corn | Chirplet, a round golden songbird chick |
+| Young, syrup | Nectlet, a fuzzy little moth with feathery feelers |
+| Young, other | Wisplet, a cloud sprout |
+
+| Young | Tier 1 | Tier 2 | Tier 3 | Tier 4 |
+|---|---|---|---|---|
+| Scorchlet (drakes) | Ashwing, ember-winged drake (drawn) | Hearthwing, round friendly drake with a glowing belly | Sootsnarl, scruffy, grumpy singed wyvern with a chipped horn | Dimwick, thin drooping wyvern with a nearly dead ember |
+| Chirplet (songbirds) | Gildcrest, golden crested songbird with long tail plumes | Downwren, round fluffy wren with a head tuft | Peckjack, grumpy scruffy crow with torn feathers | Slumpfinch, thin limp finch |
+| Nectlet (insects) | Paleveil, huge pale moth with glowing wing eyes | Honeyfuzz, round fuzzy bumblebee with striped fur and a small stinger | Spitewing, grumpy scrappy wasp | Tatterwing, limp butterfly with torn wings |
+| Wisplet (weather) | Galecrown, huge thundercloud with a lightning crown | Softnimbus, round friendly cloud with rosy cheeks | Smogrump, grumpy smoke cloud | Fogsag, thin drooping fog wisp |
+
+Tier rules as for Land and Water. The Sky field is a floating island ruin in a bright morning sky (Land is dusk, Water is
+underwater): clouds below, a broken sun-temple arch, drifting rocks, and a glowing sun disc for the creature to stand on. With
+Sky open every egg pattern has an open field: a swirled egg that never went outside grows into Cinderling. Drawn in the Sky slice
+(2026-11-21): the 3 young and 15 adults, the field, and three new 8 x 8 food icons.
 
 ## 5. What changes in the code
 
@@ -173,17 +201,18 @@ after the owner has seen it.
    save version 3, the stage remap, the dev tree viewer, the new menus, tests, and a scripted playthrough that reaches every
    Land adult and checks the times in section 2.
 4. **Pull request 1:** Land complete and playable (Water and Sky fields stay locked until their slices). The owner merges.
-5. **Water:** 4 young and 16 adults still to draw plus the field art, then a pull request.
-6. **Sky:** the same.
+5. **Water:** done 2026-11-21 (branch `water`, pushed; the owner opens and merges the pull request).
+6. **Sky:** done 2026-11-21 (local branch `sky`, stacked on `water`; nothing is committed until the owner says so); then a pull
+   request. When the Water pull request merges, `sky` gets `main` merged in or is rebased first.
 7. **Later:** the special form, the secret evolutions, and slices 3 and 4 of the old Phase 3 (garden plots turn into a food
    source; the Creature Book fits a 64 creature game well).
 
-Milestones 1 to 3 are on the branch `paradise` and go nowhere until milestone 4, so the live game never shows half art.
+Milestones 1 to 4 are merged and live (pull request 14), so the live game never showed half art.
 
 ## 7. Cost and risk, plainly
 
-- The art is most of the work: 55 creatures still to draw, each checked. Each field is about the size of the old Phase 2
-  (20 forms), so three big pull requests.
+- The art was most of the work: 64 creatures, each checked. Each field is about the size of the old Phase 2 (20 forms), so three
+  big pull requests (Land, Water, Sky).
 - The face rewrite is the riskiest code change. It touches the eye and mouth parts of `face.ts`, `moment.ts` and the tests built
   on them.
 - **Old saves:** the 20 old forms are removed, so an existing creature cannot carry over. The owner said (2026-11-21) that old
@@ -191,8 +220,8 @@ Milestones 1 to 3 are on the branch `paradise` and go nowhere until milestone 4,
   `save-unreadable` while a new egg starts (sync/local.ts). Coins, bag and settings of an old save are not carried over. The
   owner is told when pull request 1 is ready.
 - Bundle: measured with Land only (22 forms) the JavaScript was 205.6 KB; with Land and Water (43 forms) it is 319 KB (64.6 KB
-  gzipped). Each field adds about 113 KB, so all three will be about 430 KB (an estimate). Acceptable for now; if it matters, load a
-  field's forms only when a creature of that field exists.
+  gzipped). With all three fields (64 forms) it is 436.7 KB (77.9 KB gzipped), close to the
+  430 KB I estimated. Acceptable for now; if it matters, load a field's forms only when a creature of that field exists.
 
 ## 8. My choices, which the owner can change (not blocking)
 
@@ -205,3 +234,6 @@ whose egg pattern names it, and that never went outside, grows into the first op
 foods and its forms. Added with the Water slice (2026-11-21): the Water names and animals (the table in section 4), the three foods
 with the same numbers as the Land food in the same slot, and the Water field picture (a sunken ruin, a pearl shell instead of the
 rune slab). With Water open a striped egg grows into Drizzle.
+Added with the Sky slice (2026-11-21): the Sky names and animals (section 4), the three foods again with the Land numbers in the same
+slot, the Sky field picture (a floating island ruin with a sun disc), beaks drawn as mouth patterns so they open and lower, and a
+swirled egg that never went outside now grows into Cinderling. Every field is open, so no tie falls back to another field.

@@ -15,8 +15,7 @@ describe("field pictures", () => {
     expect(new Set(looks).size).toBe(looks.length);
   });
 
-  it("has none for a field that is still locked, and none for an unknown one", () => {
-    for (const id of fieldIds) if (!openFieldIds.includes(id)) expect(fieldPictures[id], id).toBeUndefined();
+  it("has a picture only for a field that exists", () => {
     expect(Object.keys(fieldPictures).every((id) => (fieldIds as string[]).includes(id))).toBe(true);
   });
 

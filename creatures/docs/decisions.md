@@ -447,3 +447,45 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
 - **Mutation checks.** Five breaks were made on purpose and each failed the new tests: two Water adults swapped, Water locked again,
   Water showing the Land picture, a Water adult id that does not exist, and a Water food moved to another field. Each file was then
   restored and compared with its saved copy.
+
+## 2026-11-21: the Sky slice (milestone 6 of the Paradise plan)
+
+- **The Sky roster is in the plan** (section 4, "The Sky roster"): four lines (drakes, songbirds, moths and bees, clouds), four tiers
+  each. Names and animals are my choice. Kid Cinderling, young Scorchlet and adult Ashwing were already drawn; this slice draws 3
+  young (Chirplet, Nectlet, Wisplet) and 15 adults. Sky has 1 kid, 4 young and 16 adults (21 forms), the game 64.
+- **Roles.** Tier 4 is always quick. Tiers 1 to 3: Sootsnarl, Peckjack, Spitewing and Galecrown fight; Hearthwing, Downwren,
+  Honeyfuzz and Smogrump tank; Ashwing, Paleveil and Softnimbus cast; Gildcrest is quick. The young are Scorchlet quick,
+  Chirplet quick, Nectlet caster and Wisplet tank.
+- **The foods copy the Land numbers in the same slot** again (chicken = meat, corn = carrot, syrup = worm), with the same digest times.
+- **Beaks are mouth patterns.** `sky_parts.beak_mouths` gives the five looks (calm, flat, smile, frown, yawn) so a beak opens when the
+  creature is happy and lowers when it is sad, without an engine change. Cinderling and Scorchlet keep `mouth: null`.
+- **The sleeping blanket was left to its fallback, and the test changed.** After wiring, 11 forms failed "the blanket starts at the
+  mouth": Cinderling, Scorchlet and the 9 beaked adults have no M pixel on a closed face. I did not change the engine (placing the
+  blanket from the anchor row would be a code change for a fallback that already works and has its own test). The per-form test now
+  asserts the blanket starts below the lowest closed-eye row for every form (and at the mouth when there is one). The five
+  forms looked at in the running game show their eyes above the blanket.
+- **The Sky field** is a floating island ruin in a bright morning sky: dithered sky bands, a sun with a glow, far floating islands, birds,
+  a cloud sea, a grassy dome, drifting stones, a broken sun temple, a fallen column, and a pale stone sun disc with a gold inlay where
+  the Land one has the rune slab (same centre and feet row). 40 colors of the 62 allowed. `sky_field.py` draws it and `emit_ts.py`
+  writes `src/art/field-sky.ts`.
+- **Generated files.** `emit_ts.py` now writes `forms/sky.ts` (21 forms) and `field-sky.ts` too. `sky_all.py` lists the 21 in order and fails
+  on an id used twice, a creature left out, or a sad beak that does not start lower than a calm one. `face_hashes.py` covers all three
+  fields (896 pictures, 64 forms x 7 looks x 2 drawings); `selftest.py` gates every Sky creature (120 cases).
+- **All three fields are open**, so no test can use Sky as "the locked field". `tests/helpers.ts` has `withLockedField(id, check)`, which
+  takes a plan away for one check and puts it back in a `finally`; the four tests that need a locked field use it: going to one (in
+  `actions.test.ts` and in `growth.test.ts`), dev mode going there anyway (`dev.test.ts`), and `planOf` refusing it with the plan back
+  afterwards (`data.test.ts`).
+- **The playthrough test covers all three fields** (48 cases: 3 fields x 4 young x 4 tiers), each reaching the planned adult at the
+  planned hours. No tuning changed.
+- **Review.** A cheap-model fresh-eyes review (the new Python by path, a diff of the 19 tracked files, 7 unlabeled sheets) made 13
+  findings. 7 were fixed: the sad beak did not lower (the frown's one-row shift was cancelled when the pattern was placed, 8 forms;
+  now fixed and guarded by an assert in `sky_all.py`), dead palette entries "T" (removed), a `* 0.0` leftover, a duplicate list in
+  `beak`, an over-claiming docstring, three second drawings that barely differed (Tatterwing 8 cells, Slumpfinch 10, Wisplet 11,
+  below the lowest Land 20 and Water 14; now 94, 143 and 69) and a test that could never fail (rewritten). 6 were left: Smogrump's
+  feet and Wisplet's lobes (deliberately lumpy), Scorchlet's missing mouth (a scope suggestion), the combat test being Land only (not
+  a gap: the foe is any form of the stage, from every field), the chicken icon near the meat icon, and the far islands and
+  fallen column reading as triangles and a fence. Its blind reads are in known-issues.md.
+- **Mutation checks.** Nine breaks were made on purpose and each failed the test that guards it: the blanket fallback moved near the top,
+  the lock check removed, the lock helper not restoring the plan, two Sky adults swapped, a Sky face anchor moved, the Sky picture
+  dropped, a Sky food number zeroed, a bogus field picture added, and the sad-beak fix undone. Each file was restored and compared with
+  its saved copy.

@@ -327,12 +327,15 @@ describe("eating", () => {
 
 describe("the blanket", () => {
   for (const form of all) {
-    it(`${form.id}'s blanket starts at the mouth, so the eyes show, and is a little wider than the body`, () => {
+    it(`${form.id}'s blanket starts below the eyes (at the mouth, when the closed face has one), and is a little wider than the body`, () => {
       const lying = faceSprite(form, "lie0");
       const box = blanketBox(lying)!;
       const mouth = lying.rows.findIndex((row) => row.includes("M"));
+      const eyes = lying.rows.reduce((last, row, y) => (row.includes("A") ? y : last), -1); // the lowest row of the closed eyes
       const filled = filledRows(lying.rows);
-      expect(box.top).toBe(mouth);
+      expect(eyes).toBeGreaterThanOrEqual(0);
+      expect(box.top).toBeGreaterThan(eyes);
+      if (mouth >= 0) expect(box.top).toBe(mouth); // a beak or no mouth at all leaves no M pixel on a closed face, so the blanket falls back to the lower half
       expect(box.top).toBeGreaterThan(filled[0] as number);
       expect(box.bottom).toBe(filled[filled.length - 1]);
       let first = Infinity;
