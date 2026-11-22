@@ -162,6 +162,11 @@
 - **PBKDF2 iteration cap.** Workers is reported to cap PBKDF2 at 100,000, below the OWASP figure of 600,000 for SHA-256.
   Not confirmed in a primary source. Check before choosing the number.
 - **Safari and Secure cookies on http://localhost** may be refused. Test login in Chrome or Firefox locally.
+- **The newest touch wins, even a touch that changes nothing** (found 2026-11-22 by a review of the signed out fix). `Game.act` marks a
+  player change for any tap, so petting a sleeping creature or cleaning a clean one makes that device's game "newer", signed in or
+  (since 2026-11-22) signed out. If another device played later but this one is touched after, this device's older game wins at the
+  next sync and the other game goes to the account's backups, which no screen can restore yet. Fix when it matters: have `act` count a
+  change only when the save actually changed, and show the backups to restore from.
 
 ## Tooling
 
