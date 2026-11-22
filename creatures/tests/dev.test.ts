@@ -119,8 +119,8 @@ describe("dev tools", () => {
 
   it("puts the creature in any place, with none of the checks the real action makes", () => {
     const save = aliveSave("blip", at(8));
-    setPlace(save, "water"); // locked, but dev mode may still go
-    expect(save.creature!.place).toBe("water");
+    setPlace(save, "sky"); // locked, but dev mode may still go
+    expect(save.creature!.place).toBe("sky");
     setPlace(save, "home");
     expect(save.creature!.place).toBe("home");
   });

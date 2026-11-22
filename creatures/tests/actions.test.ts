@@ -251,7 +251,6 @@ describe("going to a field", () => {
     const t0 = at(9);
     const save = aliveSave("pebblin", t0);
     const logged = save.log.length;
-    expect(goTo(save, "water", t0)).toBe("locked");
     expect(goTo(save, "sky", t0)).toBe("locked");
     expect(save.creature?.place).toBe("home");
     expect(save.log).toHaveLength(logged);

@@ -92,8 +92,7 @@ describe("stat budgets", () => {
 describe("the growth tree", () => {
   it("locks the fields that have no plan yet, and opens the rest", () => {
     expect(fieldIds).toEqual(["land", "water", "sky"]);
-    expect(openFieldIds).toEqual(["land"]);
-    expect(() => planOf("water")).toThrow();
+    expect(openFieldIds).toEqual(["land", "water"]);
     expect(() => planOf("sky")).toThrow();
   });
 

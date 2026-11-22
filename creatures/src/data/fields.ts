@@ -4,8 +4,7 @@
 //   kid          --the food eaten most (whole cells)-->  one of 4 young   (a tie, or no field food, gives the fourth)
 //   young        --care: cells and mistakes-->           one of 4 adults, tier 1 (best care) to tier 4
 //
-// A field with `plan: null` is locked: it shows in the picker but a creature cannot be taken there yet (Water and Sky wait
-// for their slices). Each field adds three foods to the game (data/foods.ts).
+// A field with `plan: null` is locked: it shows in the picker but a creature cannot be taken there yet (Sky waits for its slice). Each field adds three foods to the game (data/foods.ts).
 import type { FieldId, FoodId } from "../game/types";
 
 export interface FieldPlan {
@@ -39,7 +38,22 @@ export const fields: Record<FieldId, Field> = {
       },
     },
   },
-  water: { id: "water", name: "Water", plan: null },
+  water: {
+    id: "water",
+    name: "Water",
+    plan: {
+      kid: "drizzle",
+      foods: ["seafood", "seaweed", "shrimp"],
+      young: { seafood: "lanternfin", seaweed: "kelpet", shrimp: "scuttlet" },
+      youngOther: "bellet",
+      adults: {
+        lanternfin: ["murkfang", "puffglow", "rustgill", "wilteel"],
+        kelpet: ["coralback", "bubblebelly", "brinetusk", "limpseal"],
+        scuttlet: ["rampclaw", "shellsnug", "chipclaw", "softshell"],
+        bellet: ["stormbell", "inkpot", "spinewad", "droopstar"],
+      },
+    },
+  },
   sky: { id: "sky", name: "Sky", plan: null },
 };
 

@@ -1,11 +1,12 @@
-// Every creature form, by id. The drawings are generated from the Python art tools (see baby.ts and land.ts), and the stats
+// Every creature form, by id. The drawings are generated from the Python art tools (see baby.ts, land.ts and water.ts), and the stats
 // come from the stage and role (stats.ts). The tree that links the forms is in ../fields.ts.
 import type { Form, FormSource } from "../../game/types";
 import { baby } from "./baby";
 import { land } from "./land";
 import { derivedStats } from "./stats";
+import { water } from "./water";
 
-const sources: FormSource[] = [...baby, ...land];
+const sources: FormSource[] = [...baby, ...land, ...water];
 
 export const forms: Record<string, Form> = Object.fromEntries(
   sources.map((source) => [source.id, { ...source, softLook: null, baseStats: derivedStats(source.stage, source.role) } satisfies Form]),

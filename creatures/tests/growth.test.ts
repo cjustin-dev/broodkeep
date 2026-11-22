@@ -1,6 +1,7 @@
 // The Paradise growth rules (docs/paradise-plan.md section 2): field cells, food cells, care cells, the stage lengths, and moving
 // between places. Rules that need more than one open field are in growth-fields.test.ts.
 import { describe, expect, it } from "vitest";
+import { openFieldIds } from "../src/data/fields";
 import { feed, goTo, toggleLights, touch } from "../src/game/actions";
 import { killCreature, setCareCounter, setPlace, setServings, setStat, spawnEgg } from "../src/game/dev";
 import { countCareCells, fieldCells, foodCells, leadingForm, menuOf, nextForm, stageHours, tierOf } from "../src/game/growth";
@@ -293,9 +294,17 @@ describe("moving between places", () => {
     expect(save.log.at(-1)?.text).toBe("Went home");
   });
 
+  it("takes a creature to every open field, and each one shows its own place", () => {
+    for (const id of openFieldIds) {
+      const save = aliveSave("blip", t0);
+      expect(goTo(save, id, t0), id).toBe("went");
+      expect(save.creature!.place, id).toBe(id);
+    }
+    expect(openFieldIds).toContain("water");
+  });
+
   it("refuses a locked field, a sleeping creature, and a creature that is away", () => {
     const save = aliveSave("blip", t0);
-    expect(goTo(save, "water", t0)).toBe("locked");
     expect(goTo(save, "sky", t0)).toBe("locked");
     expect(save.creature!.place).toBe("home");
     save.creature!.sleep = "nap";

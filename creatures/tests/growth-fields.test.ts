@@ -1,5 +1,5 @@
-// The baby rules that only matter with more than one open field (Land alone cannot tie or lose). Water and Sky open in their own
-// slices, so this test opens them on paper: the fields data is replaced by three made-up fields.
+// The baby rules that only matter with more than one open field (a single field cannot tie or lose). Sky is still locked, so this
+// test opens all three on paper: the fields data is replaced by three made-up fields, and it stays valid as the real ones open.
 import { describe, expect, it, vi } from "vitest";
 import type { FieldId } from "../src/game/types";
 

@@ -417,3 +417,33 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   signpost, Land, Water and Sky icons are new 8 x 8 placeholders.
 - **Old saves are not read** (owner, 2026-11-21). Save version 3 starts a new egg; an unreadable save is kept as `save-unreadable`.
   Tell the owner at pull request 1 time that existing saves reset.
+
+## 2026-11-21: the Water slice (milestone 5 of the Paradise plan)
+
+- **The Water roster is in the plan** (section 4, "The Water roster"): four lines, one animal family each (fish, sea herbivores,
+  crustaceans, soft sea life), four tiers each. Names and animals are my choice. Kid Drizzle, young Lanternfin and adult Murkfang
+  were already drawn; this slice draws 3 young (Kelpet, Scuttlet, Bellet) and 15 adults. Water now has 1 kid, 4 young and 16 adults
+  (21 forms), the game 43.
+- **Roles.** Tier 4 is always quick. Tier 1 to 3 vary: Murkfang, Rustgill, Brinetusk, Rampclaw, Chipclaw and Spinewad fight;
+  Puffglow, Coralback, Shellsnug and Inkpot tank; Bubblebelly and Stormbell cast. The young are Lanternfin caster, Kelpet tank,
+  Scuttlet quick and Bellet caster.
+- **The foods copy the Land numbers in the same slot** (seafood = meat 35/3/0, seaweed = carrot 20/2/3, shrimp = worm 25/5/0, with the
+  same digest times), so the two fields are balanced the same way. Foods stay unlimited.
+- **The Water field** is a sunken ruin: light shafts, a far haze of columns, a toppled column, a broken arch with coral, kelp, an urn,
+  glowing anemones, and a pearl shell where the Land one has the rune slab (same centre, feet on the same row, so every size sits
+  the same way). 43 colors of the 62 allowed. `water_field.py` draws it, `emit_ts.py` writes `src/art/field-water.ts`.
+- **Generated files.** `emit_ts.py` now writes `forms/water.ts` (21 forms) and `field-water.ts` too. `water_all.py` lists the 21 in
+  order and fails on an id used twice or a drawn creature left out. `face_hashes.py` now covers Land and Water (602 pictures, 43
+  forms x 7 looks x 2 drawings); `selftest.py` gates every Water creature (102 cases).
+- **Water opens in the picker** because its plan is no longer null. The food tray for a Water creature shows pellets, seafood,
+  seaweed, shrimp and the treat on one row.
+- **The playthrough test covers both fields** (32 cases: 2 fields x 4 young x 4 tiers), each reaching the planned adult at the
+  planned hours. The same care numbers reach every Water tier, so no tuning changed.
+- **Review.** A cheap-model fresh-eyes review of the new Python (read-only, the new files by path and a diff of the three edited
+  tools) found 6 real code defects, all fixed (a "chip" line that painted outline pixels into Brinetusk's belly, a `water_all.py`
+  check that could never print, two `* 0` leftovers, an unused import, a `28 - 6 + 6`). Its blind look at four unlabeled sheets
+  named 13 of 20 rows with high confidence and led to three picture changes: Softshell (read as a grub, now has antennae outside
+  the shell), Inkpot (the ink blot read as a stain, removed) and the young Bellet's frame-1 tentacles (zigzag, now a gentle lean).
+- **Mutation checks.** Five breaks were made on purpose and each failed the new tests: two Water adults swapped, Water locked again,
+  Water showing the Land picture, a Water adult id that does not exist, and a Water food moved to another field. Each file was then
+  restored and compared with its saved copy.

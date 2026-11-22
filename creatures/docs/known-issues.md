@@ -214,5 +214,23 @@
   creature is back in the field it left and its field minutes count again. Bedtime and naps do send it home. The owner has not
   been asked which is wanted (see progress.md, Next).
 - **The dev tree's option lists have no `key`s.** No visible effect in Preact for these short, fixed lists.
-- **Water and Sky have no pictures yet.** `drawField` returns false for them and the room is drawn; `goTo` refuses them, so a
-  player cannot get there (the dev panel can force it).
+- **Sky has no picture yet.** `drawField` returns false for it and the room is drawn; `goTo` refuses it, so a player cannot get
+  there (the dev panel can force it).
+
+## Paradise Water slice (accepted for now)
+
+- **The Water names and animals are my choice** (plan section 4); the owner has not been asked. A redraw or rename is cheap until
+  Sky starts.
+- **A creature in the Water field walks only the left part of the picture**, like the Land one (the shared `walkRight` 84), so the
+  ruined arch and the glowing anemones on the right are never reached. The Water picture is always the same light (no clock).
+- **The JavaScript grew from 205.6 KB to 319 KB** with the 21 Water forms (64.6 KB gzipped). All three fields will be about 430 KB
+  (an estimate). See plan section 7.
+- **A face mirrors about the picture's centre column.** The anchor gives the left eye and the right eye is the mirror, so a head
+  that is not centred on x = 24 gets a right eye outside the body (`lib.problems` reports it). Wilteel's head is centred and its
+  body trails to one side for that reason.
+- **The three new food icons are 8 x 8 placeholders.** The shrimp (a curled red body with orange stripes) is the weakest; at that
+  size it is close to a bird.
+- **Some Water drawings read ambiguously on a blind look** (cheap-model check): Limpseal as a seal sitting up (medium), Droopstar
+  as a slumped starfish (medium), Wilteel's dim lure stalk as stray dots. Left as they are; the owner can ask for redraws.
+- **The `assert`s in `land_all.py` and `water_all.py` vanish under `python3 -O`**, so a drawn creature left out of `ORDER` would be
+  dropped without a message. Run the tools without `-O`.
