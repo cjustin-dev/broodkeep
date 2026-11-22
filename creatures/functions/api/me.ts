@@ -3,8 +3,8 @@ import { requireSession } from "../_lib/auth";
 import { json, route, wrongMethod } from "../_lib/response";
 
 export const onRequestGet = route(async (ctx) => {
-  const { email } = await requireSession(ctx, Date.now());
-  return json({ email });
+  const { username } = await requireSession(ctx, Date.now());
+  return json({ username });
 });
 
 export const onRequest = (): Response => wrongMethod("GET");

@@ -1,55 +1,72 @@
-// The email, password and key rules the browser and the server share (src/sync/account-rules.ts).
+// The username, password and key rules the browser and the server share (src/sync/account-rules.ts).
 import { pbkdf2Sync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  EMAIL_MAX,
   KDF_ITERATIONS,
   KEY_LENGTH,
   PASSWORD_MAX,
   PASSWORD_MIN,
+  USERNAME_HELP,
+  USERNAME_MAX,
+  USERNAME_MIN,
   deriveKey,
   fromBase64Url,
-  isValidEmail,
   isValidKey,
   isValidPassword,
-  normalizeEmail,
+  isValidUsername,
+  normalizeUsername,
   toBase64Url,
 } from "../src/sync/account-rules";
 
 const FEW = 1_000; // far fewer rounds than the real 600,000, so the tests stay quick; the recipe is the same
 
-describe("emails", () => {
+describe("usernames", () => {
   it("are trimmed and lower cased before anything else", () => {
-    expect(normalizeEmail("  Kid@Example.COM \n")).toBe("kid@example.com");
-    expect(normalizeEmail("")).toBe("");
+    expect(normalizeUsername("  Kid_One \n")).toBe("kid_one");
+    expect(normalizeUsername("")).toBe("");
   });
 
   it("are accepted in their ordinary shapes", () => {
-    for (const email of ["kid@example.com", "a@b.co", "first.last@mail.example.org", "kid+game@example.com", "k_d-1@sub.example.com", "x@y-z.example"]) {
-      expect(isValidEmail(email), email).toBe(true);
+    for (const username of ["kid", "abc", "9lives", "first.last", "kid_1", "k-d", "a.b", "a--", "x__", "a..", "tiffani", "a".repeat(20)]) {
+      expect(isValidUsername(username), username).toBe(true);
     }
   });
 
-  it("are refused when empty, with no or two @, with a space, or with a host that is not a name with a dot", () => {
-    for (const email of ["", "kid", "kid@", "@example.com", "kid@example", "kid@@example.com", "a@b@example.com", "ki d@example.com", "kid@exa mple.com", "kid@.example.com", "kid@example..com", "kid@example.com.", "kid@-example.com", "kid@example-.com"]) {
-      expect(isValidEmail(email), JSON.stringify(email)).toBe(false);
+  it("are refused when empty, with a space, a symbol, an @, or a start that is not a letter or digit", () => {
+    for (const username of ["", "ki d", "ki\nd", "kid!", "kid#", "kid@home", "kid@example.com", "k/d", "k'd", ".kid", "_kid", "-kid", "kid+game"]) {
+      expect(isValidUsername(username), JSON.stringify(username)).toBe(false);
     }
   });
 
   it("are refused when not plain ASCII, so look alike letters cannot make a second account", () => {
-    for (const email of ["kíd@example.com", "kid@exämple.com", "kid@example.com​", "ｋid@example.com"]) expect(isValidEmail(email), email).toBe(false);
+    for (const username of ["kíd", "ｋid", "kid\u200b", "кid" /* Cyrillic к */, "kid🐣"]) expect(isValidUsername(username), username).toBe(false);
   });
 
-  it("may be 254 characters and no more", () => {
-    const withLength = (length: number): string => "a".repeat(length - "@example.com".length) + "@example.com";
-    expect(isValidEmail(withLength(EMAIL_MAX))).toBe(true);
-    expect(isValidEmail(withLength(EMAIL_MAX + 1))).toBe(false);
+  it("may be 3 to 20 characters and no more or less", () => {
+    expect(isValidUsername("a".repeat(USERNAME_MIN - 1))).toBe(false);
+    expect(isValidUsername("a".repeat(USERNAME_MIN))).toBe(true);
+    expect(isValidUsername("a".repeat(USERNAME_MAX))).toBe(true);
+    expect(isValidUsername("a".repeat(USERNAME_MAX + 1))).toBe(false);
+  });
+
+  it("treat a letter that lower cases to plain ASCII (the Kelvin sign) as that letter, the same on both sides, so it reaches the same account", () => {
+    expect(normalizeUsername("\u212Aid")).toBe("kid");
+    expect(isValidUsername(normalizeUsername("\u212Aid"))).toBe(true);
+  });
+
+  it("are not checked for case or spaces here: that is what normalizing is for", () => {
+    expect(isValidUsername("Kid")).toBe(false);
+    expect(isValidUsername(normalizeUsername(" Kid "))).toBe(true);
+  });
+
+  it("have help text that names the rule", () => {
+    expect(USERNAME_HELP).toBe("Choose a username of 3 to 20 letters, numbers, dots, dashes or underscores.");
   });
 });
 
 describe("the numbers the plan names", () => {
-  it("are emails up to 254 characters, passwords of 8 to 128, keys of 43, and 600,000 rounds", () => {
-    expect([EMAIL_MAX, PASSWORD_MIN, PASSWORD_MAX, KEY_LENGTH]).toEqual([254, 8, 128, 43]);
+  it("are usernames of 3 to 20 characters, passwords of 8 to 128, keys of 43, and 600,000 rounds", () => {
+    expect([USERNAME_MIN, USERNAME_MAX, PASSWORD_MIN, PASSWORD_MAX, KEY_LENGTH]).toEqual([3, 20, 8, 128, 43]);
     expect(KDF_ITERATIONS).toBe(600_000);
   });
 });
@@ -95,33 +112,33 @@ describe("base64url", () => {
 });
 
 describe("the key made from a password", () => {
-  const reference = (email: string, password: string, rounds: number): string =>
-    toBase64Url(new Uint8Array(pbkdf2Sync(password, `broodkeep-v1:${email}`, rounds, 32, "sha256")));
+  const reference = (username: string, password: string, rounds: number): string =>
+    toBase64Url(new Uint8Array(pbkdf2Sync(password, `broodkeep-v1:${username}`, rounds, 32, "sha256")));
 
-  it("is PBKDF2 SHA-256 over the password, salted with the lower case email, 32 bytes", async () => {
-    const key = await deriveKey("kid@example.com", "correct horse battery", FEW);
-    expect(key).toBe(reference("kid@example.com", "correct horse battery", FEW));
+  it("is PBKDF2 SHA-256 over the password, salted with the lower case username, 32 bytes", async () => {
+    const key = await deriveKey("kid", "correct horse battery", FEW);
+    expect(key).toBe(reference("kid", "correct horse battery", FEW));
     expect(isValidKey(key)).toBe(true);
   });
 
-  it("is the same whatever the case or spacing of the email", async () => {
-    const plain = await deriveKey("kid@example.com", "correct horse battery", FEW);
-    expect(await deriveKey("  KID@Example.com ", "correct horse battery", FEW)).toBe(plain);
+  it("is the same whatever the case or spacing of the username", async () => {
+    const plain = await deriveKey("kid", "correct horse battery", FEW);
+    expect(await deriveKey("  KID ", "correct horse battery", FEW)).toBe(plain);
   });
 
-  it("differs for another email, another password, and another number of rounds", async () => {
-    const base = await deriveKey("kid@example.com", "correct horse battery", FEW);
-    expect(await deriveKey("sib@example.com", "correct horse battery", FEW)).not.toBe(base);
-    expect(await deriveKey("kid@example.com", "correct horse batterY", FEW)).not.toBe(base);
-    expect(await deriveKey("kid@example.com", "correct horse battery", FEW + 1)).not.toBe(base);
+  it("differs for another username, another password, and another number of rounds", async () => {
+    const base = await deriveKey("kid", "correct horse battery", FEW);
+    expect(await deriveKey("sib", "correct horse battery", FEW)).not.toBe(base);
+    expect(await deriveKey("kid", "correct horse batterY", FEW)).not.toBe(base);
+    expect(await deriveKey("kid", "correct horse battery", FEW + 1)).not.toBe(base);
   });
 
   it("handles passwords with accents, emoji and spaces", async () => {
     const password = "pässwörd 🐣 with spaces";
-    expect(await deriveKey("kid@example.com", password, FEW)).toBe(reference("kid@example.com", password, FEW));
+    expect(await deriveKey("kid", password, FEW)).toBe(reference("kid", password, FEW));
   });
 
   it("uses 600,000 rounds unless told otherwise", async () => {
-    expect(await deriveKey("kid@example.com", "correct horse battery")).toBe(reference("kid@example.com", "correct horse battery", 600_000));
+    expect(await deriveKey("kid", "correct horse battery")).toBe(reference("kid", "correct horse battery", 600_000));
   });
 });

@@ -5,11 +5,11 @@ on the device only). Branch `cloud-saves`, off `main` 91a529f, worktree ~/broodk
 
 ## 1. Scope
 
-In: sign up, sign in, sign out with an email and a password; one save per account kept on the server (Cloudflare D1); the game
+In: sign up, sign in, sign out with a username and a password (it was an email until 2026-11-22, section 7); one save per account kept on the server (Cloudflare D1); the game
 still works fully offline and signed out; the device syncs automatically when signed in; a safety net of older saves on the server.
 
 Not in (they stay in Phase 5): profiles for kids, adult PINs, soften mode, play limits and quiet hours, a family-wide Creature
-Book, the history table, password reset, email checks. The schema already has a `profiles` table with one default profile per
+Book, the history table, password reset. The schema already has a `profiles` table with one default profile per
 account, so those can be added without moving data.
 
 ## 2. Decisions (mine unless it says owner)
@@ -17,19 +17,19 @@ account, so those can be added without moving data.
 - **The password is stretched in the browser, not on the server.** The plan (CLAUDE.md section 3) says "PBKDF2 on the server". Measured
   in the Workers runtime on this machine: 100,000 iterations take about 19 ms and 600,000 about 68 ms, and the free plan gives a
   Worker 10 ms of CPU per request. The plan also says "no paid plans". So the browser runs PBKDF2-SHA256 (600,000 iterations, salt
-  `broodkeep-v1:` plus the lowercase email) and sends the 32 byte result, 43 characters of base64url, as `key`. The server never
+  `broodkeep-v1:` plus the lowercase username) and sends the 32 byte result, 43 characters of base64url, as `key`. The server never
   sees the password. It stores `sha256$<salt>$<SHA-256(salt + key)>` with a random salt, which costs microseconds. Someone who steals
   the database still has to run 600,000 iterations for every password guess. Cost: the server cannot check password strength, so
   the browser enforces 8 to 128 characters. CLAUDE.md section 3 needs a one line edit (owner approval, proposed in progress.md).
-- **Email is only a name to sign in with.** No emails are sent, so there is no password reset yet. A forgotten password means the
+- **The username is only a name to sign in with.** Nothing is sent to anyone, so there is no password reset yet. A forgotten password means the
   owner resets it by hand in the D1 console. Listed in known-issues.md.
 - **Sign up needs a family code.** `SIGNUP_CODE` is a secret set in the Cloudflare dashboard. If it is not set, registration is
   closed (fail closed), so a forgotten step never opens the door to the internet.
 - **Sessions:** a random 32 byte token in an HttpOnly cookie `__Host-bk_session` (Secure, SameSite=Lax, Path=/, 90 days). The
   database holds only its SHA-256. Logging out deletes the row.
 - **CSRF:** every POST and PUT must have an `Origin` equal to the site and `Content-Type: application/json`.
-- **Rate limits** (D1 table, 15 minute window): 5 failed logins per email, 20 per IP; 5 wrong sign up codes per IP. Over the limit
-  gives 429 with `Retry-After`, even for a correct password. A success clears that email's failures. An unknown email gets the
+- **Rate limits** (D1 table, 15 minute window): 5 failed logins per username, 20 per IP; 5 wrong sign up codes per IP. Over the limit
+  gives 429 with `Retry-After`, even for a correct password. A success clears that username's failures. An unknown username gets the
   same answer as a wrong password and runs the same code path.
 - **The save on the server** is the same JSON as the local save (size cap 256,000 bytes, `version` must be 3). `PUT /api/save` sends
   `baseRevision` (the revision this device last synced), `savedAt` (when the device wrote it) and the save. If `baseRevision` is
@@ -60,22 +60,22 @@ does not apply `public/_headers` to Functions).
 
 | Route | Body in | Answers |
 |---|---|---|
-| `POST /api/register` | `{ email, key, code }` | 201 `{ email }` and the session cookie. 400 bad input, 403 wrong code or closed, 409 email taken, 429 too many wrong codes |
-| `POST /api/login` | `{ email, key }` | 200 `{ email }` and the cookie. 401 wrong email or key (one answer for both), 429 too many failures |
+| `POST /api/register` | `{ username, key, code }` | 201 `{ username }` and the session cookie. 400 bad input, 403 wrong code or closed, 409 username taken, 429 too many wrong codes |
+| `POST /api/login` | `{ username, key }` | 200 `{ username }` and the cookie. 401 wrong username or key (one answer for both), 429 too many failures |
 | `POST /api/logout` | `{}` | 200 and the cookie cleared |
-| `GET /api/me` | none | 200 `{ email }` or 401 |
+| `GET /api/me` | none | 200 `{ username }` or 401 |
 | `GET /api/save` | none | 200 `{ revision, savedAt, save }` (`revision` 0 and `save` null if none) or 401 |
 | `PUT /api/save` | `{ baseRevision, savedAt, save }` | 200 `{ status: "saved", revision }` or `{ status: "kept-server", revision, savedAt, save }`; 401, 409 (raced, retry), 413 too big, 400 |
 
 ## 4. Edge cases, written before the code (a test for each)
 
-Input: email empty, spaces only, padded, upper case, 254 and 255 characters, no `@`, two `@`, an inner space, a plus sign (fine);
+Input: username empty, spaces only, padded, upper case, 2, 3, 20 and 21 characters, an `@`, an inner space, a leading `.` `_` or `-`, an accent, a full width letter, a zero width space, a number or `null` instead of text (section 7);
 key 42, 43 and 44 characters, with `+`, `/` or `=` (bad); unknown extra fields; body not JSON, an array, `null`, a number; body just
 under and just over the size cap; `Content-Type` text/plain, missing, and `application/json; charset=utf-8` (fine); `Origin` missing,
 another host, `null`, another scheme, and the right one; the wrong method on each route.
 
-Auth: the same email in another case; unknown email and wrong key look the same and take the same path; the 4th, 5th and 6th failure;
-a correct login while blocked; a failure exactly 15 minutes old and one a second newer; per IP versus per email; the success that
+Auth: the same username in another case; unknown username and wrong key look the same and take the same path; the 4th, 5th and 6th failure;
+a correct login while blocked; a failure exactly 15 minutes old and one a second newer; per IP versus per username; the success that
 clears; a wrong sign up code counted per IP; registration with `SIGNUP_CODE` unset.
 
 Sessions: missing, tampered, expired (and exactly at expiry), logout deletes the row, logout with no session, the cookie flags
@@ -97,7 +97,7 @@ out and keeps the game.
 
 ## 5. Build order
 
-1. `migrations/0001_init.sql`. 2. `functions/_lib` (response, validation, auth, db). 3. `functions/api/*`. 4. shared email and key rules
+1. `migrations/0001_init.sql`. 2. `functions/_lib` (response, validation, auth, db). 3. `functions/api/*`. 4. shared username and key rules
 (`src/sync/account-rules.ts`, used by the browser and the Functions). 5. browser side (`src/sync/cloud.ts`, `sync.ts`, the Account
 section in Settings). 6. tests. 7. cheap-model review before any test runs. 8. mutation checks. 9. end to end run with a local D1.
 10. the owner's Cloudflare steps below, then a live check.
@@ -113,3 +113,30 @@ section in Settings). 6. tests. 7. cheap-model review before any test runs. 8. m
 3. Workers and Pages, the `broodkeep` project, Settings, Variables and Secrets: add a secret named `SIGNUP_CODE` (a word or phrase
    you choose, which your family uses once to sign up), for Production.
 4. Merge the pull request. After the deploy, sign up on the live site and sign in on a second device to check.
+
+## 7. Username instead of email (2026-11-22, branch `username-login`)
+
+The owner asked "can we just do user id instead of email?" (read as a name the family picks, not a number the server hands out). No email
+was ever sent, so the field was only a login name; a username is simpler to type and asks nothing private of a child.
+
+- **Rule:** trim and lower case, then 3 to 20 characters, ASCII letters, digits, `.`, `_` and `-`, starting with a letter or digit
+  (`src/sync/account-rules.ts`, shared by the browser and the server). Anything else answers 400 "Choose a username of 3 to 20 letters,
+  numbers, dots, dashes or underscores."
+- **Wire and database:** the JSON field is `username` on register, login and `/api/me`; an `email` field is an unknown field and is refused
+  (400). `migrations/0002_username.sql` renames `accounts.email` and `login_failures.email` to `username` and swaps the failures index.
+  `tests/cloud-helpers.ts` runs every migration file in order, so the tests see the schema the live database has after both.
+- **The salt changes** (`broodkeep-v1:` plus the username), so a key made for an email never matches. An account made with an email
+  stays in the table but nobody can sign in to it. As far as I know the owner had not signed up for real when this was built (the live checks so far
+  were my fake credential probes, which never made an account); if an email account does exist, the family makes a new one with a
+  username and the game on the device is uploaded again.
+- **A device that was signed in keeps its game.** The record it keeps about the account (IndexedDB `cloud` meta) has `username` instead
+  of `email`, so an old record is dropped and the device shows signed out. The old session cookie stays valid on the server until it
+  expires, and does nothing.
+- **What the owner does** (numbered, about 3 minutes, after the pull request is ready):
+  1. Cloudflare dashboard, Storage and Databases, D1, `broodkeep`, Console tab. Paste the SQL text of `migrations/0002_username.sql`
+     (open the file and copy its text; the first lines are `--` comments, then `ALTER TABLE accounts RENAME COLUMN email TO username;`)
+     and run it once. A second run stops at the first line with a "no such column" error about `email` (checked on node:sqlite), changing nothing.
+  2. Merge the pull request. Run step 1 before or right after the merge: until it is run, sign up and sign in answer 500.
+  3. Sign up on the live site with a username and the family code, then sign in with it on a second device.
+- **Checked 2026-11-22:** typecheck, build, 1279 tests, 104 mutation breaks (all caught), and the three browser end to end run against a local
+  D1 that got 0001, then an old email row, then 0002. Not checked live: the migration on the real D1 (the owner's step 1 above).

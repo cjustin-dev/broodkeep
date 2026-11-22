@@ -125,7 +125,7 @@ export const fennix: Form = {
 **Neglect and death (tunable in `tuning.ts`):** a "care mistake" happens when hunger or happiness sits at zero for over an hour, or a call for attention goes unanswered. Sickness comes from poop left out or too much candy. Death happens when health stays at zero for an extended stretch; as a starting number, a creature ignored completely dies after roughly two days. Soften mode replaces death with "goes to sleep" and a new egg.
 
 **Cloud database (D1):**
-- `accounts` (email, password hash, created)
+- `accounts` (username, password hash, created)
 - `sessions` (token hash, account, expiry)
 - `profiles` (account, name, adult or kid, optional PIN hash, soften mode, settings)
 - `saves` (profile, save JSON, revision number, saved-at time)

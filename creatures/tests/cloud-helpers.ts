@@ -1,12 +1,17 @@
 // Stand-ins for Cloudflare, so the account and save routes can be tested here: a D1 look-alike on node:sqlite (the same SQL and the very
-// migration file the real database gets), and a way to call a route with a made-up request. The real D1 is only reached by the end to end
+// migration files the real database gets), and a way to call a route with a made-up request. The real D1 is only reached by the end to end
 // run with `wrangler pages dev` (docs/cloud-saves.md).
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLInputValue } from "node:sqlite";
 import type { Context, D1Database, D1PreparedStatement, D1Result, Env } from "../functions/_lib/types";
 
-const MIGRATION = readFileSync(new URL("../migrations/0001_init.sql", import.meta.url), "utf8");
+// Every migration file, in number order, the way wrangler runs them.
+const MIGRATIONS_DIR = new URL("../migrations/", import.meta.url);
+const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
+  .filter((name) => /^\d{4}_.*\.sql$/.test(name))
+  .sort()
+  .map((name) => readFileSync(new URL(name, MIGRATIONS_DIR), "utf8"));
 
 class Statement implements D1PreparedStatement {
   constructor(
@@ -47,7 +52,7 @@ export interface TestDb {
 export function newTestDb(overrides: Partial<Env> = {}): TestDb {
   const raw = new DatabaseSync(":memory:");
   raw.exec("PRAGMA foreign_keys = ON"); // D1 enforces foreign keys, so the stand-in does too
-  raw.exec(MIGRATION);
+  for (const migration of MIGRATIONS) raw.exec(migration);
   const DB: D1Database = {
     prepare: (sql) => new Statement(raw, sql),
     // A batch is all or nothing, like D1's.

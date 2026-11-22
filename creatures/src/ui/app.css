@@ -515,7 +515,6 @@ label {
 }
 
 select,
-input[type="email"],
 input[type="password"],
 input[type="text"] {
   min-height: 44px;

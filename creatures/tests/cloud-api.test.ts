@@ -12,7 +12,7 @@ import type { Env } from "../functions/_lib/types";
 import { SITE, call, cookieOf, countRows, key, newTestDb } from "./cloud-helpers";
 import type { Sent, TestDb } from "./cloud-helpers";
 
-// checkKey is watched (and still does its real work), to see that an unknown email goes through it too.
+// checkKey is watched (and still does its real work), to see that an unknown username goes through it too.
 vi.mock("../functions/_lib/auth", async (importOriginal) => {
   const real = await importOriginal<typeof import("../functions/_lib/auth")>();
   return { ...real, checkKey: vi.fn(real.checkKey), sameSecret: vi.fn(real.sameSecret) };
@@ -33,17 +33,17 @@ afterEach(() => {
 });
 
 const signUp = (overrides: Record<string, unknown> = {}, env: Env = t.env): Promise<Sent> =>
-  call(register, env, "/api/register", { body: { email: "kid@example.com", key: key("a"), code: "family-code", ...overrides } });
+  call(register, env, "/api/register", { body: { username: "kid", key: key("a"), code: "family-code", ...overrides } });
 const signIn = (overrides: Record<string, unknown> = {}, ip = "1.2.3.4"): Promise<Sent> =>
-  call(login, t.env, "/api/login", { ip, body: { email: "kid@example.com", key: key("a"), ...overrides } });
-const addFailures = (n: number, at: number, email = "kid@example.com", ip = "1.2.3.4", kind = "login"): void => {
-  for (let i = 0; i < n; i++) t.raw.prepare("INSERT INTO login_failures (kind, at, email, ip) VALUES (?, ?, ?, ?)").run(kind, at, email, ip);
+  call(login, t.env, "/api/login", { ip, body: { username: "kid", key: key("a"), ...overrides } });
+const addFailures = (n: number, at: number, username = "kid", ip = "1.2.3.4", kind = "login"): void => {
+  for (let i = 0; i < n; i++) t.raw.prepare("INSERT INTO login_failures (kind, at, username, ip) VALUES (?, ?, ?, ?)").run(kind, at, username, ip);
 };
-const failureCount = (email = "kid@example.com"): number => countRows(t.raw, `login_failures WHERE email = '${email}'`);
+const failureCount = (username = "kid"): number => countRows(t.raw, `login_failures WHERE username = '${username}'`);
 
 describe("the numbers the plan names", () => {
-  it("are 5 wrong logins per email, 20 per address, 5 wrong codes per address, in 15 minutes, and sessions last 90 days", () => {
-    expect(LIMITS).toEqual({ windowMs: 15 * 60_000, loginPerEmail: 5, loginPerIp: 20, registerPerIp: 5 });
+  it("are 5 wrong logins per username, 20 per address, 5 wrong codes per address, in 15 minutes, and sessions last 90 days", () => {
+    expect(LIMITS).toEqual({ windowMs: 15 * 60_000, loginPerUsername: 5, loginPerIp: 20, registerPerIp: 5 });
     expect(SESSION_MS).toBe(90 * 24 * 3_600_000);
   });
 });
@@ -52,11 +52,11 @@ describe("signing up", () => {
   it("makes the account and its one profile, and signs the browser in", async () => {
     const sent = await signUp();
     expect(sent.status).toBe(201);
-    expect(sent.body).toEqual({ email: "kid@example.com" });
+    expect(sent.body).toEqual({ username: "kid" });
     expect(sent.cookies).toHaveLength(1);
     expect([countRows(t.raw, "accounts"), countRows(t.raw, "profiles"), countRows(t.raw, "sessions")]).toEqual([1, 1, 1]);
     expect(t.raw.prepare("SELECT name FROM profiles").get()).toEqual(expect.objectContaining({ name: "Player" }));
-    expect((await call(me, t.env, "/api/me", { method: "GET", cookie: cookieOf(sent) })).body).toEqual({ email: "kid@example.com" });
+    expect((await call(me, t.env, "/api/me", { method: "GET", cookie: cookieOf(sent) })).body).toEqual({ username: "kid" });
   });
 
   it("keeps neither the key nor the session token: only a salted hash of each", async () => {
@@ -77,16 +77,17 @@ describe("signing up", () => {
     expect(cookie).not.toContain("Domain");
   });
 
-  it("lower cases and trims the email, so the same address in another case is taken", async () => {
-    expect((await signUp({ email: "  Kid@Example.COM " })).body).toEqual({ email: "kid@example.com" });
-    const again = await signUp({ email: "KID@example.com" });
+  it("lower cases and trims the username, so the same name in another case is taken", async () => {
+    expect((await signUp({ username: "  Kid " })).body).toEqual({ username: "kid" });
+    const again = await signUp({ username: "KID" });
     expect(again.status).toBe(409);
+    expect(again.body.error).toBe("That username is already taken.");
     expect(countRows(t.raw, "accounts")).toBe(1);
   });
 
   it("asks for the family code: a wrong one, an empty one, one in another case and a missing one are all refused", async () => {
     for (const code of ["nope", "", "FAMILY-CODE"]) expect((await signUp({ code })).status, `code ${JSON.stringify(code)}`).toBe(403);
-    expect((await call(register, t.env, "/api/register", { body: { email: "kid@example.com", key: key("a") } })).status).toBe(400);
+    expect((await call(register, t.env, "/api/register", { body: { username: "kid", key: key("a") } })).status).toBe(400);
     expect(countRows(t.raw, "accounts")).toBe(0);
   });
 
@@ -98,22 +99,38 @@ describe("signing up", () => {
     }
   });
 
-  it("accepts the shapes of email that are fine", async () => {
-    for (const email of ["a+tag@sub.example.co", "o'brien@x.io", "first.last@example.com"]) {
-      expect((await signUp({ email }, newTestDb().env)).status, email).toBe(201);
+  it("accepts the shapes of username that are fine", async () => {
+    for (const username of ["abc", "9lives", "first.last", "kid_1", "k-d", "a.b", "a".repeat(20)]) {
+      expect((await signUp({ username }, newTestDb().env)).status, username).toBe(201);
     }
   });
 
-  it("refuses an email that is empty, spaces, or has no @, no name, no dot, two @, a space or a double dot", async () => {
-    for (const email of ["", "   ", "a", "a@", "@b.co", "a@b", "a b@c.de", "a@@b.co", "a@b..co", "a@-b.co", "é@b.co", 5, null]) {
-      expect((await signUp({ email })).status, `email ${JSON.stringify(email)}`).toBe(400);
+  it("refuses a username that is empty, spaces, too short, or has a space, a symbol, an @, an accent or a look alike letter", async () => {
+    for (const username of ["", "   ", "ab", " ab ", "ki d", "ki\nd", "kid!", "kid@home", "kid@example.com", "kíd", "ｋid", "kid\u200b", ".kid", "_kid", "-kid", 5, null]) {
+      const sent = await signUp({ username });
+      expect(sent.status, `username ${JSON.stringify(username)}`).toBe(400);
+      expect(sent.body.error).toBe("Choose a username of 3 to 20 letters, numbers, dots, dashes or underscores.");
     }
   });
 
-  it("allows an email of 254 characters and refuses one of 255", async () => {
-    const withLength = (n: number): string => "a".repeat(n - "@b.co".length) + "@b.co";
-    expect((await signUp({ email: withLength(254) })).status).toBe(201);
-    expect((await signUp({ email: withLength(255) }, newTestDb().env)).status).toBe(400);
+  it("allows a username of 3 and of 20 characters, and refuses 2 and 21", async () => {
+    expect((await signUp({ username: "a".repeat(3) })).status).toBe(201);
+    expect((await signUp({ username: "a".repeat(20) }, newTestDb().env)).status).toBe(201);
+    expect((await signUp({ username: "a".repeat(2) }, newTestDb().env)).status).toBe(400);
+    expect((await signUp({ username: "a".repeat(21) }, newTestDb().env)).status).toBe(400);
+  });
+
+  it("takes a letter that lower cases to plain ASCII (the Kelvin sign) as that letter, so it is the same account and not a second one", async () => {
+    expect((await signUp({ username: "kid" })).status).toBe(201);
+    const again = await signUp({ username: "\u212Aid" });
+    expect(again.status).toBe(409);
+    expect(countRows(t.raw, "accounts")).toBe(1);
+  });
+
+  it("no longer takes an email: the old field is refused next to a good username, on sign up and on sign in", async () => {
+    expect((await call(register, t.env, "/api/register", { body: { username: "kid", email: "kid@example.com", key: key("a"), code: "family-code" } })).status).toBe(400);
+    expect((await call(login, t.env, "/api/login", { body: { username: "kid", email: "kid@example.com", key: key("a") } })).status).toBe(400);
+    expect(countRows(t.raw, "accounts")).toBe(0);
   });
 
   it("refuses a key that is not exactly 43 base64url characters", async () => {
@@ -131,7 +148,7 @@ describe("signing up", () => {
   });
 
   it("takes a body of exactly the size limit and refuses one a byte over", async () => {
-    const body = JSON.stringify({ email: "kid@example.com", key: key("a"), code: "family-code" });
+    const body = JSON.stringify({ username: "kid", key: key("a"), code: "family-code" });
     const padded = (size: number): string => body + " ".repeat(size - body.length);
     expect((await call(register, t.env, "/api/register", { raw: padded(SMALL_BODY) })).status).toBe(201);
     expect((await call(register, newTestDb().env, "/api/register", { raw: padded(SMALL_BODY + 1) })).status).toBe(413);
@@ -152,7 +169,7 @@ describe("signing up", () => {
     for (const type of ["text/plain", "application/x-www-form-urlencoded", null]) {
       expect((await call(register, t.env, "/api/register", { body: {}, headers: { "Content-Type": type } })).status, `type ${type}`).toBe(415);
     }
-    const body = { email: "kid@example.com", key: key("a"), code: "family-code" };
+    const body = { username: "kid", key: key("a"), code: "family-code" };
     expect((await call(register, t.env, "/api/register", { body, headers: { "Content-Type": "Application/JSON; charset=utf-8" } })).status).toBe(201);
   });
 
@@ -182,7 +199,7 @@ describe("signing up", () => {
     const watched = vi.mocked(sameSecret);
     watched.mockClear();
     await signUp({ code: "wrong" });
-    await signUp({ email: "other@example.com" });
+    await signUp({ username: "other" });
     expect(watched.mock.calls).toEqual([
       ["wrong", "family-code"],
       ["family-code", "family-code"],
@@ -194,17 +211,17 @@ describe("signing up", () => {
     const blocked = await signUp();
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers.get("Retry-After"))).toBe(LIMITS.windowMs / 1000);
-    expect((await call(register, t.env, "/api/register", { ip: "5.6.7.8", body: { email: "kid@example.com", key: key("a"), code: "family-code" } })).status).toBe(201); // another address
+    expect((await call(register, t.env, "/api/register", { ip: "5.6.7.8", body: { username: "kid", key: key("a"), code: "family-code" } })).status).toBe(201); // another address
     vi.setSystemTime(T0 + LIMITS.windowMs + 1000);
-    expect((await signUp({ email: "other@example.com" })).status).toBe(201);
+    expect((await signUp({ username: "other" })).status).toBe(201);
   });
 
   it("counts each wrong code (the 5th is still a plain refusal) and does not count logins against sign ups", async () => {
     addFailures(LIMITS.registerPerIp - 1, T0, "", "1.2.3.4", "register");
     expect((await signUp({ code: "wrong" })).status).toBe(403);
     expect(countRows(t.raw, "login_failures WHERE kind = 'register'")).toBe(LIMITS.registerPerIp);
-    addFailures(20, T0, "x@example.com", "4.4.4.4", "login");
-    expect((await call(register, t.env, "/api/register", { ip: "4.4.4.4", body: { email: "kid@example.com", key: key("a"), code: "family-code" } })).status).toBe(201);
+    addFailures(20, T0, "xxx", "4.4.4.4", "login");
+    expect((await call(register, t.env, "/api/register", { ip: "4.4.4.4", body: { username: "kid", key: key("a"), code: "family-code" } })).status).toBe(201);
   });
 });
 
@@ -214,27 +231,27 @@ describe("signing in", () => {
     t.raw.exec("DELETE FROM sessions"); // start each test signed out
   });
 
-  it("signs in with the right email and key, in any case of email", async () => {
-    const sent = await signIn({ email: " KID@Example.com" });
+  it("signs in with the right username and key, in any case of username", async () => {
+    const sent = await signIn({ username: " KID " });
     expect(sent.status).toBe(200);
-    expect(sent.body).toEqual({ email: "kid@example.com" });
+    expect(sent.body).toEqual({ username: "kid" });
     expect(sent.cookies[0]).toContain("HttpOnly");
     expect(countRows(t.raw, "sessions")).toBe(1);
   });
 
-  it("gives a wrong key and an unknown email exactly the same answer, and counts both as failures", async () => {
+  it("gives a wrong key and an unknown username exactly the same answer, and counts both as failures", async () => {
     const wrongKey = await signIn({ key: key("b") });
-    const unknown = await signIn({ email: "nobody@example.com" });
+    const unknown = await signIn({ username: "nobody" });
     expect(wrongKey.status).toBe(401);
     expect({ status: unknown.status, body: unknown.body, cookies: unknown.cookies }).toEqual({ status: wrongKey.status, body: wrongKey.body, cookies: wrongKey.cookies });
     expect(countRows(t.raw, "login_failures")).toBe(2);
     expect(countRows(t.raw, "sessions")).toBe(0);
   });
 
-  it("runs the key check for an unknown email too, against a value that is well formed but matches nothing", async () => {
+  it("runs the key check for an unknown username too, against a value that is well formed but matches nothing", async () => {
     const watched = vi.mocked(checkKey);
     watched.mockClear();
-    expect((await signIn({ email: "nobody@example.com" })).status).toBe(401);
+    expect((await signIn({ username: "nobody" })).status).toBe(401);
     expect(watched).toHaveBeenCalledTimes(1);
     expect(watched.mock.calls[0]![1]).toBe(DUMMY_HASH);
     expect(await checkKey(key("a"), DUMMY_HASH)).toBe(false);
@@ -243,7 +260,7 @@ describe("signing in", () => {
   });
 
   it("allows 4 wrong tries and the 5th, then blocks the 6th even with the right key", async () => {
-    for (let i = 0; i < LIMITS.loginPerEmail; i++) expect((await signIn({ key: key("b") })).status).toBe(401);
+    for (let i = 0; i < LIMITS.loginPerUsername; i++) expect((await signIn({ key: key("b") })).status).toBe(401);
     const blocked = await signIn();
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("Retry-After")).toBe(String(LIMITS.windowMs / 1000));
@@ -251,56 +268,56 @@ describe("signing in", () => {
   });
 
   it("still lets the right key in after 4 wrong ones, and then forgets those 4", async () => {
-    addFailures(LIMITS.loginPerEmail - 1, T0);
+    addFailures(LIMITS.loginPerUsername - 1, T0);
     expect((await signIn()).status).toBe(200);
     expect(failureCount()).toBe(0);
   });
 
   it("forgets a failure exactly 15 minutes old, and still counts one a second newer", async () => {
-    addFailures(LIMITS.loginPerEmail, T0 - LIMITS.windowMs);
+    addFailures(LIMITS.loginPerUsername, T0 - LIMITS.windowMs);
     expect((await signIn()).status).toBe(200);
     t.raw.exec("DELETE FROM login_failures");
-    addFailures(LIMITS.loginPerEmail, T0 - LIMITS.windowMs + 1000);
+    addFailures(LIMITS.loginPerUsername, T0 - LIMITS.windowMs + 1000);
     const blocked = await signIn();
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("Retry-After")).toBe("1");
   });
 
-  it("blocks an email that fails from many addresses, but not other emails", async () => {
-    for (let i = 0; i < LIMITS.loginPerEmail; i++) addFailures(1, T0, "kid@example.com", `10.0.0.${i}`);
+  it("blocks a username that fails from many addresses, but not other usernames", async () => {
+    for (let i = 0; i < LIMITS.loginPerUsername; i++) addFailures(1, T0, "kid", `10.0.0.${i}`);
     expect((await signIn({}, "10.9.9.9")).status).toBe(429);
-    await signUp({ email: "sib@example.com" });
-    expect((await signIn({ email: "sib@example.com" }, "10.9.9.9")).status).toBe(200);
+    await signUp({ username: "sib" });
+    expect((await signIn({ username: "sib" }, "10.9.9.9")).status).toBe(200);
   });
 
-  it("blocks an address that fails 20 times over many emails (19 is fine), and not other addresses", async () => {
-    for (let i = 0; i < LIMITS.loginPerIp - 1; i++) addFailures(1, T0, `x${i}@example.com`, "9.9.9.9");
+  it("blocks an address that fails 20 times over many usernames (19 is fine), and not other addresses", async () => {
+    for (let i = 0; i < LIMITS.loginPerIp - 1; i++) addFailures(1, T0, `x${i}`, "9.9.9.9");
     expect((await signIn({}, "9.9.9.9")).status).toBe(200);
-    addFailures(1, T0, "y@example.com", "9.9.9.9");
-    addFailures(1, T0, "z@example.com", "9.9.9.9");
+    addFailures(1, T0, "yyy", "9.9.9.9");
+    addFailures(1, T0, "zzz", "9.9.9.9");
     expect((await signIn({}, "9.9.9.9")).status).toBe(429);
     expect((await signIn({}, "8.8.8.8")).status).toBe(200);
   });
 
   it("tidies expired sessions and day old failures when someone signs in", async () => {
     t.raw.prepare("INSERT INTO sessions (token_hash, account_id, expires_at) VALUES ('old', 1, ?)").run(T0);
-    addFailures(1, T0 - 24 * 3_600_000 - 1, "old@example.com");
-    addFailures(1, T0 - 3_600_000, "recent@example.com");
+    addFailures(1, T0 - 24 * 3_600_000 - 1, "olduser");
+    addFailures(1, T0 - 3_600_000, "recent");
     await signIn();
     expect(countRows(t.raw, "sessions WHERE token_hash = 'old'")).toBe(0);
-    expect(failureCount("old@example.com")).toBe(0);
-    expect(failureCount("recent@example.com")).toBe(1);
+    expect(failureCount("olduser")).toBe(0);
+    expect(failureCount("recent")).toBe(1);
   });
 
-  it("refuses unknown fields, a bad email or a bad key before looking anything up", async () => {
+  it("refuses unknown fields, a bad username or a bad key before looking anything up", async () => {
     expect((await signIn({ code: "family-code" })).status).toBe(400);
-    expect((await signIn({ email: "nope" })).status).toBe(400);
+    expect((await signIn({ username: "no" })).status).toBe(400);
     expect((await signIn({ key: "short" })).status).toBe(400);
     expect(countRows(t.raw, "login_failures")).toBe(0);
   });
 
   it("refuses a request from another site", async () => {
-    const sent = await call(login, t.env, "/api/login", { body: { email: "kid@example.com", key: key("a") }, headers: { Origin: "https://evil.example" } });
+    const sent = await call(login, t.env, "/api/login", { body: { username: "kid", key: key("a") }, headers: { Origin: "https://evil.example" } });
     expect(sent.status).toBe(403);
     expect(countRows(t.raw, "sessions")).toBe(0);
   });
@@ -333,7 +350,7 @@ describe("sessions", () => {
   const whoAmI = (c: string | undefined): Promise<Sent> => call(me, t.env, "/api/me", { method: "GET", cookie: c });
 
   it("knows the signed in account, and 401s without a cookie", async () => {
-    expect((await whoAmI(cookie)).body).toEqual({ email: "kid@example.com" });
+    expect((await whoAmI(cookie)).body).toEqual({ username: "kid" });
     expect((await whoAmI(undefined)).status).toBe(401);
   });
 
@@ -376,7 +393,7 @@ describe("sessions", () => {
 });
 
 describe("what a broken or bad request gets back", () => {
-  it("answers a database failure with a plain 500, logs the real error, and never logs or sends the key, the email, the code, the cookie, the body or a stack", async () => {
+  it("answers a database failure with a plain 500, logs the real error, and never logs or sends the key, the username, the code, the cookie, the body or a stack", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const broken: Env = {
       SIGNUP_CODE: "family-code",
@@ -389,9 +406,9 @@ describe("what a broken or bad request gets back", () => {
         },
       },
     };
-    const secrets = { email: "kid@example.com", key: key("a"), code: "the-secret-family-code" };
+    const secrets = { username: "kid", key: key("a"), code: "the-secret-family-code" };
     const token = "T".repeat(43);
-    const bodies = [JSON.stringify({ email: secrets.email, key: secrets.key }), JSON.stringify(secrets)];
+    const bodies = [JSON.stringify({ username: secrets.username, key: secrets.key }), JSON.stringify(secrets)];
     for (const [handler, path, raw] of [[login, "/api/login", bodies[0]!], [register, "/api/register", bodies[1]!]] as const) {
       const sent = await call(handler, broken, path, { raw, cookie: `__Host-bk_session=${token}` });
       expect(sent.status, path).toBe(500);
@@ -400,7 +417,7 @@ describe("what a broken or bad request gets back", () => {
     expect(log.mock.calls.flat().every((part) => typeof part === "string")).toBe(true); // text only: an error object would carry its stack
     const logged = log.mock.calls.flat().join(" ");
     expect(logged).toContain("disk exploded");
-    for (const secret of [secrets.key, secrets.email, secrets.code, token, ...bodies]) expect(logged).not.toContain(secret);
+    for (const secret of [secrets.key, secrets.username, secrets.code, token, ...bodies]) expect(logged).not.toContain(secret);
     expect(logged).not.toMatch(/\n\s+at /);
   });
 
@@ -423,8 +440,22 @@ describe("what a broken or bad request gets back", () => {
   });
 
   it("does not repeat what was sent in an error", async () => {
-    const sent = await signUp({ email: "<script>alert(1)</script>@x.co", key: key("a") });
+    const sent = await signUp({ username: "<script>alert(1)</script>", key: key("a") });
     expect(sent.status).toBe(400);
     expect(JSON.stringify(sent.body)).not.toContain("script");
+  });
+});
+
+describe("the database after both migrations", () => {
+  const names = (query: string): string[] => (newTestDb().raw.prepare(query).all() as { name: string }[]).map((row) => row.name);
+
+  it("has username columns and no email columns on accounts and login_failures", () => {
+    expect(names("SELECT name FROM pragma_table_info('accounts')")).toEqual(["id", "username", "password_hash", "created_at"]);
+    expect(names("SELECT name FROM pragma_table_info('login_failures')")).toEqual(["id", "kind", "at", "username", "ip"]);
+  });
+
+  it("looks failures up by username through an index of its own, and the old email index is gone", () => {
+    const indexes = names("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'login_failures' ORDER BY name");
+    expect(indexes).toEqual(["login_failures_ip", "login_failures_username"]);
   });
 });

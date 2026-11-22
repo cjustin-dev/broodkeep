@@ -1,6 +1,6 @@
 // Checks on everything that arrives, before the database is touched. Short, generic messages: never the input, never an inside detail.
 import { HttpError } from "./response";
-import { isValidEmail, isValidKey, normalizeEmail } from "../../src/sync/account-rules";
+import { USERNAME_HELP, isValidKey, isValidUsername, normalizeUsername } from "../../src/sync/account-rules";
 
 export const SMALL_BODY = 2_000; // register, login, logout: a few hundred bytes at most
 export const SAVE_JSON_MAX = 256_000; // the save itself, as JSON text, in bytes (D1 allows 2 MB per row)
@@ -61,16 +61,16 @@ function onlyKeys(body: Record<string, unknown>, allowed: string[]): void {
   if (Object.keys(body).some((key) => !allowed.includes(key))) throw new HttpError(400, "That request was not understood.");
 }
 
-function emailAndKey(body: Record<string, unknown>): { email: string; key: string } {
-  const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
-  if (!isValidEmail(email)) throw new HttpError(400, "Please enter a valid email address.");
+function usernameAndKey(body: Record<string, unknown>): { username: string; key: string } {
+  const username = typeof body.username === "string" ? normalizeUsername(body.username) : "";
+  if (!isValidUsername(username)) throw new HttpError(400, USERNAME_HELP);
   if (!isValidKey(body.key)) throw new HttpError(400, "That request was not understood.");
-  return { email, key: body.key };
+  return { username, key: body.key };
 }
 
-export function parseLogin(body: Record<string, unknown>): { email: string; key: string } {
-  onlyKeys(body, ["email", "key"]);
-  return emailAndKey(body);
+export function parseLogin(body: Record<string, unknown>): { username: string; key: string } {
+  onlyKeys(body, ["username", "key"]);
+  return usernameAndKey(body);
 }
 
 // A route that takes no fields (logout) still has a JSON body, an empty object.
@@ -78,11 +78,11 @@ export function parseEmpty(body: Record<string, unknown>): void {
   onlyKeys(body, []);
 }
 
-export function parseRegister(body: Record<string, unknown>): { email: string; key: string; code: string } {
-  onlyKeys(body, ["email", "key", "code"]);
-  const { email, key } = emailAndKey(body);
+export function parseRegister(body: Record<string, unknown>): { username: string; key: string; code: string } {
+  onlyKeys(body, ["username", "key", "code"]);
+  const { username, key } = usernameAndKey(body);
   if (typeof body.code !== "string" || body.code.length > CODE_MAX) throw new HttpError(400, "That request was not understood.");
-  return { email, key, code: body.code };
+  return { username, key, code: body.code };
 }
 
 export interface SavePut {

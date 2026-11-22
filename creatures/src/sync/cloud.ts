@@ -1,5 +1,5 @@
 // Talking to the server (functions/api). Every call answers with a value or a short message for the player, never a thrown error.
-import { deriveKey, normalizeEmail } from "./account-rules";
+import { deriveKey, normalizeUsername } from "./account-rules";
 
 export interface CloudError {
   kind: "offline" | "signed-out" | "wait" | "again" | "refused";
@@ -22,7 +22,7 @@ export interface SavePut {
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isWhole = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
 
-const isEmailReply = (data: unknown): data is { email: string } => isObject(data) && typeof data.email === "string";
+const isUsernameReply = (data: unknown): data is { username: string } => isObject(data) && typeof data.username === "string";
 const isServerSave = (data: unknown): data is ServerSave => isObject(data) && isWhole(data.revision) && isWhole(data.savedAt) && "save" in data;
 const isPutReply = (data: unknown): data is PutReply =>
   isObject(data) && ((data.status === "saved" && isWhole(data.revision)) || (data.status === "kept-server" && isServerSave(data)));
@@ -59,26 +59,26 @@ async function ask<T>(method: "GET" | "POST" | "PUT", path: string, check: (data
 
 // The password never leaves this device: a slow, one way recipe turns it into the key that is sent (src/sync/account-rules.ts).
 // (A browser without the crypto it needs, such as a page that is not on https, gets a message instead of an error.)
-async function stretch(email: string, password: string): Promise<string | null> {
+async function stretch(username: string, password: string): Promise<string | null> {
   try {
-    return await deriveKey(email, password);
+    return await deriveKey(username, password);
   } catch {
     return null;
   }
 }
 const cannotStretch = (): { ok: false; error: CloudError } => fail("refused", "This browser cannot sign in here. Try the game at its https address.");
 
-export async function signIn(email: string, password: string): Promise<Reply<{ email: string }>> {
-  const key = await stretch(email, password);
+export async function signIn(username: string, password: string): Promise<Reply<{ username: string }>> {
+  const key = await stretch(username, password);
   if (key === null) return cannotStretch();
-  const reply = await ask("POST", "/api/login", isEmailReply, { email: normalizeEmail(email), key });
-  return !reply.ok && reply.error.kind === "signed-out" ? fail("refused", "That email or password is not right.") : reply;
+  const reply = await ask("POST", "/api/login", isUsernameReply, { username: normalizeUsername(username), key });
+  return !reply.ok && reply.error.kind === "signed-out" ? fail("refused", "That username or password is not right.") : reply;
 }
 
-export async function signUp(email: string, password: string, code: string): Promise<Reply<{ email: string }>> {
-  const key = await stretch(email, password);
+export async function signUp(username: string, password: string, code: string): Promise<Reply<{ username: string }>> {
+  const key = await stretch(username, password);
   if (key === null) return cannotStretch();
-  return ask("POST", "/api/register", isEmailReply, { email: normalizeEmail(email), key, code });
+  return ask("POST", "/api/register", isUsernameReply, { username: normalizeUsername(username), key, code });
 }
 
 export const signOut = (): Promise<Reply<unknown>> => ask("POST", "/api/logout", (data): data is unknown => true, {});

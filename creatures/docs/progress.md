@@ -437,7 +437,22 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    phone's time for 600,000 PBKDF2 rounds. **The owner approved the CLAUDE.md section 3 edit** ("apply your suggestions", 2026-11-21; applied in
    the commit: passwords are stretched in the browser). **Merged by the owner (PR #17 cloud-saves, with PR #18 creature-book, 2026-11-21).** The owner then sent the D1 database id
    (`d7dd68cc-5111-48fb-8b3c-af3194162db1`, taken to be the `broodkeep` database from step 1, not checked against the dashboard);
-   it is in `wrangler.toml` on branch `d1-database-id` (a pull request for the owner to open and merge; until it is merged the live
-   site's functions still have the all-zeros placeholder). **Still to do by the owner, not confirmed:** step 2 (run
-   `migrations/0001_init.sql` in the D1 Console) and step 3 (the `SIGNUP_CODE` secret, Production). Then sign up on the live site and
-   sign in on a second device to check.
+   it is in `wrangler.toml` (merged as PR #19). **Closed 2026-11-22 (owner, "done and done"):** step 2 (`migrations/0001_init.sql` run in the D1
+   Console) and step 3 (the `SIGNUP_CODE` secret). My fake credential probes of the live API answered as designed (`/api/me` 401, unknown
+   login 401, wrong code 403); one first register probe answered 500 right after the deploy and I could not find out why. **Still to do by
+   the owner, not confirmed:** a real sign up on the live site, then sign in on a second device, and how long sign in takes on a phone.
+   **Username instead of email (2026-11-22, owner: "can we just do user id instead of email?", read as a username the family picks):**
+   branch `username-login` in ~/broodkeep-cloud; plan section 7 of [cloud-saves.md](cloud-saves.md). Needs `migrations/0002_username.sql` run in
+   the D1 Console by the owner (numbered steps in section 7).
+   **Status (2026-11-22): built and checked, NOT committed (waiting for the owner's "commit and push").** `npm run typecheck` and `npm run build` exit 0;
+   1279 tests in 24 files pass (`origin/main`: 1270), and 40 full runs in a row had no failure. A cheap-model review, before any test ran, found one
+   broken test (my own global replace had turned an email shaped entry of a "refused" list into the valid name `kid`), one title that claimed more
+   than it checked, and the Kelvin sign (a letter that lower cases to plain `k`: same account on both sides, now pinned by a test). Mutation
+   checks: 104 deliberate breaks, all caught on the tests they should fail, each file restored and compared byte for byte. The first run had one
+   survivor, the guard that ignores the server's answer to a send when the player has signed in as someone else meanwhile (an old test gap); a new
+   test with a held back answer now catches it (its first version failed for the wrong reason, a racy precondition, which I found by reading the
+   failure message and not trusting "caught"). End to end: the three browser script (13 checks) passes against `wrangler pages dev` with a local D1
+   after 0001, an old style email row and 0002 were applied in that order (the old row survived); the Username field looks right at 320 and 390 px.
+   **Test race found and fixed:** two existing sync tests asserted that the request list was exactly `["GET /api/save"]` right after a timer fired;
+   the server answers on a real clock, so the send after the GET can already be there. They failed 4 of 32 full runs on this branch, 0 of 32 on
+   `origin/main` (and 1 of 25 file only runs on `origin/main`); they now check only that the first request is the GET, and 40 full runs pass.
