@@ -6,11 +6,12 @@ name = "broodkeep"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-11-01"
 
-# D1 database (cloud saves). Used from Phase 5.
+# D1 database (cloud saves, docs/cloud-saves.md).
 #
 # >>> PLACEHOLDER: this database does not exist yet. <<<
-# In Phase 5 we run "npx wrangler d1 create broodkeep" and paste the real
-# database_id over the zeros below. A database id is not a secret.
+# Create it in the Cloudflare dashboard (cloud-saves.md section 6), run
+# migrations/0001_init.sql in its Console, and paste the real database_id over
+# the zeros below. A database id is not a secret.
 [[d1_databases]]
 binding = "DB"
 database_name = "broodkeep"

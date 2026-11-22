@@ -414,3 +414,27 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
 3. Tune the stage lengths, cell counts and fight numbers after real play. (The owner played the live Paradise growth on 2026-11-21 and
    said "seems fine": nothing to tune now. Fight numbers have had no separate feedback.)
    Work on a new branch, never push `main`, and the owner merges the pull request.
+4. **Cloud saves: accounts and a server copy of the save (the owner said "lets do it", 2026-11-21, after asking whether the database was
+   active at server level; it was not, saves were on the device only).** A first slice of Phase 5 on branch `cloud-saves` (worktree
+   ~/broodkeep-cloud, off `main` 91a529f, separate from the unmerged Creature Book branch). Plan, API, edge cases and the owner's Cloudflare
+   steps: [cloud-saves.md](cloud-saves.md). In: email and password sign up, sign in and out, one save per account in D1, automatic sync,
+   backups. Not in: kid profiles, PINs, soften mode, play limits, password reset, history. **Design change to flag:** the password is
+   stretched in the browser (PBKDF2, 600,000 iterations) and the server stores a salted SHA-256 of the result, because server side PBKDF2
+   took 19 ms at 100,000 iterations in the Workers runtime and the free plan gives 10 ms of CPU; this differs from CLAUDE.md section 3 ("PBKDF2
+   in Cloudflare's runtime"), so that line needs an owner approved edit (proposed: "passwords are stretched with PBKDF2 in the browser and
+   only a salted hash of the result is stored"). Sign up needs a family code (`SIGNUP_CODE`, fails closed).
+   **Status (2026-11-21): built, checked, committed (d32939e) and pushed to `origin/cloud-saves` on the owner's "commit and push"; the owner opens and merges the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/cloud-saves). D1 not created.** Server:
+   `functions/api/{register,login,logout,me,save}.ts` over `functions/_lib/*` and `migrations/0001_init.sql`. Browser: `src/sync/cloud.ts`
+   (HTTP), `sync.ts` (when to send, take or ask), an Account section in Settings (`src/ui/AccountSection.tsx`), `Game.onSave(byPlayer)`.
+   `npm run typecheck` and `npm run build` exit 0; 1216 tests in 22 files pass (1085 before, 131 new; five runs, no flake). A cheap-model
+   review (before any test ran) found 2 serious problems (an idle device left open would beat the device in use; a game that could not be
+   loaded started a new egg that could overwrite the account's game) and 6 more; all fixed or recorded (decisions.md, known-issues.md).
+   Mutation checks: 88 deliberate breaks, 73 caught at first, the 15 that survived were test gaps (tests importing the constant they
+   guard; `settle()` hiding a broken timer) and were fixed, all 88 now fail a test; each file was restored and diffed. End to end: a
+   script drives three browsers (real Chromium) against `wrangler pages dev` with a local D1 (13 checks pass: sign up pushes, an untouched
+   egg takes the account's game, a game in progress asks, keep-this-device makes a backup, an idle device takes the newer game, sign out,
+   wrong password). Not done: the real Cloudflare D1 (the owner's steps, cloud-saves.md section 6), the free plan CPU limit live, a
+   phone's time for 600,000 PBKDF2 rounds. **The owner approved the CLAUDE.md section 3 edit** ("apply your suggestions", 2026-11-21; applied in
+   the commit: passwords are stretched in the browser). **Waiting on the owner:** open the pull request, then the Cloudflare steps
+   (cloud-saves.md section 6: create D1 and give me its id, run the migration, set `SIGNUP_CODE`, merge). The Creature Book branch
+   (`creature-book`, pushed too) also edits this file, so one of the two will need a small merge.
