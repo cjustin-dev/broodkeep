@@ -7,14 +7,39 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 **Paradise growth: milestones 1 to 3 (Land playable) are merged as PR #14 (`main` efb3f04) and live** (the bundle on
 https://broodkeep.pages.dev matched my local build). **The Water slice is built on branch `water`** (worktree
 ~/broodkeep-paradise/creatures, off `main` efb3f04): 18 new creatures, the Water field, 3 foods, Water open in the picker. It was
-**committed and pushed to `origin/water` on the owner's "commit and push" (2026-11-21); no pull request is open yet** (the owner opens and merges it); `npm run typecheck`, 830 tests in 17 files, `selftest.py` (102 cases),
+**committed and pushed to `origin/water` on the owner's "commit and push" (2026-11-21) and was merged by the owner as PR #15 (`main` e16036d; I did not check that it is live)**; on that branch `npm run typecheck`, 830 tests in 17 files, `selftest.py` (102 cases),
 `emit_ts.py --check`, `face_hashes.py --check` and `npm run build` all exit 0. See "Next", item 1, and the Water section of
 decisions.md.
-**The Sky slice is built on local branch `sky`** (stacked on `water`; **nothing is committed yet**, I wait for the owner's "commit and push"):
-18 new creatures, the Sky field, 3 foods, and no field is locked any more. On that branch `npm run typecheck`, 1085 tests in 17 files,
+**The Sky slice was merged by the owner as PR #16 (`main` 91a529f, my commit `cce4576`) and is live** (2026-11-21: the live site serves the same
+JavaScript file as my local build, `index-BU5K_Zyk.js`). **Paradise growth is complete: all 64 creatures and the three fields are in the game.** The Sky slice:
+18 new creatures, the Sky field, 3 foods, and no field is locked any more. On that branch `npm run typecheck`, 1086 tests in 17 files (an earlier note said 1085; counted again 2026-11-21),
 `selftest.py` (120 cases), `emit_ts.py --check`, `face_hashes.py --check` (896 pictures) and `npm run build` (436.7 KB of JavaScript, 77.9 KB
 gzipped) all exit 0. See "Next", item 1, and the Sky section of decisions.md. The older text below was written before the Paradise work and
 still describes the old forms.
+
+**The Creature Book is built on local branch `creature-book`** (off `main` 91a529f; **not committed, not pushed**: the owner has not said "commit
+and push"). A "Creature Book" button in the header opens a panel with all 64 creatures: a dark shape and "???" until a creature of that form
+has been raised, then its picture and name. Pages: the baby, then one per field (the kid, the four young, and under each young its four adults
+from tier 1 down). A missing form shows a short hint once the form it grows from has been raised. The record is `Save.book` (form ids in the
+order first met); a hatch or a growth adds to it and writes a log line. Older saves get a book from the forms their living creature must have
+been through. Gate on that branch: `npm run typecheck` exit 0, 1104 tests in 18 files (1086 before, plus 18 in `tests/book.test.ts`), `npm run
+build` exit 0 (439.5 KB of JavaScript, 78.6 KB gzipped, up from 436.7 KB). Ten mutation checks each failed a test and the file came back
+byte-identical. Looked at in a headless phone browser (a new save, a mid-game save, every form raised): no page errors; equal columns, centred
+baby and kid, silhouettes visible, hints readable, and the longest names (Bubblebelly, Softnimbus) fit one line. Fresh-eyes review (cheap model):
+9 findings, all checked and fixed (silhouette far too dark, a hint that misstated the rule, columns stretched by long names, a wrong row count
+and an impossible save in tests, an unasserted hatch). See the Creature Book section of decisions.md and known-issues.md.
+
+**The special form is built on the same local branch** (2026-11-21, owner's answers recorded under "Next", item 2; **not committed**). A baby or a
+kid with no care for 4 awake hours turns into **Dustpuff**, a scruffy lint dust bunny (24 px, one creature for all three fields, grows no
+further); it wins over the baby's 6 hour safety net and the kid's growing up. Care = a meal eaten, a clean-up that did something, medicine that
+cured, a pet or a tickle; sleeping and being away on a job do not run the clock. The Creature Book has a "Special" page after the fields. Final gate
+for the branch (Book plus special): `npm run typecheck` exit 0, 1139 tests in 19 files (1097 in the older 17 files, 20 in `book.test.ts`, 22 in
+`special.test.ts`), `selftest.py` 121 cases, `emit_ts.py --check` and `face_hashes.py --check` (910 pictures) match, `npm run build` exit 0
+(441.9 KB of JavaScript, 79.1 KB gzipped). 19 mutation checks on the TypeScript and 2 on the drawing each failed a test or check, and
+every file came back identical. Looked at in a headless phone browser (home, Land, Sky with a sad face, the Book's Special page dark and
+found): no page errors. Fresh-eyes review (cheap model, run before the tests): 6 findings, all checked against the code and all led to a change;
+for clean-ups and medicine while it sleeps the behaviour was kept on purpose and only a comment and a test changed (see decisions.md). See the special section of
+decisions.md and known-issues.md.
 
 **Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slices 1 and 2 are merged** (PR #3
 to #6, #8, #9, #11, #12 and #13, `main` at 932497c; the first four are confirmed live at https://broodkeep.pages.dev, and so is
@@ -272,6 +297,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
   rules (the `training` and `discipline` metrics). Under the Paradise rules nothing reads them, so neither is needed for growth.
   (Discipline still has the unbuilt sulk rule in combat; that stays as is.)
 
+- Closed 2026-11-21 (owner): the owner played the live Paradise growth and said "seems fine", then "move on". No tuning was asked for
+  (15 awake minutes per field cell, 2 servings per food cell, the stage lengths stay), and Scorchlet's missing opening beak is left as it
+  is. Do not ask again.
 - Paradise growth, choices I made that the owner can change (listed in paradise-plan.md section 8): the place model (home and
   three fields), stage lengths (6, 24, 48 real hours), 2 servings per food cell, one food item per type, a baby that has not
   reached 4 cells in any field after 6 hours growing up anyway (egg pattern as the fallback), berry and fish dropped.
@@ -353,10 +381,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    every Water creature on the field on one contact sheet, and the real game in a headless phone browser (kid and adult in the
    field, the places tray with Water open and Sky locked, the five-food tray); no page errors. Fresh-eyes review: 6 code defects,
    all real, all fixed, plus three picture changes. Five mutation checks failed the new tests as they should. JavaScript is
-   319 KB (64.6 KB gzipped), up from 205.6 KB. **Next for this branch:** the owner opens the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/water) and
-   merges it. When they do, tell them the Water slice changes nothing for a Land creature except that a striped egg now grows into
-   Drizzle.
-   **Sky slice built (2026-11-21, local branch `sky` off `water`, uncommitted):** the Sky roster is in paradise-plan.md section 4 (names and
+   319 KB (64.6 KB gzipped), up from 205.6 KB. **Merged by the owner as PR #15 (`main` e16036d, 2026-11-21).** The Water slice changes
+   nothing for a Land creature except that a striped egg now grows into Drizzle.
+   **Sky slice built (2026-11-21, branch `sky` off `water`, committed `cce4576`, merged as PR #16 into `main` 91a529f, live):** the Sky roster is in paradise-plan.md section 4 (names and
    animals are my choice). Drawn in `tools/art/paradise/`: `sky_scorchlet.py` (Hearthwing, Sootsnarl, Dimwick), `sky_chirplet.py`
    (Chirplet, Gildcrest, Downwren, Peckjack, Slumpfinch), `sky_nectlet.py` (Nectlet, Paleveil, Honeyfuzz, Spitewing, Tatterwing),
    `sky_wisplet.py` (Wisplet, Galecrown, Softnimbus, Smogrump, Fogsag), `sky_parts.py` (the beak as a mouth pattern), `sky_field.py` (a
@@ -370,15 +397,20 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    Sky food tray, sleeping and sad creatures, the same sleepers in Land and Water for comparison); no page errors. Fresh-eyes review: 13
    findings, 7 fixed (the sad beak did not lower on 8 forms, three second drawings that barely differed, dead code and palette entries, a
    docstring, a test that could never fail), 6 left with reasons (decisions.md, known-issues.md). Nine mutation checks failed as they
-   should. **Next for this branch:** the owner says "commit and push"; then the pull request is opened (the owner does that). When the Water
-   pull request merges, `main` gets merged into `sky` (or `sky` is rebased) before its own pull request. Tell the owner then that a
-   swirled egg now grows into Cinderling, and that Sky's JavaScript brings the bundle to 436.7 KB. **Scope suggestions for the
-   owner:** give Scorchlet a beak that opens and lowers like Chirplet's (it has none now); load each field's forms only when needed
-   if the bundle starts to matter.
+   should. **Done:** the owner merged it and the live bundle matches my build (436.7 KB of JavaScript). A swirled egg now grows into
+   Cinderling. **Still open, scope suggestion for the owner:** load each field's forms only when needed
+   if the bundle starts to matter. (Scorchlet's beak: closed, left as it is.)
    **Closed 2026-11-21 (owner: "leave it as it is"):** a creature that starts a habitat job from a field comes back to that same
    field when the job ends (nothing sends it home), while bedtime and naps do send it home. Do not ask again.
-2. Later: the "no care for 4 hours" special form, the secret evolutions (two players, so after accounts), slice 3 of the old
-   Phase 3 (garden plots become a food source, standing chores, habitat upgrades) and slice 4 (the Creature Book, which fits a
-   64 creature game, and the legacy shelf).
-3. Tune the stage lengths, cell counts and fight numbers after real play.
+2. **Creature Book (the owner chose it as the next item, 2026-11-21; built on local branch `creature-book`, off `main` 91a529f; waiting for the
+   owner's "commit and push", then they open the pull request).** A panel that lists all 64 creatures as silhouettes that fill in the first
+   time a creature of that form is raised (CLAUDE.md section 7.8). Per save for now (family-wide waits for accounts). Not part of this: the
+   legacy shelf, soften mode wording. The branch's first commit will also carry the notes edits made for the Sky merge.
+   **Answered 2026-11-21 (owner, via a question; all closed, do not re-ask): the "no care for 4 hours" special form.** "No care" = 4 hours
+   awake with no feed, clean or play (sleeping hours do not count). It can happen to a baby or a kid, and it wins over the 6 hour baby safety
+   net. The special is one creature (a 65th form, one new drawing set) that grows no further. Its name and look are my choice. **Built 2026-11-21 on this branch (Dustpuff): see the State section.**
+   Later: the secret evolutions (two players, so after accounts), slice 3 of the old Phase 3
+   (garden plots become a food source, standing chores, habitat upgrades; it clashes with "food stays unlimited") and slice 4's legacy shelf.
+3. Tune the stage lengths, cell counts and fight numbers after real play. (The owner played the live Paradise growth on 2026-11-21 and
+   said "seems fine": nothing to tune now. Fight numbers have had no separate feedback.)
    Work on a new branch, never push `main`, and the owner merges the pull request.

@@ -28,6 +28,7 @@ STYLE = {"baby": "kid", "kid": "kid", "young": "young", "adult": "adult"}
 LOOKS = ["open", "half", "closed", "up", "happy", "yawn", "sad"]
 
 # Where a face goes: the left eye's top left pixel, and the top row of the mouth (None: this creature has no mouth to stamp).
+# x places the left eye; the right eye mirrors it across the picture's centre, so draw the head centred on size / 2.
 Anchor = namedtuple("Anchor", "x y mouth")
 
 

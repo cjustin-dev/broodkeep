@@ -4,7 +4,7 @@ import { setSick, setStat } from "../src/game/dev";
 import { simulateTo } from "../src/game/sim";
 import { newSave } from "../src/game/state";
 import { HOUR, MINUTE } from "../src/game/time";
-import { aliveSave, at, careForUntil } from "./helpers";
+import { aliveSave, at, careForUntil, petUntil } from "./helpers";
 
 describe("catching up on time", () => {
   it("gives exactly the same result however the time is split up", () => {
@@ -263,12 +263,12 @@ describe("good care", () => {
   it("grows from a baby to a kid after 6 hours and to a young 24 hours later", () => {
     const t0 = at(8);
     const save = aliveSave("blip", t0);
-    simulateTo(save, t0 + 5 * HOUR + 59 * MINUTE);
+    petUntil(save, t0, t0 + 5 * HOUR + 59 * MINUTE); // a pet an hour is the least care that keeps it from turning into the special
     expect(save.creature?.formId).toBe("blip");
     simulateTo(save, t0 + 6 * HOUR);
     expect(save.creature?.formId).toBe("pebblin");
     expect(save.creature?.counters.careMistakes).toBe(0); // counters start fresh each stage
-    simulateTo(save, t0 + 29 * HOUR + 59 * MINUTE);
+    petUntil(save, t0 + 6 * HOUR, t0 + 29 * HOUR + 59 * MINUTE);
     expect(save.creature?.formId).toBe("pebblin");
     simulateTo(save, t0 + 30 * HOUR);
     expect(save.creature?.formId).toBe("sporeling");

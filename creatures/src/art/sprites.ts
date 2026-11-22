@@ -33,6 +33,7 @@ export type IconName =
   | "lights"
   | "medicine"
   | "settings"
+  | "book"
   | "pellet"
   | "treat"
   | "meat"
@@ -168,6 +169,17 @@ export const icons: Record<IconName, Sprite> = {
     "..SSSS..",
     ".S.SS.S.",
     "...SS...",
+  ]),
+  // A red book with a dark spine and lines of writing on a cream page.
+  book: icon([
+    "DRRRRRR.",
+    "DRCCCCR.",
+    "DRCKKCR.",
+    "DRCCCCR.",
+    "DRCKKCR.",
+    "DRCCCCR.",
+    "DRRRRRR.",
+    ".DDDDDD.",
   ]),
   pellet: icon([
     "........",

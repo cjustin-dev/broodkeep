@@ -199,6 +199,7 @@ input:focus-visible {
   box-shadow: var(--lift), inset 0 0 0 2px var(--accent);
 }
 
+/* The small square buttons in the header (the Creature Book and the settings). */
 .gear {
   min-height: 0;
   width: 46px;
@@ -699,4 +700,68 @@ output {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ---------- the Creature Book ---------- */
+
+.book-page {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.book-page h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+/* Four to a row: the four young of a field, and under each of them its four adults. minmax(0, 1fr) keeps the columns equal whatever the
+   names: a long name wraps inside its cell instead of stretching the column. */
+.book-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-cell {
+  min-height: 108px;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  text-align: center;
+  background: var(--panel);
+  border-radius: var(--radius-md);
+}
+
+/* A row of one (the baby, a field's kid) sits in the middle, under no young in particular. */
+.book-row.single {
+  grid-template-columns: calc((100% - 18px) / 4);
+  justify-content: center;
+}
+
+.book-cell[data-found="false"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* A little under the app's 0.8rem floor, and smaller on a narrow screen: the longest name (Hollowbloom, 84 pixels at 0.72rem) has to fit a
+   cell a quarter of the width, so the size follows the width. Measured with every form raised: all 64 names on one line at 390, 360 and 320 pixels wide. */
+.book-name {
+  font-size: min(0.72rem, 2.85vw);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.book-hint {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: var(--ink-soft);
 }

@@ -71,7 +71,7 @@ function stageAt(t: number, t0: number): Stage {
   return "adult";
 }
 
-function raise(field: FieldId, food: FoodId, care: Care): { adult: string; tier: number; history: string[] } {
+function raise(field: FieldId, food: FoodId, care: Care): { adult: string; tier: number; history: string[]; book: string[] } {
   const t0 = at(8);
   const save = aliveSave("blip", t0);
   goTo(save, field, t0); // the player takes the baby out to the field straight away
@@ -107,7 +107,7 @@ function raise(field: FieldId, food: FoodId, care: Care): { adult: string; tier:
     if (c.stats.happiness < 100) for (let i = 0; i < 6; i++) touch(save, "pet", t);
     if (c.stats.energy < 20) toggleLights(save, t);
   }
-  return { adult: save.creature!.formId, tier, history };
+  return { adult: save.creature!.formId, tier, history, book: save.book };
 }
 
 for (const { field, kid, lines } of playable) {
@@ -118,6 +118,7 @@ for (const { field, kid, lines } of playable) {
         it(`${line.food} then tier ${tier} care gives ${adult}, at the times of the plan`, () => {
           const result = raise(field, line.food, care);
           expect(result.history).toEqual(["blip", kid, line.young, adult]);
+          expect(result.book, "the Creature Book holds the forms it went through, in order").toEqual(result.history);
           expect(result.tier).toBe(tier);
           expect(result.adult).toBe(adult);
         });

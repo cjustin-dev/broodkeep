@@ -3,6 +3,7 @@
 
 import { combatTuning } from "../../data/combat";
 import { forms, getForm } from "../../data/forms";
+import { specialId } from "../../data/special";
 import { spotIds, spots } from "../../data/habitat";
 import type { MaterialId } from "../../data/habitat";
 import { makeRng } from "../rng";
@@ -38,7 +39,7 @@ export function beginFight(save: Save, c: Creature, nowMs: number): Battle {
   const rng = makeRng(save.rngState);
   const stage = getForm(c.formId).stage;
   const rung = rungOf(c);
-  const kin = Object.values(forms).filter((f) => f.stage === stage);
+  const kin = Object.values(forms).filter((f) => f.stage === stage && f.id !== specialId); // the special is a rare leftover, not a wild kid
   const wild = rng.pick(kin);
   const scale = combatTuning.ladder[rung - 1]!;
   const wildStats = Object.fromEntries(STATS.map((s) => [s, Math.max(1, Math.round(wild.baseStats[s] * scale))])) as Record<CombatStat, number>;

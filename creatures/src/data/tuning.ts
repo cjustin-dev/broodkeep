@@ -97,6 +97,9 @@ export const tuning = {
     // Tier 1 needs full hunger and happy cells and no mistakes at all.
     tier2MaxMistakes: 1,
     tier3MaxMistakes: 5,
+    // A baby or a kid that gets no care for this many AWAKE hours (sleep does not count) turns into the special creature, which grows no further.
+    // Care is a meal, a clean-up, medicine, a pet or a tickle. It wins over the baby's safety net and over the kid's growing up.
+    neglectHours: 4,
   },
 
   // The dev log keeps this many lines.

@@ -3,6 +3,7 @@
 import { fieldIds, fieldOfForm, fields, openFieldIds, planOf } from "../data/fields";
 import { foods } from "../data/foods";
 import { forms } from "../data/forms";
+import { specialId } from "../data/special";
 import { tuning } from "../data/tuning";
 import { setCareCounter, setFieldMinutes, setPlace, setServings } from "../game/dev";
 import { fieldCells, foodCells, leadingForm, stageHours, tierOf } from "../game/growth";
@@ -44,6 +45,13 @@ export function DevTree({ game }: { game: Game }) {
           {hours.toFixed(1)} of {limit} hours in this stage. If the time were up now it would grow into{" "}
           <strong>{next ? (forms[next]?.name ?? next) : "nothing"}</strong>
           {stage === "baby" ? ` (${g.fieldCellsToKid} cells in one field grow it sooner, each ${g.fieldCellMinutes} minutes)` : ""}.
+        </p>
+      )}
+
+      {(stage === "baby" || stage === "kid") && c.formId !== specialId && (
+        <p class="hint">
+          {Math.floor(c.counters.neglectMinutes ?? 0)} of {g.neglectHours * 60} awake minutes with no care (at the end of them it turns into{" "}
+          {forms[specialId]?.name ?? specialId})
         </p>
       )}
 
