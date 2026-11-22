@@ -334,8 +334,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    where it is); the test titles "changes nothing else" and "as wide as its picture allows" promised more than they checked (the
    first is covered by the Python parity hashes and the title now says so, the second now checks the width, and a new test checks
    that a protected column is never doubled); plus a poop spot drawn over the food bowl, a hard-coded "4" in the dev tree text and
-   a stale size comment. Its other two points were left: a job does not send a creature home from a field (open question for the
-   owner, below) and the dev tree's option lists have no keys (no visible effect). See decisions.md and
+   a stale size comment. Its other two points were left: a job does not send a creature home from a field (the owner chose to leave it, 2026-11-21, see Next) and the dev tree's option lists have no keys (no visible effect). See decisions.md and
    known-issues.md ("Paradise growth, game side"). Next for this branch: milestone 4, pull request 1 (Land playable, Water and
    Sky locked). Tell the owner then that existing saves reset. Milestones 1 to 3 were committed and pushed to branch `paradise` (2026-11-21, on the
    owner's "commit and push") and merged by the owner as PR #14 (`main` efb3f04, live).
@@ -351,11 +350,10 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    all real, all fixed, plus three picture changes. Five mutation checks failed the new tests as they should. JavaScript is
    319 KB (64.6 KB gzipped), up from 205.6 KB. **Next for this branch:** the owner opens the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/water) and
    merges it. When they do, tell them the Water slice changes nothing for a Land creature except that a striped egg now grows into
-   Drizzle, and ask the open question below. Then the Sky slice (the Sky roster in the plan is still pending; Cinderling,
+   Drizzle. Then the Sky slice (the Sky roster in the plan is still pending; Cinderling,
    Scorchlet and Ashwing are drawn).
-   **Open, for the owner at pull request 1 time (my default is in place):** a creature that starts a habitat job from a field
-   comes back to that same field when the job ends (nothing sends it home), while bedtime and naps do send it home. Alternative:
-   starting a job sends it home, so it never silently goes back to counting field minutes. Which is wanted?
+   **Closed 2026-11-21 (owner: "leave it as it is"):** a creature that starts a habitat job from a field comes back to that same
+   field when the job ends (nothing sends it home), while bedtime and naps do send it home. Do not ask again.
 2. Later: the "no care for 4 hours" special form, the secret evolutions (two players, so after accounts), slice 3 of the old
    Phase 3 (garden plots become a food source, standing chores, habitat upgrades) and slice 4 (the Creature Book, which fits a
    64 creature game, and the legacy shelf).

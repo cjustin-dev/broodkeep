@@ -211,8 +211,8 @@
 - **Icons are placeholders.** The signpost, Land, Water and Sky icons and the redrawn pellet and treat are 8 x 8 and crude.
 - **`emit_ts.py` needs Pillow** (the field is drawn with it). `selftest.py` skips its field cases without it.
 - **A job does not send a creature home from a field.** `startJob` and `callBack` leave `place` alone, so after the job the
-  creature is back in the field it left and its field minutes count again. Bedtime and naps do send it home. The owner has not
-  been asked which is wanted (see progress.md, Next).
+  creature is back in the field it left and its field minutes count again. Bedtime and naps do send it home. The owner chose to
+  leave it this way (2026-11-21), so it is a decision, not a gap.
 - **The dev tree's option lists have no `key`s.** No visible effect in Preact for these short, fixed lists.
 - **Sky has no picture yet.** `drawField` returns false for it and the room is drawn; `goTo` refuses it, so a player cannot get
   there (the dev panel can force it).
