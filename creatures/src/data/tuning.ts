@@ -17,8 +17,9 @@ export const tuning = {
     maxShaveMinutes: 10, // taps can save at most this much (about a third)
   },
 
-  // Stats of a newborn creature.
-  newborn: { hunger: 70, happiness: 70, energy: 100, hygiene: 100, wellness: 100, discipline: 50 },
+  // Stats of a newborn creature. Discipline starts below the line where a creature begins to ignore commands in a fight (data/combat.ts),
+  // so the sulk rule is live from the start and training can lift it (adult expansion, owner's answer 3). A saved creature keeps its own value.
+  newborn: { hunger: 70, happiness: 70, energy: 100, hygiene: 100, wellness: 100, discipline: 30 },
 
   // How many AWAKE hours it takes for a stat to fall from 100 to 0.
   emptyAfterAwakeHours: { hunger: 14, happiness: 20, energy: 16, hygiene: 24 },
@@ -75,6 +76,8 @@ export const tuning = {
     sleepyBelow: 15,
     // An unanswered call this long (awake minutes) counts as one care mistake.
     patienceMinutes: 60,
+    // The Care Log (Adult Mode's Growth Forecast) keeps this many of the stage's mistakes: when, and which call.
+    mistakeLogMax: 8,
   },
 
   // Petting and tickling make the creature happier, but only so much per hour.

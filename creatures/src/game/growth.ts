@@ -52,7 +52,7 @@ export function countFieldMinute(c: Creature): void {
 // ---- neglect (the special) ----
 
 // Only a baby or a kid can turn into the special, and the special itself is a kid-sized form that must not turn into itself again.
-const canBecomeSpecial = (c: Creature): boolean => c.formId !== specialId && ["baby", "kid"].includes(getForm(c.formId).stage);
+export const canBecomeSpecial = (c: Creature): boolean => c.formId !== specialId && ["baby", "kid"].includes(getForm(c.formId).stage);
 
 // One awake minute without care. Asleep and away on a job count nothing: sleeping hours do not run the clock, and a creature on a job is out of reach.
 // (A clean-up or medicine still counts as care while it sleeps: those buttons work then.)

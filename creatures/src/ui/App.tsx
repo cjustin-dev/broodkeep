@@ -4,13 +4,16 @@ import { useRegisterSW } from "virtual:pwa-register/preact";
 import { eggSprite } from "../art/sprites";
 import { getForm } from "../data/forms";
 import { startNewEgg } from "../game/actions";
+import { isAdultMode } from "../game/hud";
 import type { Roster } from "../sync/roster";
 import type { CloudSync } from "../sync/sync";
 import { ActionBar } from "./ActionBar";
+import { AdultHeader } from "./AdultHud";
 import { ArenaBar } from "./ArenaBar";
 import { DevPanel } from "./DevPanel";
 import type { Game } from "./game";
 import { HabitatBar } from "./HabitatBar";
+import { ForecastPanel } from "./ForecastPanel";
 import { HaulCard } from "./HaulCard";
 import { BookPanel } from "./BookPanel";
 import { Icon, Pic } from "./Icon";
@@ -47,7 +50,7 @@ function DeathCard({ game }: { game: Game }) {
 
 export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: CloudSync; roster: Roster; onSwitch: () => void }) {
   useGame(game);
-  const [panel, setPanel] = useState<"settings" | "dev" | "book" | null>(null);
+  const [panel, setPanel] = useState<"settings" | "dev" | "book" | "forecast" | null>(null);
 
   // The installed app keeps its own copy of the game's files (a service worker). A new version waits until the player taps "Update
   // now" in Settings: reloading by itself could cut in on play. The game is saved and sent to the account first.
@@ -98,16 +101,29 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
   const save = game.save;
   return (
     <main class="app">
-      <header class="top">
-        <StatBars stats={save.phase === "alive" && save.creature ? save.creature.stats : null} />
-        <button class="btn gear" aria-label="Creature Book" onClick={() => setPanel("book")}>
-          <Icon name="book" px={28} />
-        </button>
-        <button class="btn gear" aria-label="Settings" onClick={() => setPanel("settings")}>
-          <Icon name="settings" px={28} />
-        </button>
-      </header>
-      <WhoChip roster={roster} onSwitch={onSwitch} />
+      {isAdultMode(save) ? (
+        <AdultHeader
+          game={game}
+          roster={roster}
+          onSwitch={onSwitch}
+          onBook={() => setPanel("book")}
+          onSettings={() => setPanel("settings")}
+          onForecast={() => setPanel("forecast")}
+        />
+      ) : (
+        <>
+          <header class="top">
+            <StatBars stats={save.phase === "alive" && save.creature ? save.creature.stats : null} />
+            <button class="btn gear" aria-label="Creature Book" onClick={() => setPanel("book")}>
+              <Icon name="book" px={28} />
+            </button>
+            <button class="btn gear" aria-label="Settings" onClick={() => setPanel("settings")}>
+              <Icon name="settings" px={28} />
+            </button>
+          </header>
+          <WhoChip roster={roster} onSwitch={onSwitch} />
+        </>
+      )}
       <Stage game={game} />
       <div class="dock">
         {save.phase === "dead" ? (
@@ -123,6 +139,7 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
       {panel === "settings" && <SettingsPanel game={game} cloud={cloud} update={update} roster={roster} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "book" && <BookPanel game={game} onClose={() => setPanel(null)} />}
+      {panel === "forecast" && <ForecastPanel game={game} onClose={() => setPanel(null)} />}
     </main>
   );
 }

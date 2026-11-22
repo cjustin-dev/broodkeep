@@ -390,3 +390,43 @@
 - **Real D1 is not checked.** The migration and the conditional insert ran on SQLite 3.51.2 and on wrangler's local D1; the live
   database's report of `changes` for `INSERT ... SELECT` and its text for the unique index are the owner's live check (plan section 9).
 
+
+## Adult Mode header (A1.1, 2026-11-22)
+
+- **On `main`, every living creature's room scrolls 28 px sideways at 320 px wide** (the page is 348 px wide). The egg, the dead creature,
+  the habitat and the arena do not. Cause (read, not fixed): `.care` is `grid-template-columns: repeat(5, 1fr)`, whose columns will not shrink
+  below their content, and five buttons need about 312 px against 288 px of room. Found by the Kid Mode comparison (the same on `main` and the
+  branch; Adult Mode adds nothing to it). Likely fix, one line, a Kid Mode change and so the owner's call: `repeat(5, minmax(0, 1fr))`.
+  A1.3 rebuilds the care row anyway.
+- **The adult header is tall:** 177 to 221 px, so at 320 x 568 and 360 x 640 the care buttons are below the fold and the page scrolls
+  (643 to 687 px against 568 and 640). It fits from 360 x 780 up. See decisions.md (A1.1) for the numbers.
+- **The Adult Mode setting can come back after being switched off or on** if a second device that was playing an older copy saves later
+  (newest save wins, like every field in the save).
+- **The "!" mark can stay up to a minute after the need is met:** it follows `creature.call`, which the simulation updates once per game minute.
+- **Time to empty ignores that night is coming** (the rate is slower asleep) and that a nap ends by itself; the card says "at this rate".
+- **A device clock set back leaves `stageStartedAt` in the future.** The countdown never reads more than the stage's length or less than zero; the stored value is unchanged (old gap).
+- **CLAUDE.md section 7.1 says discipline "drops over time".** In the code nothing lowers it, and only the dev panel writes it. The owner's file to fix.
+- **Names:** the Switch button's player name ends in an ellipsis when it is too long for its column (checked with 20 of the widest letter at 320, 360, 390 and 480 px).
+- **Tooling for the browser runs (not in the repo):** two `wrangler pages dev` servers started at the same moment clash on workerd's internal socket ("Address already in
+  use (socket direct:1:default)"): start them one after the other and give each its own `--port` and `--inspector-port`. And do not seed a page's storage by opening an image or a
+  text file of the site: the browser's own viewer for those puts an inline style on the page, the site's security policy blocks it and logs a "Content Security Policy" error (152 of
+  them in one run, the same on `main`): open a stub page served by the test script instead.
+
+## Growth Forecast (A1.2, 2026-11-22)
+
+Found while planning and reviewing A1.2, in the game as it is (none are new, none are fixed here):
+
+- **A tie in a baby's cells goes to the egg pattern's field even when that field is behind.** `netField` (`growth.ts`): Land 2 cells, Water 2
+  cells, Sky 0 and a swirled egg grows into Sky's kid. The code's comment says so and the forecast states it ("a tie goes to the field of its egg
+  pattern: Sky"); it may feel odd in play. A change is the owner's call.
+- **Away on a job, a creature's calls still count and cannot be answered.** `updateCalls` has no job check and `alive()` refuses feed, clean,
+  medicine and touch while a job is set, so an unanswered call goes on toward a mistake. Jobs last 3 to 8 minutes against 60 for a mistake, so
+  it needs a call that was already running. The care clock for the special does not count job time (`countNeglectMinute`); the panel says so.
+- **A job started before bedtime goes on while the creature sleeps.** `updateSleep` moves it home but does not clear `c.job`.
+- **A device clock set back leaves `stageStartedAt` in the future.** The stage then runs until real time catches up with it (the same gap
+  as the header's, A1.1). The forecast shows the real, longer time and says the clock was set back; the header still clamps its own countdown.
+- **"Locked" is rare on purpose.** A kid can only be locked when the rivals cannot get the meals in time (hunger full and an hour or two left), a
+  young one only at tier 4 or in the last minutes. "Still open" claims nothing.
+- **The forecast is as live as the game's catch-up** (about once a second, on whole minutes): the bounds count from the creature's
+  `lastSimulatedAt`, so a page that is a little behind never says Locked too early.
+- **Not checked:** a real phone, browsers other than Chromium, a screen reader reading the panel.

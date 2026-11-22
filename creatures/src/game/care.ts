@@ -52,17 +52,30 @@ function updateSleep(save: Save, c: Creature, t: number): void {
   }
 }
 
+// The four stats that change by themselves every minute (wellness has its own rules, see updateWellness).
+export type DrainStat = "hunger" | "happiness" | "hygiene" | "energy";
+
+// What ONE minute does to a stat before it is held between 0 and 100: negative while it runs down, positive for energy while asleep.
+// decayStats uses this, and so does the adult HUD (game/hud.ts) for "empty in", so what the screen says is what the simulation does.
+export function statChangePerMinute(c: Creature, stat: DrainStat, asleep: boolean): number {
+  const slow = asleep ? tuning.asleepDecayFactor : 1;
+  switch (stat) {
+    case "hunger":
+      return -rate.hunger * slow;
+    case "happiness":
+      return -rate.happiness * slow;
+    case "hygiene":
+      return -((rate.hygiene + c.poop * tuning.poopHygieneDrainPerMinute) * slow);
+    case "energy":
+      return asleep ? tuning.sleepEnergyPerMinute : -rate.energy;
+  }
+}
+
 function decayStats(c: Creature, asleep: boolean): void {
   const s = c.stats;
-  const slow = asleep ? tuning.asleepDecayFactor : 1;
-  s.hunger -= rate.hunger * slow;
-  s.happiness -= rate.happiness * slow;
-  s.hygiene -= (rate.hygiene + c.poop * tuning.poopHygieneDrainPerMinute) * slow;
-  s.energy += asleep ? tuning.sleepEnergyPerMinute : -rate.energy;
-  s.hunger = clamp(s.hunger);
-  s.happiness = clamp(s.happiness);
-  s.hygiene = clamp(s.hygiene);
-  s.energy = clamp(s.energy);
+  for (const stat of ["hunger", "happiness", "hygiene", "energy"] as const) {
+    s[stat] = clamp(s[stat] + statChangePerMinute(c, stat, asleep));
+  }
 }
 
 // Food turns into poop after a while.
@@ -153,6 +166,7 @@ function updateCalls(save: Save, c: Creature, asleep: boolean, t: number): void 
     if (c.callMinutes >= tuning.calls.patienceMinutes) {
       c.callMinutes = 0;
       c.counters.careMistakes += 1;
+      c.counters.mistakeLog = [...(c.counters.mistakeLog ?? []), { at: t, call: want }].slice(-tuning.calls.mistakeLogMax);
       logEvent(save, t, `Care mistake: "${want}" went unanswered (${c.counters.careMistakes} this stage)`);
     }
   }

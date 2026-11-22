@@ -369,8 +369,58 @@ opening the first player) each failed their own check. A cheap-model review of t
 duplicated hunk and no conflict marker, and three defects in the script (a selector that could never match, no check that the right
 profile opened, silenced waits), all fixed before the run. Not checked: a real phone, real D1.
 
+## Adult track A1.1: the Adult Mode header (built 2026-11-22 on the owner's "start a1"; branch `adult-a1` in ~/broodkeep-adult; committed together with A1.2 in one commit and pushed on the owner's "commit and push", 2026-11-22; the owner's questions are under Open for the owner)
+
+Plan and edge cases: [adult-a1-plan.md](adult-a1-plan.md) (version 2). Built: the Settings checkbox "Adult Mode" (saved per profile as `settings.adultMode`, only `true` is on); the adult
+header in place of the Kid header (strip with name, stage, clock, coins and materials, Book percent, Settings and the Switch button; five stat cells with floored numbers, a colour level, the
+time left and a "!" on the cell the creature is calling for; a tap opens a card with rates per hour, time to empty at this rate, the food-refusal line and the discipline; one context line);
+`game/hud.ts` (every number and sentence, no screen code); `statChangePerMinute` in `care.ts`, which the simulation itself now uses, so the display cannot drift; newborn discipline 30.
+Files: `src/game/hud.ts`, `src/ui/AdultHud.tsx`, `tests/hud.test.ts` and `docs/adult-a1-plan.md` are new; `tuning.ts`, `care.ts`, `state.ts`, `App.tsx`, `SettingsPanel.tsx`, `app.css` and these three docs changed.
+**Checked on the final tree:** typecheck 0; 29 files / 1,521 tests (`main`: 28 / 1,469; the 52 new ones are `tests/hud.test.ts`); build 0 with 0 warnings (same as `main`); the only test-run
+warning is node:sqlite's ExperimentalWarning, as on `main`. Browser (Chromium, `wrangler pages dev`, saved games at a frozen clock; the scripts are in the session scratchpad, not in the repo):
+3,618 checks on 13 states at 7 sizes (320 x 568, 360 x 640, 360 x 780, 390 x 844, 412 x 915, 480 x 900, 844 x 390), 26 on the account run (sign up, a second player, a 20-wide-letter name, the
+Switch button at 320, 360, 390 and 480 px), 116 screenshots (contact sheets looked at), 0 failures, 0 console problems. **Kid Mode comparison with `main`:** 40 pages, 1,906 elements, 941,564 computed
+styles, 0 differences (the room canvas pixels are not compared). **Mutation runs (break on purpose, read the failure, restore, `diff`):** 34 unit mutants (2 survived: the 10-hour format and the last
+minute before an egg hatches; two tests added, both now caught), 12 screen mutants (1 survived: an over-wide cell word; the check was tightened to the cell's padding, now caught; one made the script crash
+instead of fail, now a failed check), 3 Kid Mode mutants through the comparison (all caught). **Three cheap-model reviews** (the code and harness, the harness again, the mutation script): 14, 8 and 8
+findings, each checked against the code; 11 of the first 14 fixed (one was already covered by the full run, two are plan changes, written into the plan), all of the other 16 taken. **Real defects the runs found:**
+the Switch button's player name did not end in an ellipsis (the button centred it at the width of the whole name: the page scrolled sideways at every width); the dead creature's stage line was cut off at 320 px
+(now wraps); the CLEAN cell with 100 and the most poop was wider than its cell at 320 px (the poop badge now wraps under the number); `minutesUntilItEats` was a minute out at hunger 100 (floating point; now counted
+with the simulation's own arithmetic). **Found on `main`, not mine, not fixed:** every living creature's room scrolls 28 px sideways at 320 px (the care row, known-issues.md).
+**Not built (as planned):** the Growth Forecast (A1.2), the labelled care row with reasons (A1.3), Retire (A1.4). **Not checked:** a real phone, browsers other than Chromium, two profiles keeping their own setting
+(it lives in each profile's own save; not run), the cloud carrying the setting. **Measured cost, for the owner to judge:** the adult header is 177 to 221 px against 60 px; the adult page is 643 to 687 px tall at 320 x 568 and
+360 x 640 (scrolls up to 119 px) and fits from 360 x 780 up (the plan said about 60 px net). Committed with A1.2 as one commit (the two slices share files), so the pull request is one: https://github.com/cjustin-dev/broodkeep/pull/new/adult-a1.
+
+## Adult track A1.2: the Growth Forecast (built 2026-11-22 after the owner's "approved. continue"; same branch `adult-a1`; committed with A1.1 in one commit and pushed on the owner's "commit and push", 2026-11-22; the owner's questions are under Open for the owner)
+
+Plan and edge cases: [adult-a1-plan.md](adult-a1-plan.md), section 3b; decisions in [decisions.md](decisions.md) (section "Adult track A1.2") and the rules it found in [known-issues.md](known-issues.md) ("Growth Forecast").
+Built: in Adult Mode, tapping the strip's name and stage (a button with a "›") opens a full-screen Growth Forecast panel: the form the creature would grow into if the time were up now (with its tier), the
+real time left, a confidence line ("Locked: nothing it can still do changes this", "Still open", or "It grows up right away"), the stage's counters as rows (a baby's field cells, a kid's food cells, a young one's hunger cells,
+happy cells and care mistakes) each with a "try more" stepper that only looks at a copy, the tie rule and "what would change it" (for each rival, the least minutes, servings or mistakes that change the leader, worked out by running
+the game's own `leadingForm` on copies), the care clock for the special form, a "What changes this?" list of the rules from the tuning numbers, and a Care Log (the last 8 care mistakes of this stage, `counters.mistakeLog`).
+Everything it says is worked out in `game/forecast.ts` (pure, no screen code). A final form, the special and a dead or egg state have their own, shorter panels or no entry.
+Files: new `src/game/forecast.ts` (540 lines), `src/ui/ForecastPanel.tsx` (190), `tests/forecast.test.ts` (728 lines, 77 tests); changed `AdultHud.tsx` (the way in), `App.tsx`, `app.css` (a Forecast block), `hud.ts` (`callText`
+exported), `state.ts` (`Counters.mistakeLog`), `tuning.ts` (`calls.mistakeLogMax`), `care.ts` (writes the log) and `growth.ts` (the word `export` on `canBecomeSpecial`), plus plan 3b and the three docs. With A1.1 that is 17 uncommitted files
+(`git status`: 10 modified, 7 new).
+**Checked on the final tree:** typecheck 0; 30 files / 1,598 tests (A1.1: 29 / 1,521; the 77 new ones are `tests/forecast.test.ts`); build 0 with 0 warnings. Tests play the real simulation against every "Locked" claim (baby in each
+field, kid feeding each food as often as the game lets it, young leaving every call unanswered, the special's 4 hours, a partial minute, a random sweep of 240 creatures where each stage must produce locked cases) and hold the what-if to
+a deep-frozen creature. Browser (Chromium, `wrangler pages dev`, 17 saved games at a frozen clock, 320, 360 and 390 px; scripts in the session scratchpad, not the repo): 1,784 checks, 0 failures, 0 console problems; 45 screenshots
+(15 games with a panel at 3 widths), contact sheets looked at: four of the five 320 px sheets and one 390 px sheet, no clipping, overlap or sideways scroll (the other sheets are covered by the box and word checks only). **Kid Mode comparison with `main`:** 40 pages,
+1,906 elements, 941,564 computed styles, 0 differences. **Mutation runs (break on purpose, read the failure, restore, `diff`):** 44 unit mutants, all caught on the last run (earlier runs: 5 patterns gone stale after a refactor, fixed; 1 survivor, "the time bound
+rounds down", became a real unsafe mutant, a partial-minute test and a real attack, now caught), 7 screen mutants on the built files (the way in wider than the window, the lead box wider than the panel, 30 px steppers, the empty-log text, "of 5", the
+label, the panel part of the page), each caught by the check it was meant for. **Cheap-model reviews:** the plan against the code (7 numbered findings), the forecast code and tests (9), the three scripts before their first run (12), the entry-measuring script (4), the
+sideways check change (3) and the screen-mutation script (6 items, one of them "no finding"); the findings were fixed or folded into the plan. The fixes to the mutation script were checked by its own run, not reviewed again.
+**Real defects the reviews and runs found:** a meals test that used a baby (no carrot on its menu) and so tested nothing; rival gaps that ignored the time left; a kid's tie line that ignored meals; attacks that fed once a minute where the game lets a
+player feed several times in one; a forecast counted from the clock instead of from `lastSimulatedAt` (a page a little behind could say "Locked" too early); and in the browser script, a "nothing sideways" check that blamed the panel for the 28 px that is already in the page behind it
+(now compared with the page before the panel opens, and with 348 as the most it may be at 320 px). **Found in the game, not fixed (known-issues.md):** a tie in a baby's cells goes to the egg pattern's field even when that field is behind; calls keep counting while the creature is away on a job;
+a job goes on while the creature sleeps; a device clock set back leaves the stage running until real time catches up (the panel shows the real time and says so).
+**Not checked:** a real phone, browsers other than Chromium, a screen reader reading the panel. **Not built (as planned):** the labelled care row (A1.3), Retire (A1.4). Committed (17 files, one commit with A1.1) and pushed to origin/adult-a1; the owner opens the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/adult-a1. Next after it merges: flatten the repo (item 6 of Next), then A1.3.
+
 ## Open for the owner
 
+- A1.2 (the Growth Forecast), for the owner after trying it on a phone: (1) forms the player has not found yet show their real name and picture (the spec's choice; one line changes it to "???"); (2) the spec's "Avoid mistakes" stepper is a "slip" stepper
+  because the count never goes down (it previews adding mistakes; the count now is the best case); (3) the way in is the strip's name and stage with a "›": clear enough, or a labelled button (costs 14 px of height at 320 x 568 and 360 x 640)? (4) a baby's tie goes to the egg pattern's field even when that field
+  is behind (the game's own rule, now shown in words): keep it or change the game? (5) "Locked" shows rarely on purpose; do you want a looser, less certain line as well? (6) are the words right ("A meal that takes hunger from under 95 to 95 or more", "Still open", "slip")?
 - Slice 1 is on the live site: play the habitat on a phone and report what feels wrong (is 3 to 8 minutes of work about
   right, are the coins and bag worth having before anything can be bought, does the empty room while it is away feel ok). Dev
   mode (gear, tap the version line 7 times) skips the waits and can hatch any form.
@@ -391,6 +441,9 @@ profile opened, silenced waits), all fixed before the run. Not checked: a real p
   section 6 of CLAUDE.md (done: it now points to paradise-plan.md) and approved the gate-script edit in ~/CLAUDE.md (done).
   The owner answered "proceed" to "do the Land creatures look right?", taken as yes; redraw notes can still come any time.
 
+- A1.1 (the adult header), for the owner after looking at it on a phone: (1) is the header too tall (177 to 221 px; the care buttons go below the fold at 320 x 568 and 360 x 640)? I can make it more compact (for example the
+  coins on the first row, or the context line folded into the strip); (2) the care row overflows 28 px sideways at 320 px on `main` (one-line fix, a Kid Mode change: `repeat(5, minmax(0, 1fr))`): fix it in A1.1 or in A1.3? (3) are
+  the words right (FOOD, MOOD, ENRG, CLEAN, WELL; "9h left"; the card text)? (4) one gap in the review list: the browser scripts are in my scratchpad, not in the repo: do you want them added (a `tools/e2e/` folder)?
 - Installable app (item 5 of Next, once it is merged): install it on a phone and say how the icon, the start screen and the top bar look, and
   whether the red "A new version is ready" notice reads as a warning (it reuses the existing `.notice` look).
 - Closed 2026-11-22 (owner: "can apply fix one in this branch"): the 320 px header overflow is fixed in the `pwa-install` branch (item 5 of Next). Do not ask again.
@@ -603,3 +656,7 @@ profile opened, silenced waits), all fixed before the run. Not checked: a real p
    the iPhone start screen and status bar, iPhone storage), the free-plan CPU limit and the phone's PBKDF2 time (still the owner's from the cloud saves).
    **After "commit and push" and the owner's merge:** check the live site (the manifest and icons are served, `/sw.js` answers `Cache-Control: no-cache`,
    the JavaScript file matches my build), then the owner installs it on a phone: Android Chrome menu, "Install app"; iPhone Safari, Share, "Add to Home Screen".
+6. **Flatten the repo (queued 2026-11-22, the owner: "let's queue for after a1.1 merging"; not started).** The repo holds only `.gitignore` and `creatures/`, a leftover of
+   the old template site. Plan: one pull request that moves the contents of `creatures/` to the repo root with `git mv` (history kept) and updates the paths in the docs,
+   CLAUDE.md and the hub notes; the owner changes the Cloudflare Pages "Root directory" from `creatures` to blank, timed with the merge (the build fails in between).
+   Do it after A1.1 has merged and before the next slice branches, so no open branch has to be rebased. Nothing in the code depends on the folder name.
