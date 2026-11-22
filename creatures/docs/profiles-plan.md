@@ -2,7 +2,7 @@
 
 Started 2026-11-22 on the owner's "move to the next phase", read as the next item in the order I gave them: kid profiles and PINs.
 (Sound and the desktop layout, the rest of Phase 7, come later.) Branch `profiles`, off `main` b743968, worktree ~/broodkeep-profiles.
-Status: **plan only, nothing built.** Version 3 of the plan: two cheap-model reviews found 25 problems in version 1 and 15 in version 2
+Status: **slice 1 built 2026-11-22, not committed** (the gates are in section 7, the slice 1 review at the end of section 10; slice 2 is not started). Version 3 of the plan: two cheap-model reviews found 25 problems in version 1 and 15 in version 2
 (section 10 says what changed each time). On 2026-11-22 the owner said "we are good then commit and push" after asking how accounts
 work; read as accepting the plan and my defaults for questions 1 to 5 of section 8. Question 6 and the proposed CLAUDE.md edits were
 not answered and stay open.
@@ -80,16 +80,17 @@ its own answers (confirmation, what a device that still has the game does). A pr
      for a household with two grown-ups.
    - The list of PIN hashes is read from the stored list, which refreshes at start, when the page comes back to the front, and when
      the picker or Settings opens. So a PIN changed on another device is used after the next of those.
-6. **Names.** Trim spaces and normalise to NFC; 1 to 20 code points (an emoji counts as one); only letters, marks, digits, space,
+6. **Names.** Trim spaces, make a run of spaces inside one space (so "Mia  B" and "Mia B" cannot both exist and look the same), and normalise to NFC; 1 to 20 code points (an emoji counts as one); only letters, marks, digits, space,
    apostrophe, hyphen and period (so no control or invisible characters, and no emoji in this slice); unique within the account
    compared as `name.toLowerCase()` after normalising. The server stores that comparison text in `name_key` (SQLite's own NOCASE only
    folds ASCII, so it cannot be the rule) and the device runs the same function to refuse early. At most 8 profiles per account.
 7. **The picker** ("Who is playing?") shows at the start of a session when the account has 2 or more profiles, one big tile each
    with the creature's picture (from the game on this device; an egg if it was never opened here) and the name. It does not skip
-   itself, so a shared tablet always asks; the last profile used on this device is listed first. The choice is kept in
+   itself, so a shared tablet always asks. The tiles stay in the account's order (first profile first), so a tile never moves under a
+   child's finger: "the last profile used is listed first" was in version 3 and was left out of slice 1. The choice is kept in
    `sessionStorage` (it survives a reload, is gone when the app is closed), read only when the device is signed in, and cleared on
    sign out and when a session ends. If `sessionStorage` cannot be written (a blocked or private window) the picker and the header
-   button are not offered and the first profile plays; Settings says so. A header button opens the picker again. With one profile
+   button are not offered and the first profile plays; Settings says so (a note under the list of players). A header button opens the picker again. With one profile
    there is no picker and no button. One gap, on purpose: a signed in device that has no stored list for this account yet (the first
    start after the update, or right after signing in) opens the first profile as today, fetches the list, and shows the header button
    when it lands; the picker shows from the next start. Waiting for the list would need a timeout and a late picker.
@@ -127,7 +128,7 @@ live database in the owner's step (section 9).
 
 Routes (a session is needed; writes are same site JSON requests with the small body cap, like the existing ones). A profile id that
 is not the session account's answers 404, the same as one that does not exist.
-- `GET /api/profiles` returns `[{ id, name, kind }]` (slice 2 adds `pinHash`), the first profile first.
+- `GET /api/profiles` returns `{ profiles: [{ id, name, kind }] }` (slice 2 adds `pinHash`), the first profile first.
 - `POST /api/profiles { name, kind }`: `kind` is required. First `UPDATE profiles SET name_key = lower(name) WHERE account_id = ?
   AND name_key = ''` (fills in a profile made in the migration gap), then one conditional statement `INSERT INTO profiles (...)
   SELECT ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM profiles WHERE account_id = ?) < 8`, in one `DB.batch`. One statement is atomic, so
@@ -141,15 +142,15 @@ is not the session account's answers 404, the same as one that does not exist.
   `response.ts` turns it into a 500). Slice 2 also takes `{ id, pinHash }`, `null` clearing it. Unknown fields, an empty body, or a
   body that is not an object answer 400. The route's allowed methods (`wrongMethod`) are GET, POST and PATCH.
 - `GET` and `PUT /api/save?profile=<id>`: `profile` must match `^[1-9][0-9]{0,9}$` and appear once, otherwise 400; without it, the
-  first profile. The profile id goes through the id lookup (404 if not the account's). The ids go in the body, not the path, so no
-  dynamic route and no change to `Context` or the test helper's call.
+  first profile. The profile id goes through the id lookup (404 if not the account's). The ids go in the query (`/api/save`) or the body
+  (`POST` and `PATCH /api/profiles`), never the path, so no dynamic route and no change to `Context` or the test helper's call.
 
 ## 5. Device
 
 - `src/sync/local.ts`: `loadSave(key)`, `writeSave(save, key)`, `loadCloudMeta(key)`, `writeCloudMeta(meta, key)`, all defaulting to
   `save` and `cloud`. `readFailed` becomes a set of keys; an unreadable save is kept as `<key>-unreadable`. New keys: `profiles`
   (`{ username, list }`, so a list from another account is ignored) and `pin-tries`.
-- `src/sync/cloud.ts`: `fetchSave(profile?)`, `sendSave(put, profile?)`, `listProfiles`, `createProfile`, `renameProfile`. The `Api`
+- `src/sync/cloud.ts`: `fetchSave(profile?)`, `sendSave(put, profile?)`, `fetchProfiles`, `addProfile`, `renameProfile`. The `Api`
   object handed to a `CloudSync` is bound to its profile's id; `CloudSync` itself does not change.
 - `src/ui/game.ts`: `Game` takes the key it writes to (default `save`). The tests that mock `writeSave` change with it.
 - `src/sync/profiles.ts`: the profile types, the shape check for what the server sends, the name rule, and in slice 2 the PIN
@@ -160,7 +161,8 @@ is not the session account's answers 404, the same as one that does not exist.
   that profile's keys and the record rules of decision 11, wraps every `sessionStorage` call in try/catch, and refreshes the list in
   the background (triggers: start, the page coming back to the front, the picker or Settings opening, and a sign in). If a profile
   other than the first sees the session end, it does what decision 11 says.
-- `src/ui/Picker.tsx`, a "Players" part of Settings (list, add, rename), the header button, and the account part of Settings: the
+- `src/ui/Picker.tsx`, and in `src/ui/PlayersSection.tsx` the "Players" part of Settings (list, add, rename) and the header button, and in
+  `AccountSection.tsx` the account part of Settings: the
   sign in form, "Sign out" and the sign up form show only in the first profile; other profiles show "Signed in as ...".
 - Slice 2: the PIN keypad component and the Settings and developer panel checks.
 
@@ -288,11 +290,22 @@ Two edits to this project's CLAUDE.md for the owner to approve (not applied):
 
 ## 9. What the owner does in Cloudflare (written out with the build, in the style of docs/cloud-saves.md section 6)
 
-Numbered steps, about 5 minutes, before merging: open the D1 Console, paste the SQL text of `migrations/0003_profiles.sql` (the text,
-not the file name), run it once only (a second run fails with "duplicate column name"; Wrangler's tracking does not know a Console
-paste, so never run `wrangler d1 migrations apply --remote` afterwards without checking), check the new columns, then merge.
-To clear a forgotten PIN: Console, `SELECT id, name, kind FROM profiles;` to find the id, then `UPDATE profiles SET pin_hash = NULL
-WHERE id = <id>;`.
+Numbered steps, about 5 minutes, before merging slice 1:
+
+1. Cloudflare dashboard, Storage and Databases, D1, `broodkeep`, Console tab.
+2. Paste the SQL text of `migrations/0003_profiles.sql` (open the file and copy its text: the first lines are `--` comments, then
+   three `ALTER TABLE profiles ADD COLUMN ...` lines, an `UPDATE`, and a `CREATE UNIQUE INDEX`; pasting the file name does not work) and run it once.
+   Old code ignores the new columns, so running it before the merge is safe.
+3. Check it: run `SELECT id, name, kind, name_key, pin_hash FROM profiles;`. Every row should show `adult`, the name in lower case under
+   `name_key`, and an empty `pin_hash`.
+4. Merge the pull request, wait for the deploy, then open the live site: the sign in goes to the "who is playing" screen only when the
+   account has more than one profile; add a second profile in Settings, Players, and switch to it.
+5. If the console shows `duplicate column name` the migration already ran: do not run it again, go to step 3. If it stops partway with any other error,
+   stop and tell me the exact text; do not run the pieces by hand. Never run `wrangler d1 migrations apply --remote` afterwards: Wrangler's
+   tracking does not know about a Console paste.
+
+To clear a forgotten PIN (from slice 2 on; nothing writes `pin_hash` yet): Console, `SELECT id, name, kind FROM profiles;` to find the id,
+then `UPDATE profiles SET pin_hash = NULL WHERE id = <id>;`.
 
 ## 10. Review log (2026-11-22)
 
@@ -329,3 +342,29 @@ open (`AccountSection.tsx`). What changed in version 3:
   the owner (section 8, question 6).
 - Finding 11 (size): kept the kind choice at creation (it cannot change later in this slice and slice 2 needs it); the header button
   stays an owner question; nothing else cut.
+
+Slice 1 review (2026-11-22, a cheap-model reviewer on the built diff, 14 findings; it ran nothing). I checked each against the code and the
+browser run before acting. Fixed, each with a test that failed before the fix:
+- `loadSave` marked a key as unreadable on one failed read and never cleared it, so a failed read for a picker picture could stop that
+  profile's game from saving for the rest of the page (`tests/local-storage.test.ts`, with a small IndexedDB stand-in).
+- `Roster.account` kept the previous account's list and open profile when another account signed in on the same page; `add` and `rename`
+  with no list would have stored a one item list as the whole list. Both fixed, with tests.
+- The picker could start two games on one key from a double tap (guard in `main.tsx`; the browser run counts the seed draws of a single
+  and a double tap and needs them equal).
+- Settings did not say why there was no chip and no picker when `sessionStorage` is blocked, and a list fetch that answered with an
+  error was silent when a list was stored. Both fixed as the plan says.
+- The two "exactly one wins" tests could not fail on a count-then-insert regression: the D1 stand-in finishes one request before the next
+  starts. `slowReads` (tests/cloud-helpers.ts) makes each read answer late; the mutant now fails on its own assertion. PATCH now has the
+  same bad-name table as POST, and a test title that claimed more than it checked was split.
+Changed in the plan, not the code: the picker order, the space rule and the shape of `GET /api/profiles` above (the code was right and
+the plan said otherwise or less). Not fixed, written in known-issues.md: reloads do not wait for the "changed" mark's write, and the
+shell (`main.tsx`) has no unit test; the browser run covers it.
+
+Second review, of the fixes (8 findings, all checked). Fixed with tests that failed first: the answer to an add or a rename was applied to
+whatever list was current when it arrived (another account's list, a list that already had the new player, no list); the number rule
+let in superscripts, fractions and numerals (`\p{N}`) where the plan says digits (now `\p{Nd}`); a test title said a list is hidden on
+sign out but did not check it. Fixed in the docs: three lines of sections 4 and 5 named the wrong file, function or place for an id. Moved:
+the same-name race test now sits with the names. Not done: a width check for the rename label in the repo (the browser run measures it,
+and its script is not in the repo). Equivalent mutant noted: the "no list" half of the stale-answer guard cannot be told apart from the
+"someone else signed in" half, because changing account always drops the list.
+

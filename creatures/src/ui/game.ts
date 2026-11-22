@@ -39,7 +39,11 @@ export class Game {
   private saveTimer: number | undefined;
   private playerChanged = false; // something the player did since the last save (not just the clock moving on)
 
-  constructor(save: Save) {
+  // saveKey: where this game is kept on the device ("save" is the first profile's, see sync/roster.ts).
+  constructor(
+    save: Save,
+    private readonly saveKey = "save",
+  ) {
     this.save = save;
     this.view.shown = shownOf(save); // so a hatch or evolution that happens during the catch-up still plays
     this.tick(); // catch up on any time the app was closed
@@ -156,11 +160,13 @@ export class Game {
     this.saveTimer = window.setTimeout(() => this.saveNow(), 600);
   }
 
-  saveNow(): void {
+  // Answers when the game is on the device, for a caller that is about to reload the page (the others do not wait).
+  saveNow(): Promise<void> {
     window.clearTimeout(this.saveTimer);
-    void writeSave(this.save);
+    const written = writeSave(this.save, this.saveKey);
     const byPlayer = this.playerChanged;
     this.playerChanged = false;
     this.onSave?.(byPlayer);
+    return written;
   }
 }

@@ -11,7 +11,7 @@ const MIGRATIONS_DIR = new URL("../migrations/", import.meta.url);
 const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
   .filter((name) => /^\d{4}_.*\.sql$/.test(name))
   .sort()
-  .map((name) => readFileSync(new URL(name, MIGRATIONS_DIR), "utf8"));
+  .map((name) => ({ number: Number(name.slice(0, 4)), sql: readFileSync(new URL(name, MIGRATIONS_DIR), "utf8") }));
 
 class Statement implements D1PreparedStatement {
   constructor(
@@ -49,10 +49,11 @@ export interface TestDb {
   raw: DatabaseSync; // for looking inside the tables, and for setting up a state directly
 }
 
-export function newTestDb(overrides: Partial<Env> = {}): TestDb {
+// upTo: stop after this migration number (to set up the database as it was before a later migration, then run that one by hand).
+export function newTestDb(overrides: Partial<Env> = {}, upTo = Infinity): TestDb {
   const raw = new DatabaseSync(":memory:");
   raw.exec("PRAGMA foreign_keys = ON"); // D1 enforces foreign keys, so the stand-in does too
-  for (const migration of MIGRATIONS) raw.exec(migration);
+  for (const migration of MIGRATIONS) if (migration.number <= upTo) raw.exec(migration.sql);
   const DB: D1Database = {
     prepare: (sql) => new Statement(raw, sql),
     // A batch is all or nothing, like D1's.
@@ -70,6 +71,32 @@ export function newTestDb(overrides: Partial<Env> = {}): TestDb {
   };
   return { env: { DB, SIGNUP_CODE: "family-code", ...overrides }, raw };
 }
+
+// The same database with every read answering a moment late, as D1 over the network does: the read happens, and the answer takes a while
+// to come back. The stand-in answers at once, and then one request runs to its end before the next has even read its body, so two requests
+// that "arrive together" never overlap. With a late answer they do: the other request can read the same rows before this one writes, which
+// is what a test of a race needs.
+export function slowReads(db: D1Database, ms = 3): D1Database {
+  const wait = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  const slow = (statement: D1PreparedStatement): D1PreparedStatement =>
+    Object.assign(Object.create(statement) as D1PreparedStatement, {
+      bind: (...values: unknown[]) => slow(statement.bind(...values)),
+      first: async <T>() => {
+        const row = await statement.first<T>();
+        await wait();
+        return row;
+      },
+      all: async <T>() => {
+        const rows = await statement.all<T>();
+        await wait();
+        return rows;
+      },
+    });
+  return { prepare: (sql) => slow(db.prepare(sql)), batch: (statements) => db.batch(statements) };
+}
+
+// The SQL text of one migration, to run it by hand on a database made with newTestDb({}, number - 1).
+export const migrationSql = (number: number): string => MIGRATIONS.find((migration) => migration.number === number)!.sql;
 
 export const SITE = "https://broodkeep.test";
 export const key = (char: string): string => char.repeat(43); // a well formed key: 43 base64url characters
