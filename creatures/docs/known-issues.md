@@ -258,3 +258,36 @@
   are never side by side. 8 x 8 placeholders, like the rest.
 - **The Sky picture looks muted while a creature sleeps.** The "lights off" overlay (40 percent dark blue) is the same for every place.
 - **The JavaScript is 436.7 KB (77.9 KB gzipped)** with all three fields (64 forms), up from 319 KB. See plan section 7.
+
+## Cloud saves (accepted for now)
+
+- **No password reset.** Emails are only login names and nothing is sent. A forgotten password means the owner resets the account by
+  hand in the D1 console (delete the account row, or replace `password_hash` with a hash made from a new key).
+- **Password strength is only checked in the browser** (8 to 128 characters). The server sees a 43 character key, never the password,
+  so it cannot tell a weak password from a strong one. Anyone can also send the server a key made some other way.
+- **Signing in stretches the password 600,000 times in the browser.** That took about 64 ms in headless Chromium on this machine; on a
+  phone it is not measured (expect a fraction of a second to a second or two on an old one). The button says "One moment...".
+- **The free plan's 10 ms CPU limit is not tested live.** Per request the server only does a SHA-256, a few SQL statements and JSON
+  work; the local `wrangler pages dev` run does not enforce the limit. Check the first days of real use in the Cloudflare dashboard.
+- **The rate limit checks and records in two steps**, so a burst of requests sent at the same moment can get past the limit (a few
+  dozen at once instead of 5). Each guess also costs the guesser 600,000 rounds of PBKDF2, so it was left. An atomic "reserve a
+  slot first" version is a scope suggestion.
+- **Restoring a backup is by hand.** The account keeps the 10 newest older saves (`save_backups`), but nothing in the game lists or
+  restores them. The `revision` of a backup that lost a conflict is the revision that device last synced, not the save's own.
+- **The server cannot check that a save is a valid game**, only that it is JSON with `version: 3` under 256,000 bytes. The game
+  checks it again when it takes one in; one it cannot read is not taken (a message says so) and the device keeps its own.
+- **Changes made while a send is on its way can be lost.** If the answer is "kept-server" (another device's game was newer), this
+  device takes that game, and anything the player did in those few hundred milliseconds goes with the old one. The game that was sent
+  is in the account's backups.
+- **A "which game do you keep?" question is only shown in Settings.** If the page is reopened before answering, the question comes
+  back there, and nothing is sent until it is answered. There is no marker on the gear button.
+- **A device whose clock is more than a day ahead cannot send saves** (the server refuses a `savedAt` that far ahead, so a wrong
+  clock cannot make its saves win for ever). The player sees "That request was not understood."
+- **Signing out while offline ends the session only on this device.** The session at the server (and its cookie, which the game
+  cannot see because it is HttpOnly) stays valid for up to 90 days. The message says so.
+- **An unsent change from one account is sent to the next account that signs in on the same device** if that account has no
+  game yet (the game belongs to the device; signing out first tries to send it to the first account).
+- **An untouched egg whose sleep hours were changed** still counts as untouched, so signing in replaces it with the account's game
+  (the account's game has its own sleep hours).
+- **No end to end test in CI.** The browser run (three devices, real Chromium, `wrangler pages dev`, local D1) is a script kept
+  outside the repository; the unit tests use a `node:sqlite` stand in for D1 (see decisions.md).

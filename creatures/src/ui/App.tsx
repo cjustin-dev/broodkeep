@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { eggSprite } from "../art/sprites";
 import { getForm } from "../data/forms";
 import { startNewEgg } from "../game/actions";
+import type { CloudSync } from "../sync/sync";
 import { ActionBar } from "./ActionBar";
 import { ArenaBar } from "./ArenaBar";
 import { DevPanel } from "./DevPanel";
@@ -37,7 +38,7 @@ function DeathCard({ game }: { game: Game }) {
   );
 }
 
-export function App({ game }: { game: Game }) {
+export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
   useGame(game);
   const [panel, setPanel] = useState<"settings" | "dev" | null>(null);
 
@@ -79,7 +80,7 @@ export function App({ game }: { game: Game }) {
         )}
       </div>
       <HaulCard game={game} />
-      {panel === "settings" && <SettingsPanel game={game} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
+      {panel === "settings" && <SettingsPanel game={game} cloud={cloud} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
     </main>
   );

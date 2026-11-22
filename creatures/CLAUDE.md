@@ -55,7 +55,7 @@ Why a subfolder with its own project still makes sense:
 
 **Why D1 over the other Cloudflare options:** accounts, profiles, sessions, saves and history are related records, which is what a SQL database is for. KV is "eventually consistent" (a save on your phone might not show up on the computer for up to a minute, and logins get flaky), and Durable Objects are built for real-time multiplayer, which this doesn't need. D1's free tier is far more than a family will ever use.
 
-**Security:** passwords hashed with PBKDF2 (salted, built into Cloudflare's runtime), sessions as random tokens in an HttpOnly, Secure cookie, and only a hash of the token stored in the database. Adult PINs hashed the same way.
+**Security:** passwords are stretched with PBKDF2 in the browser and only a salted hash of the result is stored (the free plan gives a server 10 ms of CPU, too little for a safe amount of PBKDF2; see [docs/cloud-saves.md](docs/cloud-saves.md)), sessions as random tokens in an HttpOnly, Secure cookie, and only a hash of the token stored in the database. Adult PINs are handled the same way.
 
 ## 4. Folder layout
 

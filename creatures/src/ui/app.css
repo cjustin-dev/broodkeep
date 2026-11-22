@@ -513,7 +513,10 @@ label {
   gap: 12px;
 }
 
-select {
+select,
+input[type="email"],
+input[type="password"],
+input[type="text"] {
   min-height: 44px;
   padding: 8px 12px;
   font: inherit;
@@ -521,6 +524,30 @@ select {
   background: var(--bg-lift);
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+
+/* A text field with its words above it, filling the width (the account form). */
+label.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+label.stack input {
+  min-width: 0;
+}
+
+/* The account form: its parts one under another, with the same gap as the other settings groups. */
+fieldset form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+fieldset form label.stack,
+fieldset form .notice {
+  align-self: stretch;
 }
 
 input[type="range"] {

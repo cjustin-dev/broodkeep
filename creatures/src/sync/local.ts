@@ -76,3 +76,21 @@ export async function writeSave(save: Save): Promise<void> {
     storage.persistent = false;
   }
 }
+
+// What this device knows about the cloud account (sync/sync.ts): who is signed in and which revision it last synced. Read back
+// as it is; the caller checks its shape.
+export async function loadCloudMeta(): Promise<unknown> {
+  try {
+    return (await get("cloud")) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeCloudMeta(meta: unknown): Promise<void> {
+  try {
+    await put("cloud", meta);
+  } catch {
+    // The account details are only a convenience: without them this device asks again on the next start.
+  }
+}

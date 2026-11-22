@@ -489,3 +489,30 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   the lock check removed, the lock helper not restoring the plan, two Sky adults swapped, a Sky face anchor moved, the Sky picture
   dropped, a Sky food number zeroed, a bogus field picture added, and the sad-beak fix undone. Each file was restored and compared with
   its saved copy.
+
+## Cloud saves (2026-11-21, branch `cloud-saves`; the plan and edge cases are in [cloud-saves.md](cloud-saves.md))
+
+- **The password is stretched in the browser** (PBKDF2-SHA256, 600,000 rounds, salt `broodkeep-v1:` plus the lower case email) and the
+  server stores only a salted SHA-256 of the 32 byte result. Measured in `workerd`: 100,000 rounds took 19 ms and 600,000 took 68 ms
+  against the free plan's 10 ms CPU limit, and the plan says no paid plans. CLAUDE.md section 3 says "PBKDF2 on the server": its edit
+  is proposed, not applied.
+- **Sign up needs a family code** (`SIGNUP_CODE`, a dashboard secret; closed when unset). Email is a login name only.
+- **Sessions** are a random token in an HttpOnly `__Host-` cookie, 90 days, stored as a SHA-256. **CSRF**: every write needs the
+  site's own `Origin` and `application/json`.
+- **Which save wins:** the same base revision is accepted; otherwise the strictly newer `savedAt` wins, ties keep the server's, and
+  the loser is stored in `save_backups` (every conflict, plus at most one routine backup per 30 minutes, newest 10 kept).
+- **Only the player's actions count as changes.** The first review found that a device left open and idle saves every game minute
+  and would win every conflict, undoing what was done on the device in use. `Game.changed(byPlayer)` is false for the clock and for a
+  game put in from the account, and only a player's change marks the game as changed for the sync.
+- **No local "aside" copy.** The first version kept the game a player replaced in one IndexedDB slot (overwritten by the next
+  replacement, errors swallowed). The review showed the on-screen "kept as a backup" was not true for it. Now the game that is not
+  kept is stored in the account's backups through the same save route (base revision 0, dated 0 or after the account's game).
+- **A new egg started because the saved game could not be loaded counts as a device that never synced** (`metaForNewGame`), so its
+  first tap cannot send the egg over the account's game.
+- **Tests run on `node:sqlite`.** The `miniflare` in the installed wrangler (5.x beta) has an unstable options format, so a small
+  adapter gives `node:sqlite` the D1 methods the code uses, with the real migration file; the real D1 runtime is exercised by an end to end
+  run with `wrangler pages dev` and a local D1 (a script outside the repository).
+- **Save size is counted in bytes** (256,000), the same unit as the request body cap, after a review found the two disagreed on
+  non-ASCII text.
+- **Left as they are (review):** the rate limit race (known-issues), the server not validating a save beyond `version: 3`, sleep hours
+  not counting as "touched" for an egg, the routine backup revision label.

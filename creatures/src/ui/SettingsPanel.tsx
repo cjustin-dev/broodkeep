@@ -2,6 +2,8 @@
 // (Phase 5 will put a PIN in front of it, once profiles exist.)
 import { useEffect, useRef } from "preact/hooks";
 import { storage } from "../sync/local";
+import type { CloudSync } from "../sync/sync";
+import { AccountSection } from "./AccountSection";
 import type { Game } from "./game";
 
 const hours = Array.from({ length: 24 }, (_, h) => h);
@@ -11,11 +13,12 @@ export const VERSION = "0.4 (Phase 3b)";
 
 interface Props {
   game: Game;
+  cloud: CloudSync;
   onClose: () => void;
   onDev: () => void;
 }
 
-export function SettingsPanel({ game, onClose, onDev }: Props) {
+export function SettingsPanel({ game, cloud, onClose, onDev }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const versionTaps = useRef(0);
   useEffect(() => closeRef.current?.focus(), []);
@@ -68,6 +71,8 @@ export function SettingsPanel({ game, onClose, onDev }: Props) {
             during sleep.
           </p>
         </fieldset>
+
+        <AccountSection cloud={cloud} />
 
         {!storage.persistent && (
           <p class="notice" role="alert">

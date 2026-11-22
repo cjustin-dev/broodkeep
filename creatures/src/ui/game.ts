@@ -33,9 +33,11 @@ export class Game {
   arena: Arena | null = null; // the fight on the arena screen (not saved: closing the app in a fight forgets it)
   view: View = createView(); // looks only (position, pose), never saved
   devSpeed = 1; // dev mode time multiplier
+  onSave: ((byPlayer: boolean) => void) | null = null; // told each time the game is saved on this device (the cloud sync listens, sync/sync.ts)
   private lastReal = Date.now();
   private listeners = new Set<() => void>();
   private saveTimer: number | undefined;
+  private playerChanged = false; // something the player did since the last save (not just the clock moving on)
 
   constructor(save: Save) {
     this.save = save;
@@ -113,8 +115,9 @@ export class Game {
     return () => this.listeners.delete(listener);
   }
 
-  // Tell the screens something changed, and save soon.
-  changed(): void {
+  // Tell the screens something changed, and save soon. byPlayer is false for the clock moving on and for a game put in from the account.
+  changed(byPlayer = true): void {
+    if (byPlayer) this.playerChanged = true;
     if (this.screen !== "room" && this.save.phase !== "alive") this.screen = "room"; // an egg or a death goes back to the room, and stays there when the next creature hatches
     const c = this.save.creature;
     if (this.arena && (this.save.phase !== "alive" || c?.formId !== this.arena.battle.me.formId)) this.arena = null; // the creature is gone or has evolved: that fight is over
@@ -127,7 +130,7 @@ export class Game {
     const real = Date.now();
     advanceClock(this.save, real - this.lastReal, this.devSpeed);
     this.lastReal = real;
-    if (simulateTo(this.save, gameNow(this.save, real)) > 0) this.changed();
+    if (simulateTo(this.save, gameNow(this.save, real)) > 0) this.changed(false);
   }
 
   // Run something the player did, then refresh the screens.
@@ -145,7 +148,7 @@ export class Game {
     this.view.shown = shownOf(save);
     this.lastReal = Date.now();
     this.devSpeed = 1;
-    this.changed();
+    this.changed(false);
   }
 
   private scheduleSave(): void {
@@ -156,5 +159,8 @@ export class Game {
   saveNow(): void {
     window.clearTimeout(this.saveTimer);
     void writeSave(this.save);
+    const byPlayer = this.playerChanged;
+    this.playerChanged = false;
+    this.onSave?.(byPlayer);
   }
 }
