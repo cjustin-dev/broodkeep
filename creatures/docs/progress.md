@@ -402,10 +402,10 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    if the bundle starts to matter. (Scorchlet's beak: closed, left as it is.)
    **Closed 2026-11-21 (owner: "leave it as it is"):** a creature that starts a habitat job from a field comes back to that same
    field when the job ends (nothing sends it home), while bedtime and naps do send it home. Do not ask again.
-2. **Creature Book (the owner chose it as the next item, 2026-11-21; built on local branch `creature-book`, off `main` 91a529f; waiting for the
-   owner's "commit and push", then they open the pull request).** A panel that lists all 64 creatures as silhouettes that fill in the first
+2. **Creature Book (the owner chose it as the next item, 2026-11-21; built on branch `creature-book`, off `main` 91a529f; committed (870d49b) and
+   pushed to `origin/creature-book` on the owner's "commit and push", 2026-11-21; the owner opens and merges the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/creature-book).** A panel that lists all 64 creatures as silhouettes that fill in the first
    time a creature of that form is raised (CLAUDE.md section 7.8). Per save for now (family-wide waits for accounts). Not part of this: the
-   legacy shelf, soften mode wording. The branch's first commit will also carry the notes edits made for the Sky merge.
+   legacy shelf, soften mode wording. That commit also carries the notes edits made for the Sky merge.
    **Answered 2026-11-21 (owner, via a question; all closed, do not re-ask): the "no care for 4 hours" special form.** "No care" = 4 hours
    awake with no feed, clean or play (sleeping hours do not count). It can happen to a baby or a kid, and it wins over the 6 hour baby safety
    net. The special is one creature (a 65th form, one new drawing set) that grows no further. Its name and look are my choice. **Built 2026-11-21 on this branch (Dustpuff): see the State section.**
