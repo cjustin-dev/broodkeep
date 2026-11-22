@@ -391,7 +391,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    took 19 ms at 100,000 iterations in the Workers runtime and the free plan gives 10 ms of CPU; this differs from CLAUDE.md section 3 ("PBKDF2
    in Cloudflare's runtime"), so that line needs an owner approved edit (proposed: "passwords are stretched with PBKDF2 in the browser and
    only a salted hash of the result is stored"). Sign up needs a family code (`SIGNUP_CODE`, fails closed).
-   **Status (2026-11-21): built and checked, nothing committed yet (I wait for the owner's "commit and push"), D1 not created.** Server:
+   **Status (2026-11-21): built, checked, committed (d32939e) and pushed to `origin/cloud-saves` on the owner's "commit and push"; the owner opens and merges the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/cloud-saves). D1 not created.** Server:
    `functions/api/{register,login,logout,me,save}.ts` over `functions/_lib/*` and `migrations/0001_init.sql`. Browser: `src/sync/cloud.ts`
    (HTTP), `sync.ts` (when to send, take or ask), an Account section in Settings (`src/ui/AccountSection.tsx`), `Game.onSave(byPlayer)`.
    `npm run typecheck` and `npm run build` exit 0; 1216 tests in 22 files pass (1085 before, 131 new; five runs, no flake). A cheap-model
@@ -402,5 +402,7 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    script drives three browsers (real Chromium) against `wrangler pages dev` with a local D1 (13 checks pass: sign up pushes, an untouched
    egg takes the account's game, a game in progress asks, keep-this-device makes a backup, an idle device takes the newer game, sign out,
    wrong password). Not done: the real Cloudflare D1 (the owner's steps, cloud-saves.md section 6), the free plan CPU limit live, a
-   phone's time for 600,000 PBKDF2 rounds. **Waiting on the owner:** "commit and push", then the Cloudflare steps; approval of the CLAUDE.md
-   section 3 edit. The Creature Book branch (`creature-book`, uncommitted) also edits this file, so one of the two will need a small merge.
+   phone's time for 600,000 PBKDF2 rounds. **The owner approved the CLAUDE.md section 3 edit** ("apply your suggestions", 2026-11-21; applied in
+   the commit: passwords are stretched in the browser). **Waiting on the owner:** open the pull request, then the Cloudflare steps
+   (cloud-saves.md section 6: create D1 and give me its id, run the migration, set `SIGNUP_CODE`, merge). The Creature Book branch
+   (`creature-book`, pushed too) also edits this file, so one of the two will need a small merge.
