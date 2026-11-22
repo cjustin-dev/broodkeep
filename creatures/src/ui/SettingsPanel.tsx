@@ -3,8 +3,10 @@
 import { useEffect, useRef } from "preact/hooks";
 import { storage } from "../sync/local";
 import type { CloudSync } from "../sync/sync";
+import type { Roster } from "../sync/roster";
 import { AccountSection } from "./AccountSection";
 import type { Game } from "./game";
+import { PlayersSection, useRoster } from "./PlayersSection";
 
 const hours = Array.from({ length: 24 }, (_, h) => h);
 const hourLabel = (h: number): string => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;
@@ -15,11 +17,13 @@ interface Props {
   game: Game;
   cloud: CloudSync;
   update: (() => void) | null; // set when a new version of the game is ready (src/ui/App.tsx)
+  roster: Roster;
   onClose: () => void;
   onDev: () => void;
 }
 
-export function SettingsPanel({ game, cloud, update, onClose, onDev }: Props) {
+export function SettingsPanel({ game, cloud, update, roster, onClose, onDev }: Props) {
+  useRoster(roster);
   const closeRef = useRef<HTMLButtonElement>(null);
   const versionTaps = useRef(0);
   useEffect(() => closeRef.current?.focus(), []);
@@ -73,7 +77,9 @@ export function SettingsPanel({ game, cloud, update, onClose, onDev }: Props) {
           </p>
         </fieldset>
 
-        <AccountSection cloud={cloud} />
+        <AccountSection cloud={cloud} signOutFrom={roster.signedIn && !roster.openIsFirst ? (roster.list?.[0]?.name ?? "the first player") : null} />
+
+        <PlayersSection roster={roster} />
 
         {update && (
           <div class="notice" role="status">

@@ -39,7 +39,7 @@ describe("the save hook", () => {
     void game.saveNow().then(() => (answered = true));
     await vi.advanceTimersByTimeAsync(0);
     expect(answered).toBe(false); // the write has not finished
-    expect(writeSave).toHaveBeenLastCalledWith(game.save);
+    expect(writeSave).toHaveBeenLastCalledWith(game.save, "save"); // the first profile's device key
     finish();
     await vi.advanceTimersByTimeAsync(0);
     expect(answered).toBe(true);

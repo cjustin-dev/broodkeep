@@ -1,7 +1,9 @@
 // Every database question the server asks, one named helper each. A query is a fixed piece of text with ? marks, and the values go in
 // through bind(), so nothing a player sends is ever joined into the SQL. Routes never write SQL themselves.
+import { MAX_PROFILES, nameKey } from "../../src/sync/profiles";
+import type { ProfileKind } from "../../src/sync/profiles";
 import { HttpError } from "./response";
-import type { Env } from "./types";
+import type { D1PreparedStatement, Env } from "./types";
 
 export interface AccountRow {
   id: number;
@@ -27,7 +29,7 @@ export async function createAccount(env: Env, username: string, passwordHash: st
   try {
     await env.DB.batch([
       env.DB.prepare("INSERT INTO accounts (username, password_hash, created_at) VALUES (?, ?, ?)").bind(username, passwordHash, now),
-      env.DB.prepare("INSERT INTO profiles (account_id, name, created_at) VALUES (last_insert_rowid(), 'Player', ?)").bind(now),
+      env.DB.prepare("INSERT INTO profiles (account_id, name, name_key, created_at) VALUES (last_insert_rowid(), 'Player', 'player', ?)").bind(now),
     ]);
   } catch (error) {
     if (isUniqueViolation(error)) throw new HttpError(409, "That username is already taken.");
@@ -42,6 +44,74 @@ export async function firstProfileId(env: Env, accountId: number): Promise<numbe
   const row = await env.DB.prepare("SELECT id FROM profiles WHERE account_id = ? ORDER BY id LIMIT 1").bind(accountId).first<{ id: number }>();
   if (!row) throw new Error("the account has no profile");
   return row.id;
+}
+
+// ---- profiles (docs/profiles-plan.md) ----
+
+export interface ProfileRow {
+  id: number;
+  name: string;
+  kind: ProfileKind;
+}
+
+export const listProfiles = async (env: Env, accountId: number): Promise<ProfileRow[]> =>
+  (await env.DB.prepare("SELECT id, name, kind FROM profiles WHERE account_id = ? ORDER BY id").bind(accountId).all<ProfileRow>()).results;
+
+// The profile with this id, only if it belongs to this account: one that is another account's answers the same as one that is missing.
+export async function findProfile(env: Env, accountId: number, id: number): Promise<ProfileRow> {
+  const row = await env.DB.prepare("SELECT id, name, kind FROM profiles WHERE id = ? AND account_id = ?").bind(id, accountId).first<ProfileRow>();
+  if (!row) throw new HttpError(404, "That player was not found.");
+  return row;
+}
+
+// The profile a save request is about: the one it names, or the account's first when it names none (an old page does not).
+export async function profileForSave(env: Env, accountId: number, requested: number | null): Promise<number> {
+  return requested === null ? firstProfileId(env, accountId) : (await findProfile(env, accountId, requested)).id;
+}
+
+// A profile made before the name keys existed (an account signed up in the gap between running the migration and the new code going
+// live) has an empty key. This fills it in. Always run together with the statement that needs the keys to be right.
+const fillNameKeys = (env: Env, accountId: number): D1PreparedStatement =>
+  env.DB.prepare("UPDATE profiles SET name_key = lower(name) WHERE account_id = ? AND name_key = ''").bind(accountId);
+
+// One statement does the counting and the inserting, so two devices adding at the same moment cannot both make the last place. A name
+// that is already taken answers 409, and so does a full account.
+export async function createProfile(env: Env, accountId: number, name: string, kind: ProfileKind, now: number): Promise<ProfileRow> {
+  const key = nameKey(name);
+  let results;
+  try {
+    results = await env.DB.batch([
+      fillNameKeys(env, accountId),
+      env.DB.prepare(
+        "INSERT INTO profiles (account_id, name, name_key, kind, created_at) SELECT ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM profiles WHERE account_id = ?) < ?",
+      ).bind(accountId, name, key, kind, now, accountId, MAX_PROFILES),
+    ]);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new HttpError(409, "You already have a player with that name.");
+    throw error;
+  }
+  const changes = results[1]?.meta.changes;
+  if (changes === undefined) throw new Error("the database did not say how many profiles were added"); // never read as "full"
+  if (changes === 0) throw new HttpError(409, `An account can have up to ${MAX_PROFILES} players.`);
+  const row = await env.DB.prepare("SELECT id, name, kind FROM profiles WHERE account_id = ? AND name_key = ?").bind(accountId, key).first<ProfileRow>();
+  if (!row) throw new Error("the new profile was not found");
+  return row;
+}
+
+export async function renameProfile(env: Env, accountId: number, id: number, name: string): Promise<ProfileRow> {
+  let results;
+  try {
+    results = await env.DB.batch([
+      fillNameKeys(env, accountId),
+      env.DB.prepare("UPDATE profiles SET name = ?, name_key = ? WHERE id = ? AND account_id = ?").bind(name, nameKey(name), id, accountId),
+    ]);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new HttpError(409, "You already have a player with that name.");
+    throw error;
+  }
+  const changes = results[1]?.meta.changes;
+  if (changes === undefined) throw new Error("the database did not say how many profiles were renamed");
+  return findProfile(env, accountId, id); // (answers 404 when nothing was renamed: the profile is missing or another account's)
 }
 
 // ---- sessions ----

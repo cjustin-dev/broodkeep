@@ -46,8 +46,12 @@ account, so those can be added without moving data.
 - **Only the player's actions count as changes** (`Game.changed(byPlayer)`). A save that only carries the clock forward does not
   make the game "changed" or newer. The game moves on by itself in the same way on every device, so a device left open and idle must
   not win over the device in use. An idle device takes the account's game when it looks again.
-- **Sync timing:** 30 seconds after the first unsent change by the player (later saves do not push it back), when the page is
-  hidden, and after sign in. Offline or failing syncs just try again later (1 minute; 5 minutes after "too many tries"); nothing
+- **Signed out play counts too** (once the device has met an account): it is marked as changed and dated like a change made while
+  signed in, but nothing is sent and no timer runs; the next sign in sends it, and the rule above decides which game is kept (the
+  older goes to the backups). The rule is "the newest touch wins": a tap that changes nothing (petting a sleeping creature) still
+  counts as a touch, signed in or out (known-issues.md).
+- **Sync timing:** while signed in, 30 seconds after the first unsent change by the player (later saves do not push it back), when
+  the page is hidden, and after sign in. Offline or failing syncs just try again later (1 minute; 5 minutes after "too many tries"); nothing
   is lost because the local save is always written first.
 - **Tests run on node:sqlite.** `miniflare` in the installed wrangler (5.x beta) has an unstable options format, so the tests use a
   small adapter that gives `node:sqlite` the D1 methods the code uses. The real D1 runtime is exercised by an end to end run with
@@ -90,7 +94,7 @@ gives a generic 500.
 
 Client: a never synced device with an untouched egg adopts the server save; with a game in progress it asks; with no server save it
 pushes; a synced and unchanged device does nothing; a synced and changed one pushes; "kept-server" replaces the local game; offline
-changes nothing and retries; signed out never calls the server; a clock-only save sends nothing and an idle device never beats the
+changes nothing and retries; signed out never calls the server, but play done signed out is marked as changed (not sent) and is sent at the next sign in, where the newest save wins and the older goes to the backups (2026-11-22; before, the account's newer game replaced it with no backup); a clock-only save sends nothing and an idle device never beats the
 device in use; the question is not dropped when the answer fails, is asked again when the account changed meanwhile and after a
 restart; a new egg started after a failed load does not overwrite; signing out with unsent changes that cannot be sent still signs
 out and keeps the game.

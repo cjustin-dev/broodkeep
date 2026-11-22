@@ -4,6 +4,7 @@ import { useRegisterSW } from "virtual:pwa-register/preact";
 import { eggSprite } from "../art/sprites";
 import { getForm } from "../data/forms";
 import { startNewEgg } from "../game/actions";
+import type { Roster } from "../sync/roster";
 import type { CloudSync } from "../sync/sync";
 import { ActionBar } from "./ActionBar";
 import { ArenaBar } from "./ArenaBar";
@@ -14,6 +15,7 @@ import { HaulCard } from "./HaulCard";
 import { BookPanel } from "./BookPanel";
 import { Icon, Pic } from "./Icon";
 import { Nav } from "./Nav";
+import { WhoChip } from "./PlayersSection";
 import { SettingsPanel } from "./SettingsPanel";
 import { Stage } from "./Stage";
 import { StatBars } from "./StatBars";
@@ -43,7 +45,7 @@ function DeathCard({ game }: { game: Game }) {
   );
 }
 
-export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
+export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: CloudSync; roster: Roster; onSwitch: () => void }) {
   useGame(game);
   const [panel, setPanel] = useState<"settings" | "dev" | "book" | null>(null);
 
@@ -81,7 +83,7 @@ export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
     const timer = window.setInterval(() => game.tick(), 1000);
     const onVisibility = (): void => {
       if (document.visibilityState === "visible") game.tick();
-      else game.saveNow();
+      else void game.saveNow();
     };
     const onHide = (): void => void game.saveNow();
     document.addEventListener("visibilitychange", onVisibility);
@@ -105,6 +107,7 @@ export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
           <Icon name="settings" px={28} />
         </button>
       </header>
+      <WhoChip roster={roster} onSwitch={onSwitch} />
       <Stage game={game} />
       <div class="dock">
         {save.phase === "dead" ? (
@@ -117,7 +120,7 @@ export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
         )}
       </div>
       <HaulCard game={game} />
-      {panel === "settings" && <SettingsPanel game={game} cloud={cloud} update={update} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
+      {panel === "settings" && <SettingsPanel game={game} cloud={cloud} update={update} roster={roster} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "book" && <BookPanel game={game} onClose={() => setPanel(null)} />}
     </main>

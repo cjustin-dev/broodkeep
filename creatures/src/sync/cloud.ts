@@ -1,5 +1,7 @@
 // Talking to the server (functions/api). Every call answers with a value or a short message for the player, never a thrown error.
 import { deriveKey, normalizeUsername } from "./account-rules";
+import { parseProfile, parseProfileList } from "./profiles";
+import type { Profile, ProfileKind } from "./profiles";
 
 export interface CloudError {
   kind: "offline" | "signed-out" | "wait" | "again" | "refused";
@@ -29,7 +31,7 @@ const isPutReply = (data: unknown): data is PutReply =>
 
 const fail = (kind: CloudError["kind"], message: string): { ok: false; error: CloudError } => ({ ok: false, error: { kind, message } });
 
-async function ask<T>(method: "GET" | "POST" | "PUT", path: string, check: (data: unknown) => data is T, body?: unknown): Promise<Reply<T>> {
+async function ask<T>(method: "GET" | "POST" | "PUT" | "PATCH", path: string, check: (data: unknown) => data is T, body?: unknown): Promise<Reply<T>> {
   const text = body === undefined ? undefined : JSON.stringify(body);
   let response: Response;
   try {
@@ -83,6 +85,23 @@ export async function signUp(username: string, password: string, code: string): 
 
 export const signOut = (): Promise<Reply<unknown>> => ask("POST", "/api/logout", (data): data is unknown => true, {});
 
-export const fetchSave = (): Promise<Reply<ServerSave>> => ask("GET", "/api/save", isServerSave);
+// The save of one profile of the account; no profile (null) means the account's first, which is what a page from before profiles asks.
+const saveUrl = (profile: number | null): string => (profile === null ? "/api/save" : `/api/save?profile=${profile}`);
 
-export const sendSave = (put: SavePut): Promise<Reply<PutReply>> => ask("PUT", "/api/save", isPutReply, put);
+export const fetchSave = (profile: number | null = null): Promise<Reply<ServerSave>> => ask("GET", saveUrl(profile), isServerSave);
+
+export const sendSave = (put: SavePut, profile: number | null = null): Promise<Reply<PutReply>> => ask("PUT", saveUrl(profile), isPutReply, put);
+
+// ---- profiles (docs/profiles-plan.md) ----
+
+const isProfile = (data: unknown): data is Profile => parseProfile(data) !== null;
+const isProfileList = (data: unknown): data is { profiles: Profile[] } => isObject(data) && parseProfileList(data.profiles) !== null;
+
+export async function fetchProfiles(): Promise<Reply<Profile[]>> {
+  const reply = await ask("GET", "/api/profiles", isProfileList);
+  return reply.ok ? { ok: true, value: reply.value.profiles } : reply;
+}
+
+export const addProfile = (name: string, kind: ProfileKind): Promise<Reply<Profile>> => ask("POST", "/api/profiles", isProfile, { name, kind });
+
+export const renameProfile = (id: number, name: string): Promise<Reply<Profile>> => ask("PATCH", "/api/profiles", isProfile, { id, name });

@@ -821,3 +821,99 @@ output {
   line-height: 1.2;
   color: var(--ink-soft);
 }
+
+/* ---------- players (profiles) ---------- */
+
+/* The "who is playing" chip under the header, shown only when the account has another player to switch to. */
+.who {
+  align-self: flex-start;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+.who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.who-switch {
+  flex: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.players {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.player-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+.player-kind {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+.player-edit,
+.player-add {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* "New name for" and a name of 20 wide letters: with no place to break it makes the box around it wider than a 320px screen. */
+.player-edit label {
+  overflow-wrap: anywhere;
+}
+
+/* "Who is playing?" at the start of a session. */
+.picker {
+  justify-content: center;
+}
+.picker-title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.5rem;
+}
+.picker-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.who-tile {
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 8px;
+  gap: 8px;
+  align-content: center;
+}
+.who-tile-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-weight: 700;
+  line-height: 1.2;
+}
