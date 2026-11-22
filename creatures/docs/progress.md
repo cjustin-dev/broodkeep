@@ -435,6 +435,9 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    egg takes the account's game, a game in progress asks, keep-this-device makes a backup, an idle device takes the newer game, sign out,
    wrong password). Not done: the real Cloudflare D1 (the owner's steps, cloud-saves.md section 6), the free plan CPU limit live, a
    phone's time for 600,000 PBKDF2 rounds. **The owner approved the CLAUDE.md section 3 edit** ("apply your suggestions", 2026-11-21; applied in
-   the commit: passwords are stretched in the browser). **Waiting on the owner:** open the pull request, then the Cloudflare steps
-   (cloud-saves.md section 6: create D1 and give me its id, run the migration, set `SIGNUP_CODE`, merge). The Creature Book branch
-   (`creature-book`, pushed too) also edits this file, so one of the two will need a small merge.
+   the commit: passwords are stretched in the browser). **Merged by the owner (PR #17 cloud-saves, with PR #18 creature-book, 2026-11-21).** The owner then sent the D1 database id
+   (`d7dd68cc-5111-48fb-8b3c-af3194162db1`, taken to be the `broodkeep` database from step 1, not checked against the dashboard);
+   it is in `wrangler.toml` on branch `d1-database-id` (a pull request for the owner to open and merge; until it is merged the live
+   site's functions still have the all-zeros placeholder). **Still to do by the owner, not confirmed:** step 2 (run
+   `migrations/0001_init.sql` in the D1 Console) and step 3 (the `SIGNUP_CODE` secret, Production). Then sign up on the live site and
+   sign in on a second device to check.

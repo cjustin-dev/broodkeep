@@ -6,13 +6,9 @@ name = "broodkeep"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-11-01"
 
-# D1 database (cloud saves, docs/cloud-saves.md).
-#
-# >>> PLACEHOLDER: this database does not exist yet. <<<
-# Create it in the Cloudflare dashboard (cloud-saves.md section 6), run
-# migrations/0001_init.sql in its Console, and paste the real database_id over
-# the zeros below. A database id is not a secret.
+# D1 database (cloud saves, docs/cloud-saves.md), created in the Cloudflare dashboard.
+# A database id is not a secret.
 [[d1_databases]]
 binding = "DB"
 database_name = "broodkeep"
-database_id = "00000000-0000-0000-0000-000000000000" # PLACEHOLDER, replace in Phase 5
+database_id = "d7dd68cc-5111-48fb-8b3c-af3194162db1"
