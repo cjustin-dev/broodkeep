@@ -435,16 +435,18 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    egg takes the account's game, a game in progress asks, keep-this-device makes a backup, an idle device takes the newer game, sign out,
    wrong password). Not done: the real Cloudflare D1 (the owner's steps, cloud-saves.md section 6), the free plan CPU limit live, a
    phone's time for 600,000 PBKDF2 rounds. **The owner approved the CLAUDE.md section 3 edit** ("apply your suggestions", 2026-11-21; applied in
-   the commit: passwords are stretched in the browser). **Merged by the owner (PR #17 cloud-saves, with PR #18 creature-book, 2026-11-21).** The owner then sent the D1 database id
-   (`d7dd68cc-5111-48fb-8b3c-af3194162db1`, taken to be the `broodkeep` database from step 1, not checked against the dashboard);
-   it is in `wrangler.toml` (merged as PR #19). **Closed 2026-11-22 (owner, "done and done"):** step 2 (`migrations/0001_init.sql` run in the D1
-   Console) and step 3 (the `SIGNUP_CODE` secret). My fake credential probes of the live API answered as designed (`/api/me` 401, unknown
-   login 401, wrong code 403); one first register probe answered 500 right after the deploy and I could not find out why. **Still to do by
-   the owner, not confirmed:** a real sign up on the live site, then sign in on a second device, and how long sign in takes on a phone.
+   the commit: passwords are stretched in the browser). **Merged by the owner (PR #17 cloud-saves with PR #18 creature-book, then PR #19 with the D1 database id
+   `d7dd68cc-5111-48fb-8b3c-af3194162db1` in `wrangler.toml`, 2026-11-21).** The owner ran the migration in the D1 Console (first by pasting
+   the file name, which failed; the step in cloud-saves.md now says to paste the SQL text) and set the `SIGNUP_CODE` secret ("done and
+   done"). **Checked live 2026-11-22 with fake credentials:** `GET /api/me` answers 401 JSON, a login for an unknown email answers 401 "not
+   right" (so the D1 tables are there), a sign up with a wrong code answers 403 "That family code is not right." (so the secret is set).
+   One earlier probe of the sign up route answered 500 once, right after the deploy, and never again in 3 more tries; the cause is not
+   known (no access to the function logs). **Still to do by the owner:** sign up on the live site, then sign in on a second device and check
+   the game follows. The probes added a few failed tries from this server's address to the rate limit (they expire after 15 minutes).
    **Username instead of email (2026-11-22, owner: "can we just do user id instead of email?", read as a username the family picks):**
    branch `username-login` in ~/broodkeep-cloud; plan section 7 of [cloud-saves.md](cloud-saves.md). Needs `migrations/0002_username.sql` run in
    the D1 Console by the owner (numbered steps in section 7).
-   **Status (2026-11-22): built and checked, NOT committed (waiting for the owner's "commit and push").** `npm run typecheck` and `npm run build` exit 0;
+   **Status (2026-11-22): built, checked, committed (0775bcc) and pushed to `origin/username-login` on the owner's "commit and push"; the owner opens and merges the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/username-login), after running 0002 in the D1 Console.** `npm run typecheck` and `npm run build` exit 0;
    1279 tests in 24 files pass (`origin/main`: 1270), and 40 full runs in a row had no failure. A cheap-model review, before any test ran, found one
    broken test (my own global replace had turned an email shaped entry of a "refused" list into the valid name `kid`), one title that claimed more
    than it checked, and the Kelvin sign (a letter that lower cases to plain `k`: same account on both sides, now pinned by a test). Mutation
@@ -456,3 +458,4 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    **Test race found and fixed:** two existing sync tests asserted that the request list was exactly `["GET /api/save"]` right after a timer fired;
    the server answers on a real clock, so the send after the GET can already be there. They failed 4 of 32 full runs on this branch, 0 of 32 on
    `origin/main` (and 1 of 25 file only runs on `origin/main`); they now check only that the first request is the GET, and 40 full runs pass.
+   **The owner approved the three reflect edits** ("make the edits and push", 2026-11-22; applied: two rules and an extension in the home CLAUDE.md, and the `accounts` line of this project's CLAUDE.md now says username). `origin/main` had moved (PR #20, the note above) and was merged into the branch; only this file conflicted.
