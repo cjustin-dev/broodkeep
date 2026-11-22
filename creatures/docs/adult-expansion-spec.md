@@ -10,6 +10,8 @@ status: Build-ready spec. Build in phase order (see Build order).
 
 # Broodkeep — Adult Expansion Spec (Markdown edition)
 
+> **Adopted 2026-11-22.** Moved here from the repo's `creatures/` folder. The owner's answers and the corrections found in the code are in [decisions.md](decisions.md), section "Adult expansion", and win where they differ from this file. In the repo docs the phases here are called A1 to A5. The prompt near the top that names `broodkeep-adult-expansion-spec.md` means this file.
+
 Make staying worth it. This is the full adult expansion for Broodkeep, specified to numbers, screens, rules, data changes, and acceptance tests, so it can be built in order without re-deciding it.
 
 This Markdown edition contains the same content as the PDF spec, restructured for code-assistant ingestion: one file, task-sized sections, data models as TypeScript code blocks, and every acceptance checklist preserved as checkboxes.

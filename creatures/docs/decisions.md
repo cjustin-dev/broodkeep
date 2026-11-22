@@ -606,3 +606,75 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   the sim hook, the opponent pool, `stageHours`, an old save, the fresh counter, the Book lineage and hint) and 2 drawing mutations (a face
   anchor off the picture, a moved speck) each failed. A first drawing mutation (a lump drawn off the canvas) changed nothing, so it
   proved nothing and was redone.
+
+## Adult expansion (adopted 2026-11-22)
+
+The owner added [adult-expansion-spec.md](adult-expansion-spec.md) to `main` and asked for a review against the code. The review found it
+buildable with the corrections and decisions below. **Where this section and the spec differ, this section wins.** The spec's five phases
+are called A1 to A5 in the repo (CLAUDE.md section 9).
+
+### The owner's answers (2026-11-22; all closed)
+
+1. **Food and medicine stay unlimited.** The spec's counts of owned food and medicine (a disabled button that says where to get more) and the food count on the Feed
+   button are dropped. Shop foods are optional boosters of the existing food types: each counts as servings of one of a field's three foods
+   (or of the pellet or treat), and none is a new food type. `pickYoung` only counts a field's three foods, so a new type would decide
+   nothing and would need new creatures. The bowl has no Empty / Half / Full state for the same reason (feeding is instant): tapping it
+   shows the hunger number and the Feed button.
+2. **Retire comes early.** A new egg only starts after a death (`startNewEgg` needs `phase === "dead"`), so until an adult can leave, the
+   Book chase and the Forecast lead nowhere. A minimal Retire is part of A1 (it may slip to A2): adults only, in both modes, explained in
+   full before it is confirmed, worded "retire, complete, pass on". The Book already keeps a form the moment a creature becomes it. The
+   inheritance choice (tint, +3 to one stat, favourite toy) stays in A4.
+3. **New creatures will start with discipline 30** (the code still starts them at 50, `data/tuning.ts`; A1 changes it). The sulk chance is (50 - discipline) in a hundred, at most 30, so a new creature
+   sulks 20% of the time until training, tuck-ins and requests raise it. Saves keep the value they have, so existing creatures at 50 never
+   sulk, which is harmless. Without this, discipline could only rise above the 50 threshold, where nothing happens.
+4. **A stricter perfect run.** The spec's 5 hunger cells, 5 happy cells and 0 mistakes is exactly tier 1, so the badge would add nothing.
+   Perfect is now: a tier 1 adult that also made no care mistake in the baby and kid stages, so none in its whole life. It needs a lifetime
+   mistake count that is not reset at each evolution (the stage counters are). It is a badge on the Book entry and the creature's card,
+   never a requirement.
+5. **The 65th entry stays as built.** Dustpuff is already in the Book with its hint, earned by 4 awake hours of no care. The spec's
+   "??? 64 / 65" secret slot with riddle hints from Found Gifts is dropped. If Found Gifts give Book clues, they point at ordinary missing
+   entries only.
+6. **The guardrail "no energy timers that block play" means no real-time lockout.** The owner was unsure, then said "energy wording, yours
+   is fine" (2026-11-22), so my reading stands, and it can still be changed: no real-time lockout (a wait before you may play, a lives system). The creature's own Energy stat keeps gating jobs and fights, as it does
+   today, and the training minigames cost no energy.
+
+### Corrections to the spec (checked in the code, 2026-11-22)
+
+- **Habitat spots** (`data/habitat.ts`): Bug meadow (fiber, baby), Herb patch (herbs, baby), Trees (wood, young), Pond (fish, young), Rock
+  pile (stone, adult). They unlock by stage, not by coins. A job takes 3 to 8 minutes and pays 1 to 5 coins and 1 to 3 materials. The spec's
+  Berry / Leaf / Nest / Cave, Forest and "Costs 40 coins + 2 Wood" are format examples, not real (Pond is the one name that matches).
+- **Fields** are Land, Water and Sky: the pictures behind the creature, where a baby's field minutes count. They are not the habitat spots.
+  Spec 6's pickups (shell, acorn, crystal) need names of their own per field.
+- **Care row:** Feed, Clean up, Lights off (the moon, which is sleep), Give medicine, Go somewhere (the places tray). The fifth is not "Lights".
+  `clean` already clears every poop in one tap, so "Clean All" is a label and a count badge, not a new action. A refused feeding already
+  shows a refusing pose; the text is what is missing.
+- **The fifth bar is wellness.** Battle HP is separate (CLAUDE.md 7.1): the bar is never labelled HP.
+- **Growth, as it really counts.** The baby becomes the kid of the first field to reach 4 cells (15 awake minutes each, so about an hour in
+  one field), or after 6 hours the field with the most cells. The kid becomes the young by the food eaten most in whole cells (2 servings
+  each; a tie gives the fourth young). The young becomes the adult by hunger cells and happy cells (each up to 5) and care mistakes. Field minutes,
+  food servings and care cells only count in their own stage; care mistakes are counted in every stage but reset at each evolution (so the
+  perfect run in answer 4 needs a lifetime count). So the Forecast card shows the rows of the current stage, "leads by N cells" only fits the kid's food
+  cells, and the baby's is "first to 4". "Locked" needs a bounded count of what can still be added in the stage. The what-if previews run
+  the same functions on a copy of the creature (`leadingForm`, `nextForm`, `stageHours`, `fieldCells`, `foodCells`, `tierOf` in
+  `game/growth.ts`; the dev tree already uses all of them except `nextForm`), never a second copy of the rules.
+- **The Care Log** needs a small list on the creature (when, and which call went unanswered). Today there is a counter and a line in the
+  dev log, which keeps only 300 lines.
+- **Garden:** the spec's passive Garden Plot (a shop item, spec 2, with a growth timer on the habitat garden, spec 6) takes the place of Phase 3's
+  plant, water and harvest plots, and initiatives (spec 3) take the place of standing chores. This is my reading; settle it when A2 is planned.
+- **Materials:** all five are dropped today. The spec's rule that every material has two uses means ten uses in the catalogue, or dropping
+  fewer materials, which would change the habitat. Decide when A2 is planned.
+- **"In-game clock"** is the device clock (game time only differs in dev mode). Wake time is the Settings wake hour; a nap ends by energy.
+- **Stats:** the combat stats are vitality, strength, defense, spirit and speed. The spec's three games train speed, spirit and strength;
+  arena wins train strength, defense or spirit (by the move used most), one point each and two for a boss win (caps 12, 20 and 40 by stage),
+  so defense keeps that source. Vitality has no source today and the spec adds none: decide in A4. "No Train action" is right: points come
+  from fights today.
+
+### Space and size (measured 2026-11-22)
+
+- The scene is 256 px at every phone width. Free vertical space on today's layout is 56 px at 320 x 568, 128 at 360 x 640, 268 at
+  360 x 780, 332 at 390 x 844 and 403 at 412 x 915. The spec's added zones need about 150 to 170 px: they fit from about 360 x 780 up (268 px
+  free). At 360 x 640 (128 px), at 320 x 568 (and while the header is 24 px too wide at 320 on `main`) the cards collapse behind a tap. The "switch player" row
+  of profiles (+40 px) is folded into the status strip in Adult Mode. Every screen is measured at 320, 360 and 390.
+- A save is about 1 KB, and about 27 KB with a full dev log. The close-time upload only goes under 60,000 characters and the server stops
+  at 256 KB, so new state stays compact: retired lives as short records, and initiatives never written to the dev log.
+

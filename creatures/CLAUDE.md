@@ -155,6 +155,8 @@ Soften mode (Phase 5) still applies: creatures with a scary edge get a rounder, 
 
 Berries (wellness, defense, small HP heal), Meat (strength, toward fighters, medium HP heal), Fish (speed, spirit), Candy (big happiness, but wellness down and sickness risk), hot meals cooked in the kitchen (big HP heal and a small stat bonus), and Medicine (cures sickness). Crops and catches from the habitat become these foods, so what the family grows steers evolution.
 
+**Adopted 2026-11-22:** foods and medicine stay unlimited (the owner's earlier decision). Foods sold in the shop (adult track, spec 2) are optional boosters: each counts as servings of one of the existing food types, and none adds a food type, because growth only counts each field's three foods.
+
 ### 7.3 Habitat (outdoors)
 
 The habitat is a top-down outdoor map on the same tile grid and renderer as the room. It is where the creature works.
@@ -176,8 +178,11 @@ The habitat is a top-down outdoor map on the same tile grid and renderer as the 
 - Creature art uses a three-quarter view: a front-facing sprite that flips left and right with a hop-walk bounce. This keeps art cost the same as a plain sprite for each of the 20 forms.
 - A room saves as a small list of item, position and rotation, so it syncs and works offline like everything else.
 - Phase 3 ships a simple fixed room. The full editor comes in Phase 4.
+- **2026-11-22:** the adult track's shop places furniture free-form in the existing room. That is the first slice of this editor, with no separate editor mode; the full Decorate mode stays for later.
 
 ### 7.5 Crafting and economy
+
+**Replaced for now (2026-11-22):** the adult track's shop (12 to 16 items, bought with coins and materials) and request board (3 slots) take the place of the workshops, crafting and Homestead level below. The shop has two food recipes and no workshops, and the rest is not planned until that loop works (spec 2 in [docs/adult-expansion-spec.md](docs/adult-expansion-spec.md)). The text below is the old design, kept for reference.
 
 - **Ladder:** raw materials (wood, stone, fiber, fish, herbs, crystals) go into workshops and come out as goods.
 - **Workshops** are placeable habitat buildings: Kitchen (foods), Workbench (furniture and decor), Cauldron (elixirs and spell scrolls), Forge and Sewing table (gear). Each can be upgraded.
@@ -198,7 +203,8 @@ The habitat is a top-down outdoor map on the same tile grid and renderer as the 
 - **Energy gate:** each fight costs energy. A creature that is asleep, sick or worn out cannot fight, so care decides when battles happen.
 - **Losing:** nobody dies in battle. A knocked-out creature wakes after a short nap at 25% HP, loses that fight's reward, and its energy drops. Death comes only from long neglect.
 - **Rewards:** small stat gains based on how the fight went, coins, material drops, and the wins counter used by evolution.
-- **Display for kids:** HP is a big heart or color bar with no numbers. Adults get a detail card.
+- **Display for kids:** HP is a big heart or color bar with no numbers. Adults get a detail card (that is Adult Mode, section 12).
+- **Adult track (2026-11-22):** spec 7 adds skill to this engine: a timed attack, a timed guard, and a special the player chooses when to spend (phase A4). New creatures will start with discipline 30 (A1), so the sulk rule is live until training, tuck-ins and requests raise it.
 
 ### 7.7 Items and stat modifiers
 
@@ -220,7 +226,7 @@ The habitat is a top-down outdoor map on the same tile grid and renderer as the 
 - **Gentle call bubbles:** icon thought bubbles with a soft sound, never nagging.
 - **Creature Book:** a family-wide collection page. Silhouettes show every form, each fills in the first time anyone raises it, and hints point toward missing ones. In soften mode it reads as "forms you have met".
 - **Evolution moments:** glow, flash, fanfare, then the reveal.
-- **Legacy:** a creature that dies or goes to sleep leaves a keepsake on a memorial shelf, and the next egg can inherit a small hint such as a palette tint.
+- **Legacy:** a creature that dies or goes to sleep leaves a keepsake on a memorial shelf, and the next egg can inherit a small hint such as a palette tint. (2026-11-22: retiring a living adult starts the next egg early, adult track A1. The inheritance is a tint, +3 to one stat, or a favourite toy, chosen at hatching, A4.)
 - **Customization:** hats, wallpapers, toys and decor, bought with coins. None of it affects battles.
 - **Befriend visitors (soften mode option):** a wild creature can become a visitor you feed and befriend instead of fighting, using the same art and data with different rules.
 
@@ -228,7 +234,7 @@ The habitat is a top-down outdoor map on the same tile grid and renderer as the 
 
 The goal is a game kids want to play actively, not one built to trap them.
 
-- Every visit has something to do. Jobs and training become small skill mini-games (catch the bugs, stack the blocks, hit the beat). A pocket arcade of three or four of these earns coins.
+- Every visit has something to do. Jobs and training become small skill mini-games (catch the bugs, stack the blocks, hit the beat). A pocket arcade of three or four of these earns coins. (2026-11-22: replaced by the three training minigames of spec 4: Bug Catch first, then Rhythm Grove and Stack & Balance.)
 - Tap-timing combat has combos, perfect-hit bonuses and tougher wild creatures.
 - Parent and child can share one device and take turns on the arcade or a fight.
 - Every session ends on a satisfying beat: the creature yawns, waves and curls up.
@@ -253,6 +259,8 @@ Unlocked from an adult profile: Settings, tap the version number 7 times, then e
 6. **Combat styles, magic and gear:** auto-battle and tap-timing combat, the arcade mini-games, elixirs, spell scrolls, gear and the cauldron and forge. Affinities only if wanted.
 7. **PWA install, sound and polish:** installable app, synthesized sound with mute toggle, desktop layout tuning (side panels for stats and log instead of a stretched phone screen), visitor befriending for soften mode.
 
+**Adult track (adopted 2026-11-22):** [docs/adult-expansion-spec.md](docs/adult-expansion-spec.md) has five phases of its own, called A1 to A5 here so they are not confused with the list above. They replace Phases 4 and 6 and the garden plots and standing chores of Phase 3 (decisions.md, section "Adult expansion", says how). **A1 See it:** Adult Mode, the adult HUD, the Growth Forecast, the small fixes and a minimal Retire (it may slip to A2). **A2 Spend it:** shop, request board, job and haul cards. **A3 Stay for it:** creature initiatives, Bug Catch, bond, field tappables. **A4 Master it:** the other two minigames, timed combat, Book recipes, the perfect run, legacy. **A5 Share it:** secret evolutions (PvP is not planned; the spec only allows it later as minigame scores, never combat). Phase 5 goes on beside the track: accounts and cloud saves are live, and profiles and then PINs follow docs/profiles-plan.md (docs/progress.md says where they stand). Phase 7 stays as listed.
+
 At the end of each phase I will stop, give you the test URL and phone steps, and wait for feedback.
 
 ## 10. What you'll do yourself (preview)
@@ -264,3 +272,13 @@ At the end of each phase I will stop, give you the test URL and phone steps, and
 ## 11. Name
 
 Chosen: **Broodkeep**. Runners-up were Hatchwild, Shellshift, Moltlings and Wyldegg.
+
+## 12. Adult expansion (adopted 2026-11-22)
+
+The owner added an adult expansion spec and, after a review of it against the code, adopted it. The spec is [docs/adult-expansion-spec.md](docs/adult-expansion-spec.md): Adult Mode and an adult HUD, a shop and request board, creature initiatives, training minigames, bond, interactive fields, skill combat and an adult endgame.
+
+- **Where the spec and the code disagree, the section "Adult expansion" of [docs/decisions.md](docs/decisions.md) wins.** It holds the owner's answers, the corrections (the real spot, field and button names, how growth really counts) and the changes made to the spec.
+- **Kid Mode stays as it is.** Adult features are additive and switched by `settings.adultMode`, saved per profile.
+- **Food and medicine stay unlimited.** No new creatures. The spec's guardrails stay in force: no loot boxes, no FOMO timers, no streak punishment, no ads, no real money, rewards only go up (section 7.9 says the same). The spec's other guardrail, "no energy timers that block play", means no real-time lockout (answer 6 in decisions.md, closed 2026-11-22): the creature's own Energy stat keeps gating jobs and fights.
+- **Build in the spec's phase order (A1 to A5, section 9), one phase at a time.** Values marked `[tune]` are playtest starting values.
+- This section does not change sections 1 to 5, 8, 10 or 11.

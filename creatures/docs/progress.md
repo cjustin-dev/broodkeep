@@ -303,6 +303,22 @@ its own pull request or leave) and the three proposed instruction file edits (tw
 the owner did not mention them. Slice 1 is not started; the owner has not said to build it. The branch is off `main` b743968, not off `pwa-install` (that pull request is not merged);
 both touch `App.tsx` and `SettingsPanel.tsx`, so the second to merge has a small conflict.
 
+## Adult expansion (adopted 2026-11-22, branch `adult-plan` in ~/broodkeep-adult, docs only, NOT committed)
+
+The owner added [adult-expansion-spec.md](adult-expansion-spec.md) to `main` (95f869b) and asked whether it can go into the game. The
+review against the code: yes, with corrections. The owner answered all six questions the same day (the sixth first with "not sure", then "yours is fine") and approved moving the spec into
+`docs/` and editing CLAUDE.md. Done in this branch, nothing built: the spec moved to `docs/`, CLAUDE.md got dated notes in sections 7.2,
+7.4, 7.5, 7.6, 7.8, 7.9 and 9 and a new section 12, and [decisions.md](decisions.md) has the section "Adult expansion" (the answers, the
+corrections, the measured space). The answers: food and medicine stay unlimited (shop foods boost the existing food types); a minimal
+Retire joins A1 (it may slip to A2); new creatures will start at discipline 30; the perfect run is tier 1 with no mistake in any stage; the 65th entry stays
+Dustpuff with no secret slot; the sixth question, the energy wording, is closed too (the owner was unsure, then accepted my reading: no real-time lockout; decisions.md). Next,
+when the owner says to start: A1 (Adult Mode toggle, status and stat panels, context bar, labelled care row with the reason on every
+disabled button, Growth Forecast, the feed and poke texts, a minimal Retire, discipline start 30), planned with its edge cases first.
+A cheap-model review of these docs checked every code claim in decisions.md; it found 7 wrong or contradictory statements (planned values
+written as current, boss wins, which stats fights train, Pond being real, mistakes counting in every stage, the dev tree imports, a
+space figure that contradicted itself); all 7 were checked against the code and fixed, and the pointer and the Garden question were
+added. Not re-reviewed after the fixes. The branch is off `main`; the owner opens the pull request after "commit and push".
+
 ## Open for the owner
 
 - Slice 1 is on the live site: play the habitat on a phone and report what feels wrong (is 3 to 8 minutes of work about
