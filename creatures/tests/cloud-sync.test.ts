@@ -4,12 +4,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onRequestPost as login } from "../functions/api/login";
 import { onRequestPost as logout } from "../functions/api/logout";
+import { onRequestGet as listProfilesRoute, onRequestPatch as renameProfileRoute, onRequestPost as addProfileRoute } from "../functions/api/profiles";
 import { onRequestPost as register } from "../functions/api/register";
 import { onRequestGet as getSave, onRequestPut as putSave } from "../functions/api/save";
 import type { Context } from "../functions/_lib/types";
 import { newSave } from "../src/game/state";
 import type { Save } from "../src/game/state";
 import * as client from "../src/sync/cloud";
+import { Roster, metaForProfile } from "../src/sync/roster";
 import { CloudSync, RETRY_MS, SYNC_DELAY_MS, WAIT_MS, isUntouched, metaForNewGame, parseMeta, planAfterPull } from "../src/sync/sync";
 import type { Api, CloudMeta, GameLike } from "../src/sync/sync";
 import { aliveSave, at } from "./helpers";
@@ -36,6 +38,7 @@ const routes: Record<string, Record<string, (ctx: Context) => Promise<Response>>
   "/api/login": { POST: login },
   "/api/logout": { POST: logout },
   "/api/save": { GET: getSave, PUT: putSave },
+  "/api/profiles": { GET: listProfilesRoute, POST: addProfileRoute, PATCH: renameProfileRoute },
 };
 
 let t: TestDb;
@@ -53,7 +56,7 @@ async function fakeFetch(input: string | URL | Request, init: RequestInit = {}):
   if (offline) throw new TypeError("Failed to fetch");
   const instead = override?.(method);
   if (instead) return instead;
-  const handler = routes[path]?.[method];
+  const handler = routes[path.split("?")[0]!]?.[method]; // (the query, ?profile=, goes on to the route in the request)
   if (!handler) return new Response("<html>not found</html>", { status: 404 });
   const headers = new Headers(init.headers);
   headers.set("Origin", SITE);
@@ -108,29 +111,41 @@ interface Device {
   restart(lostGame?: boolean): CloudSync; // the page is closed and opened again: same cookie, what was stored is read back; lostGame: the saved game could not be loaded, so a new egg starts
 }
 
-const apiFor = (jar: Jar): Api => ({
+const apiFor = (jar: Jar, profile: number | null = null): Api => ({
   signIn: (...args) => ((activeJar = jar), client.signIn(...args)),
   signUp: (...args) => ((activeJar = jar), client.signUp(...args)),
   signOut: () => ((activeJar = jar), client.signOut()),
-  fetchSave: () => ((activeJar = jar), client.fetchSave()),
-  sendSave: (put) => ((activeJar = jar), client.sendSave(put)),
+  fetchSave: () => ((activeJar = jar), client.fetchSave(profile)),
+  sendSave: (put) => ((activeJar = jar), client.sendSave(put, profile)),
 });
 
 const devices: Device[] = []; // every device of the test running, so its unfinished work can be waited for before the next test starts
-function newDevice(save: Save = newSave(Date.now(), 1)): Device {
-  const jar: Jar = { cookie: null };
+// A profile other than the first, in the browser of `account` (the first profile's device, whose record says who is signed in, and whose
+// cookie it shares). The record it starts from is made the way the page makes it (metaForProfile).
+interface Profiled {
+  profile: number;
+  account: Device;
+}
+function newDevice(save: Save = newSave(Date.now(), 1), profiled: Profiled | null = null): Device {
+  const jar: Jar = profiled ? profiled.account.jar : { cookie: null };
   const game = fakeGame(save);
   const written: CloudMeta[] = [];
   const store = { writeMeta: async (meta: CloudMeta) => void written.push(meta) };
+  const recordFor = (own: CloudMeta | null): CloudMeta | null => {
+    if (!profiled) return own;
+    const account = parseMeta(profiled.account.written.at(-1) ?? null);
+    return account ? metaForProfile(account, own) : null;
+  };
+  const api = (): Api => apiFor(jar, profiled ? profiled.profile : null);
   const device: Device = {
     game,
     jar,
     written,
-    sync: new CloudSync(game, null, apiFor(jar), store),
+    sync: new CloudSync(game, recordFor(null), api(), store),
     restart: (lostGame = false) => {
-      const meta = parseMeta(written.at(-1) ?? null);
+      const meta = recordFor(parseMeta(written.at(-1) ?? null));
       if (lostGame) game.save = newSave(Date.now(), 2);
-      return (device.sync = new CloudSync(game, lostGame ? metaForNewGame(meta) : meta, apiFor(jar), store));
+      return (device.sync = new CloudSync(game, lostGame ? metaForNewGame(meta) : meta, api(), store));
     },
   };
   devices.push(device);
@@ -267,6 +282,146 @@ describe("signed out", () => {
     await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(requests).toEqual([]);
     expect(d.sync.username).toBeNull();
+  });
+});
+
+// ---- profiles: each profile of the account has its own game, its own record on the device, and its own revision on the server ----
+
+describe("profiles of one account", () => {
+  const rowOf = (profile: number): { revision: number; data: string } | undefined => t.raw.prepare("SELECT revision, data FROM saves WHERE profile_id = ?").get(profile) as { revision: number; data: string } | undefined;
+  const coinsOfProfile = (profile: number): number | undefined => (rowOf(profile) ? JSON.parse(rowOf(profile)!.data).coins : undefined);
+  const as = (device: Device): void => void (activeJar = device.jar);
+
+  // The phone is signed in and matches the account's first profile (coins 1); the account also has a kid, profile 2.
+  async function accountWithKid(): Promise<{ phone: Device; kidPhone: Device }> {
+    const phone = newDevice(gameWith(1));
+    await signUp(phone);
+    as(phone);
+    expect(await client.addProfile("Mia", "kid")).toMatchObject({ ok: true, value: { id: 2, kind: "kid" } });
+    return { phone, kidPhone: newDevice(gameWith(10), { profile: 2, account: phone }) };
+  }
+
+  it("send a profile that has no record of its own yet: its first change is sent like any other", async () => {
+    const { kidPhone } = await accountWithKid();
+    kidPhone.sync.start();
+    await settle(kidPhone);
+    expect(coinsOfProfile(2)).toBe(10); // the game it started with goes to an account that has none for this profile
+    play(kidPhone, 11);
+    await vi.advanceTimersByTimeAsync(SYNC_DELAY_MS);
+    await settle(kidPhone);
+    expect(coinsOfProfile(2)).toBe(11);
+    expect(kidPhone.written.at(-1)).toMatchObject({ username: USERNAME, signedIn: true, revision: 2, dirty: false });
+  });
+
+  it("keep each profile's game and revision apart, and talk to the profile they are for", async () => {
+    const { phone, kidPhone } = await accountWithKid();
+    kidPhone.sync.start();
+    await settle(kidPhone);
+    play(phone, 3);
+    phone.sync.flush();
+    await settle(phone);
+    expect(coinsOfProfile(1)).toBe(3);
+    expect(coinsOfProfile(2)).toBe(10);
+    expect(rowOf(1)!.revision).toBe(2);
+    expect(rowOf(2)!.revision).toBe(1);
+    expect(requests.filter((request) => request.includes("profile=2")).length).toBeGreaterThan(0);
+    expect(requests.filter((request) => request === "PUT /api/save").length).toBeGreaterThan(0); // the first profile is asked for without a profile
+  });
+
+  it("leave the first profile to a page from before profiles, which asks for no profile", async () => {
+    const { kidPhone } = await accountWithKid();
+    kidPhone.sync.start();
+    await settle(kidPhone);
+    const oldPage = newDevice(gameWith(5));
+    await signIn(oldPage); // asked: its game against the account's first game
+    expect(oldPage.sync.choosing).not.toBeNull();
+    await oldPage.sync.choose("device");
+    expect(coinsOfProfile(1)).toBe(5);
+    expect(coinsOfProfile(2)).toBe(10); // the kid's game is not touched
+  });
+
+  it("do not let a profile left open and idle beat the one in use", async () => {
+    const { kidPhone } = await accountWithKid();
+    kidPhone.sync.start();
+    await settle(kidPhone);
+    const tablet = newDevice(gameWith(1));
+    await signIn(tablet);
+    await tablet.sync.choose("account");
+    const kidTablet = newDevice(undefined, { profile: 2, account: tablet }); // a new egg: it takes the account's game for this profile
+    kidTablet.sync.start();
+    await settle(kidTablet);
+    expect(kidTablet.game.save.coins).toBe(10); // matches the account (revision 1)
+    play(kidPhone, 20);
+    kidPhone.sync.flush();
+    await settle(kidPhone);
+    expect(coinsOfProfile(2)).toBe(20);
+    vi.setSystemTime(Date.now() + 120_000);
+    kidTablet.game.saveNow(); // the idle tablet's clock saves its game a minute later: not the player's doing
+    await vi.advanceTimersByTimeAsync(SYNC_DELAY_MS * 2);
+    await settle(kidTablet);
+    expect(coinsOfProfile(2)).toBe(20);
+    expect(kidTablet.game.save.coins).toBe(20); // it took the game in use
+  });
+
+  it("send a profile that was changed and not sent when it is next opened", async () => {
+    const { kidPhone } = await accountWithKid();
+    kidPhone.sync.start();
+    await settle(kidPhone);
+    offline = true;
+    play(kidPhone, 15);
+    kidPhone.sync.flush(); // the page is left with the account out of reach
+    await settle(kidPhone);
+    expect(kidPhone.written.at(-1)).toMatchObject({ dirty: true });
+    offline = false;
+    const reopened = kidPhone.restart();
+    reopened.start();
+    await settle(kidPhone);
+    expect(coinsOfProfile(2)).toBe(15);
+  });
+
+  it("sync again after the session ended there and the first profile signed in again (a stale 'signed out' in the profile's own record)", async () => {
+    const { kidPhone, phone } = await accountWithKid();
+    kidPhone.sync.start();
+    await settle(kidPhone);
+    t.raw.exec("DELETE FROM sessions");
+    play(kidPhone, 12);
+    await vi.advanceTimersByTimeAsync(SYNC_DELAY_MS);
+    await settle(kidPhone);
+    expect(kidPhone.written.at(-1)).toMatchObject({ signedIn: false, dirty: true });
+    await signIn(phone); // the first profile signs in again: only the device's record changes
+    requests.length = 0;
+    const reopened = kidPhone.restart();
+    reopened.start();
+    await settle(kidPhone);
+    expect(requests).toContain("GET /api/save?profile=2");
+    expect(coinsOfProfile(2)).toBe(12);
+    expect(reopened.username).toBe(USERNAME);
+  });
+
+  it("show a name changed on another device at the next look at the list", async () => {
+    const { phone } = await accountWithKid();
+    const tablet = newDevice();
+    await signIn(tablet);
+    const rosterApi = { list: () => ((activeJar = tablet.jar), client.fetchProfiles()), add: client.addProfile, rename: client.renameProfile };
+    const roster = new Roster(USERNAME, null, null, true, rosterApi, { write: async () => undefined });
+    await roster.refresh();
+    expect(roster.list!.map((profile) => profile.name)).toEqual(["Player", "Mia"]);
+    as(phone);
+    expect(await client.renameProfile(2, "Mimi")).toMatchObject({ ok: true });
+    await roster.refresh();
+    expect(roster.list!.map((profile) => profile.name)).toEqual(["Player", "Mimi"]);
+  });
+
+  it("add and rename through the list the way Settings does, against the real routes", async () => {
+    const { phone } = await accountWithKid();
+    as(phone);
+    const roster = new Roster(USERNAME, null, null, true, { list: client.fetchProfiles, add: client.addProfile, rename: client.renameProfile }, { write: async () => undefined });
+    await roster.refresh();
+    expect(await roster.add("Leo", "kid")).toBeNull();
+    expect(await roster.rename(3, "Leonie")).toBeNull();
+    expect(roster.list!.map((profile) => [profile.id, profile.name, profile.kind])).toEqual([[1, "Player", "adult"], [2, "Mia", "kid"], [3, "Leonie", "kid"]]);
+    await roster.refresh();
+    expect(roster.list!.map((profile) => profile.name)).toEqual(["Player", "Mia", "Leonie"]);
   });
 });
 

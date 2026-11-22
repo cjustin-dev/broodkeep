@@ -606,3 +606,16 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
   the sim hook, the opponent pool, `stageHours`, an old save, the fresh counter, the Book lineage and hint) and 2 drawing mutations (a face
   anchor off the picture, a moved speck) each failed. A first drawing mutation (a lump drawn off the canvas) changed nothing, so it
   proved nothing and was redone.
+
+## Profiles slice 1 (2026-11-22)
+
+- **The picker keeps the account's order.** Version 3 of the plan said the last profile used on the device is listed first. Not built:
+  a tile that moves between visits is a poor thing for a child who knows where their tile is, and it needs one more thing stored. The
+  first profile is always first.
+- **Names collapse runs of inner spaces** ("Mia   Lee" is kept as "Mia Lee"), so two names that look the same cannot both exist. The
+  plan only said trim and NFC; the owner can say if inner spaces should stay as typed.
+- **The first save from a profile that is still an untouched egg is not sent** (existing rule, [known-issues.md](known-issues.md)), so a
+  new profile that only had its sleep hours changed has no game in the account until it is played.
+- **Sign in and sign out are offered only in the first profile**, and a session that ends in another profile signs the device out and
+  reloads into single player (plan decision 11).
+

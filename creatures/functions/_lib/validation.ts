@@ -1,6 +1,8 @@
 // Checks on everything that arrives, before the database is touched. Short, generic messages: never the input, never an inside detail.
 import { HttpError } from "./response";
 import { USERNAME_HELP, isValidKey, isValidUsername, normalizeUsername } from "../../src/sync/account-rules";
+import { NAME_HELP, isProfileId, isProfileIdText, isProfileKind, isValidName, normalizeName } from "../../src/sync/profiles";
+import type { ProfileKind } from "../../src/sync/profiles";
 
 export const SMALL_BODY = 2_000; // register, login, logout: a few hundred bytes at most
 export const SAVE_JSON_MAX = 256_000; // the save itself, as JSON text, in bytes (D1 allows 2 MB per row)
@@ -105,3 +107,32 @@ export function parseSavePut(body: Record<string, unknown>, now: number): SavePu
   return { baseRevision, savedAt, save: save as Record<string, unknown>, data };
 }
 
+
+// ---- profiles ----
+
+function profileName(value: unknown): string {
+  const name = typeof value === "string" ? normalizeName(value) : "";
+  if (!isValidName(name)) throw new HttpError(400, NAME_HELP);
+  return name;
+}
+
+export function parseProfileCreate(body: Record<string, unknown>): { name: string; kind: ProfileKind } {
+  onlyKeys(body, ["name", "kind"]);
+  const name = profileName(body.name);
+  if (!isProfileKind(body.kind)) throw new HttpError(400, "That request was not understood.");
+  return { name, kind: body.kind };
+}
+
+export function parseProfileRename(body: Record<string, unknown>): { id: number; name: string } {
+  onlyKeys(body, ["id", "name"]);
+  if (!isProfileId(body.id)) throw new HttpError(400, "That request was not understood.");
+  return { id: body.id, name: profileName(body.name) };
+}
+
+// ?profile=<id> on the save routes: left out (null) means the account's first profile, which is what a page from before profiles sends.
+export function parseProfileParam(url: string): number | null {
+  const given = new URL(url).searchParams.getAll("profile");
+  if (given.length === 0) return null;
+  if (given.length > 1 || !isProfileIdText(given[0]!)) throw new HttpError(400, "That request was not understood.");
+  return Number(given[0]);
+}
