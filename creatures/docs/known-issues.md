@@ -241,7 +241,7 @@
   (Land adult, live) share a prefix; left alone because Cindermane is live.
 - **Cinderling and Scorchlet have no mouth** (`mouth: null`, the beak is part of the body), so their beak never opens or lowers. The
   other beaked forms (Ashwing and the 8 new ones) draw the beak as a mouth pattern and do open and lower. Scorchlet could get
-  `beak_mouths` like Chirplet: a scope suggestion, not done.
+  `beak_mouths` like Chirplet: a scope suggestion; the owner moved on without asking for it (2026-11-21), so it stays as it is.
 - **A beak and the claws are the creature's tooth colour.** They are drawn with the letter T, which `lib.with_face()` sets from
   `tooth=` after the palette, so a palette entry "T" is overwritten without a message (8 such entries were removed). A bird with an
   orange beak needs a different letter.
@@ -291,3 +291,36 @@
   (the account's game has its own sleep hours).
 - **No end to end test in CI.** The browser run (three devices, real Chromium, `wrangler pages dev`, local D1) is a script kept
   outside the repository; the unit tests use a `node:sqlite` stand in for D1 (see decisions.md).
+## Creature Book (accepted for now)
+
+- **The book belongs to one save, not to the family.** CLAUDE.md section 7.8 says "family-wide": that waits for accounts and profiles
+  (Phase 5). Until then a new save starts with an empty book.
+- **Hints point at the next step of the tree.** A player can read "Feed it lots of fish" off a missing young once its kid is raised.
+  That is the intent. The care hints are in words, so a tier boundary change in `tuning.ts` does not update them: the hint strings are
+  in `data/book.ts`.
+- **A form made with the dev tools skips its ancestors.** `forceHatch` adds only the form it names, so a book can hold an adult whose
+  kid and young are still dark. Dev mode only.
+- **The UI has no unit test.** The tests cover the data, the record and the save; the panel was checked with screenshots only.
+- **The book icon is an 8 x 8 placeholder**, like the other icons.
+- **Names are small: at most 0.72rem (about 11 pixels), and about 9 pixels on a 320 pixel wide screen,** under the app's 0.8rem floor,
+  so each of the 64 fits one line (measured at 390, 360 and 320 wide). A new name longer than Hollowbloom (10 letters) can break
+  mid-word; the layout is four equal columns because a tier row is one column per young.
+- **Old saves get a guess.** A save from before the book is credited with the forms its living creature went through, and nothing
+  else: a creature that died earlier left no record, so its forms are not in the book.
+
+## The special form (accepted for now)
+
+- **Cleaning or giving medicine while it sleeps counts as care**, so a player can stop the 4 hour clock overnight with the Clean up button
+  (Feed is disabled and a pet is refused while it sleeps). It is real care and the buttons allow it, but the owner's words were "feed,
+  clean or play". The fix, if wanted, is one `c.sleep` check in `clean` and `giveMedicine`.
+- **The Book hint is vague on purpose:** "Leave a baby or kid alone for hours". It does not say "awake" or "4".
+- **There is one special for all three fields,** so a neglected baby never shows which field it would have chosen. It is a leftover
+  that grows no further (a 24 px creature for the rest of its life). It can still do jobs and fights like any kid.
+- **Dustpuff's name and look are my choice.** It is a pale grey-lilac blob and sits quietly against the Land field and the Sky field
+  (looked at); a brighter or scarier special is a redraw.
+- **A save made before the counter** starts counting from the moment the game loads (a missing counter reads as 0), so a baby already
+  neglected for hours gets a fresh 4 hours.
+- **The dev panel can show the count but not set it.** Skip ahead and the time multiplier are the way to reach the special.
+- **Three existing tests changed to keep a baby or kid looked after** (a pet an hour, `petUntil`). A new test that leaves a baby alone for
+  more than 4 awake hours will find the special, not the safety net.
+- **The JavaScript is 441.9 KB (79.1 KB gzipped)**, up from 436.7 KB before the Book and the special (439.5 KB with the Book). See plan section 7.

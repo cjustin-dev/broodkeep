@@ -136,7 +136,7 @@ export const fennix: Form = {
 
 ## 6. Growth and forms (replaced 2026-11-21)
 
-The 20 forms and the evolution tree that stood here are gone. The game follows the Paradise growth design instead: egg, baby (Blip), kid by field, young by food, adult by care, 64 original creatures in all. The rules, the ladder, the Land roster, the code changes and the milestones are in [docs/paradise-plan.md](docs/paradise-plan.md). That file is the plan for forms and evolution. This file stays the plan for everything else.
+The 20 forms and the evolution tree that stood here are gone. The game follows the Paradise growth design instead: egg, baby (Blip), kid by field, young by food, adult by care, 64 original creatures in all, plus one special form for a neglected baby or kid (the 65th). The rules, the ladder, the Land roster, the code changes and the milestones are in [docs/paradise-plan.md](docs/paradise-plan.md). That file is the plan for forms and evolution. This file stays the plan for everything else.
 
 Soften mode (Phase 5) still applies: creatures with a scary edge get a rounder, friendlier "soft look" and a cute nickname for that profile, and death becomes "fell asleep" followed by a new egg. Which of the 64 forms get a soft look is decided when Phase 5 starts.
 

@@ -4,12 +4,14 @@
 //   baby   the first field to collect 4 cells (15 awake minutes in a field is 1 cell) gives the kid. After 6 hours a baby
 //          grows up anyway, into the kid of the field with the most cells.
 //   kid    after 24 hours the food eaten most (2 servings make 1 cell, whole cells compared) gives the young.
+//   (special) a baby or a kid with no care for 4 awake hours becomes the special creature instead, at once, and it stays that.
 //   young  after 48 hours the care gives the adult: tier 1 for 5 hunger cells, 5 happy cells and no mistakes, else by mistakes.
 //   adult  stays.
 
 import { eggField } from "../data/eggs";
 import { fieldOfForm, openFieldIds, planOf } from "../data/fields";
 import { getForm } from "../data/forms";
+import { specialId } from "../data/special";
 import { tuning } from "../data/tuning";
 import type { Creature } from "./state";
 import { MINUTE } from "./time";
@@ -45,6 +47,27 @@ export function countFieldMinute(c: Creature): void {
   if (c.place === "home" || c.sleep !== null || c.job) return;
   if (getForm(c.formId).stage !== "baby") return;
   c.counters.fieldMinutes[c.place] = (c.counters.fieldMinutes[c.place] ?? 0) + 1;
+}
+
+// ---- neglect (the special) ----
+
+// Only a baby or a kid can turn into the special, and the special itself is a kid-sized form that must not turn into itself again.
+const canBecomeSpecial = (c: Creature): boolean => c.formId !== specialId && ["baby", "kid"].includes(getForm(c.formId).stage);
+
+// One awake minute without care. Asleep and away on a job count nothing: sleeping hours do not run the clock, and a creature on a job is out of reach.
+// (A clean-up or medicine still counts as care while it sleeps: those buttons work then.)
+export function countNeglectMinute(c: Creature): void {
+  if (c.sleep !== null || c.job || !canBecomeSpecial(c)) return;
+  c.counters.neglectMinutes = (c.counters.neglectMinutes ?? 0) + 1;
+}
+
+// Call when the player looked after the creature: a meal eaten, a clean-up, medicine, a pet or a tickle. It starts the count again.
+export function noteCare(c: Creature): void {
+  c.counters.neglectMinutes = 0;
+}
+
+function pickSpecial(c: Creature): string | null {
+  return canBecomeSpecial(c) && (c.counters.neglectMinutes ?? 0) >= g.neglectHours * 60 ? specialId : null;
 }
 
 // A meal eaten. Only the kid stage counts them.
@@ -106,9 +129,9 @@ function pickAdult(c: Creature): string | null {
 export function leadingForm(c: Creature): string | null {
   switch (getForm(c.formId).stage) {
     case "baby":
-      return pickKid(c, true);
+      return pickSpecial(c) ?? pickKid(c, true);
     case "kid":
-      return pickYoung(c);
+      return pickSpecial(c) ?? pickYoung(c);
     case "young":
       return pickAdult(c);
     default:
@@ -118,6 +141,7 @@ export function leadingForm(c: Creature): string | null {
 
 // How long the creature stays in a stage at most, in hours (null: for ever).
 export function stageHours(c: Creature): number | null {
+  if (c.formId === specialId) return null; // a kid by size, but it grows no further
   switch (getForm(c.formId).stage) {
     case "baby":
       return g.babyHours;
@@ -135,9 +159,9 @@ export function nextForm(c: Creature, nowMs: number): string | null {
   const hours = (nowMs - c.stageStartedAt) / MINUTE / 60;
   switch (getForm(c.formId).stage) {
     case "baby":
-      return pickKid(c, hours >= g.babyHours);
+      return pickSpecial(c) ?? pickKid(c, hours >= g.babyHours);
     case "kid":
-      return hours >= g.kidHours ? pickYoung(c) : null;
+      return pickSpecial(c) ?? (hours >= g.kidHours ? pickYoung(c) : null);
     case "young":
       return hours >= g.youngHours ? pickAdult(c) : null;
     default:

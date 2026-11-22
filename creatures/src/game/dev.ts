@@ -5,6 +5,7 @@ import { eggPatterns } from "../data/eggs";
 import { getForm } from "../data/forms";
 import { combatTuning } from "../data/combat";
 import { tuning } from "../data/tuning";
+import { discover } from "./book";
 import { rungOf } from "./combat/fight";
 import { currentHp, maxHp } from "./combat/stats";
 import { makeCreature, evolveTo, simulateTo } from "./sim";
@@ -97,6 +98,7 @@ export function forceHatch(save: Save, formId: string, nowMs: number): void {
   save.death = null;
   save.phase = "alive";
   logEvent(save, nowMs, `Dev: hatched ${formId}`);
+  discover(save, formId, nowMs); // by itself: the kid and the young it would have grown from were not raised
 }
 
 // Change the living creature into any form, and start a fresh stage.

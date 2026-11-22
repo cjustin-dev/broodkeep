@@ -78,10 +78,12 @@ and the trained-point caps, so it is remapped: training becomes kid, rookie beco
   stage, worked out from the old data before it is deleted, so fights stay about where they are) split by a role written on the
   form (fighter, tank, caster, quick). The care tier does not change stats.
 
-**Not in the first slices.** The charts have a "Bbmarutchi" special (chart 1: left unchanged as a baby or kid for 4 hours; chart
-2: "4 hours of no care") and three secret adults that need shells connected during the young stage (a Land shell with a Water
-and a Sky shell; how connecting works here is open, and it probably needs accounts). Both wait. When the special is built it
-needs a rule for which wins on a neglected baby, the 4 hour special or the 6 hour safety net.
+**The special** (built 2026-11-21, owner's answers; see "The special" under section 4). The charts have a "Bbmarutchi" special (chart 1:
+left unchanged as a baby or kid for 4 hours; chart 2: "4 hours of no care"). Here: a baby or a kid with no care for 4 awake hours turns
+into one special creature, and the special wins over the 6 hour safety net.
+
+**Not in the first slices.** Three secret adults need shells connected during the young stage (a Land shell with a Water and a Sky
+shell; how connecting works here is open, and it probably needs accounts). They wait.
 
 **Combat stays as it is** against NPC opponents. Evolution no longer reads battles, wins, strength, defense or spirit.
 
@@ -172,6 +174,17 @@ underwater): clouds below, a broken sun-temple arch, drifting rocks, and a glowi
 Sky open every egg pattern has an open field: a swirled egg that never went outside grows into Cinderling. Drawn in the Sky slice
 (2026-11-21): the 3 young and 15 adults, the field, and three new 8 x 8 food icons.
 
+### The special (milestone 7, written 2026-11-21; the rules are the owner's answers, the name and look are my choice)
+
+- **Rule.** A baby or a kid that gets no care for 4 awake hours (`tuning.growth.neglectHours`) turns into the special, at once. Sleeping
+  (night or nap) and being away on a habitat job do not count. Care is a meal eaten, a clean-up that did something, medicine that cured,
+  a pet or a tickle (a poke is not care; neither is a refused meal, a clean-up with nothing to clean, or medicine it did not need). A pet
+  counts even when the hourly happiness limit gives nothing more. Care starts the count again; each new stage starts it again too. The
+  special beats the baby's 6 hour safety net and the kid's growing up at 24 hours. My extension: medicine counts as care.
+- **The creature.** Dustpuff, a scruffy lint dust bunny: 24 px (the size of a kid, with the kid face style), two strands of lint on top,
+  grit specks, role quick. One creature for all three fields; it belongs to no field and grows no further. The game counts 65 forms.
+- **Where it shows.** The Creature Book has a "Special" page after the three fields.
+
 ## 5. What changes in the code
 
 - `game/types.ts`: stages become baby, kid, young, adult. Foods go from 4 to 11. The `Metric`, `Need` and `Evolution` types go.
@@ -201,13 +214,13 @@ after the owner has seen it.
    save version 3, the stage remap, the dev tree viewer, the new menus, tests, and a scripted playthrough that reaches every
    Land adult and checks the times in section 2.
 4. **Pull request 1:** Land complete and playable (Water and Sky fields stay locked until their slices). The owner merges.
-5. **Water:** done 2026-11-21 (branch `water`, pushed; the owner opens and merges the pull request).
-6. **Sky:** done 2026-11-21 (local branch `sky`, stacked on `water`; nothing is committed until the owner says so); then a pull
-   request. When the Water pull request merges, `sky` gets `main` merged in or is rebased first.
-7. **Later:** the special form, the secret evolutions, and slices 3 and 4 of the old Phase 3 (garden plots turn into a food
-   source; the Creature Book fits a 64 creature game well).
+5. **Water:** done 2026-11-21 (branch `water`; merged by the owner as pull request 15).
+6. **Sky:** done 2026-11-21 (branch `sky`, commit `cce4576`; merged by the owner as pull request 16 and live).
+7. **The special form:** built 2026-11-21 on the Creature Book branch (see "The special" under section 4).
+8. **Later:** the secret evolutions, and slice 3 of the old Phase 3 (garden plots turn into a food source) and the legacy shelf.
+   (The Creature Book is built too: branch `creature-book`.)
 
-Milestones 1 to 4 are merged and live (pull request 14), so the live game never showed half art.
+Milestones 1 to 6 are merged and live (pull requests 14, 15 and 16), so the live game never showed half art.
 
 ## 7. Cost and risk, plainly
 

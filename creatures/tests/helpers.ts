@@ -30,6 +30,16 @@ export function aliveSave(formId = "blip", t = at(8), seed = 1234): Save {
   return save;
 }
 
+// The least care that keeps a baby or a kid from turning into the special (game/growth.ts): a pet every `everyMinutes`, then the time caught up
+// exactly to endMs. For tests that need a creature to grow up on its own timetable.
+export function petUntil(save: Save, startMs: number, endMs: number, everyMinutes = 60): void {
+  for (let t = startMs + everyMinutes * MINUTE; t < endMs; t += everyMinutes * MINUTE) {
+    simulateTo(save, t);
+    touch(save, "pet", t);
+  }
+  simulateTo(save, endMs);
+}
+
 // A simple stand-in for a caring player. Every 10 minutes it looks at the creature
 // and does the obvious thing. Returns the final game time.
 export function careForUntil(save: Save, startMs: number, endMs: number): number {

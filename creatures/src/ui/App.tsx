@@ -10,6 +10,7 @@ import { DevPanel } from "./DevPanel";
 import type { Game } from "./game";
 import { HabitatBar } from "./HabitatBar";
 import { HaulCard } from "./HaulCard";
+import { BookPanel } from "./BookPanel";
 import { Icon, Pic } from "./Icon";
 import { Nav } from "./Nav";
 import { SettingsPanel } from "./SettingsPanel";
@@ -40,7 +41,7 @@ function DeathCard({ game }: { game: Game }) {
 
 export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
   useGame(game);
-  const [panel, setPanel] = useState<"settings" | "dev" | null>(null);
+  const [panel, setPanel] = useState<"settings" | "dev" | "book" | null>(null);
 
   // Keep time moving, and save when the page is hidden or closed.
   useEffect(() => {
@@ -64,6 +65,9 @@ export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
     <main class="app">
       <header class="top">
         <StatBars stats={save.phase === "alive" && save.creature ? save.creature.stats : null} />
+        <button class="btn gear" aria-label="Creature Book" onClick={() => setPanel("book")}>
+          <Icon name="book" px={28} />
+        </button>
         <button class="btn gear" aria-label="Settings" onClick={() => setPanel("settings")}>
           <Icon name="settings" px={28} />
         </button>
@@ -82,6 +86,7 @@ export function App({ game, cloud }: { game: Game; cloud: CloudSync }) {
       <HaulCard game={game} />
       {panel === "settings" && <SettingsPanel game={game} cloud={cloud} onClose={() => setPanel(null)} onDev={() => setPanel("dev")} />}
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
+      {panel === "book" && <BookPanel game={game} onClose={() => setPanel(null)} />}
     </main>
   );
 }
