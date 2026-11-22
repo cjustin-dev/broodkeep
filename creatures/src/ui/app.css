@@ -917,3 +917,441 @@ output {
   font-weight: 700;
   line-height: 1.2;
 }
+
+/* ---------- Adult Mode: the header (ui/AdultHud.tsx) ---------- */
+
+/* Replaces the Kid header (.top). Rows: the strip, the bag, five stat cells (and the card of the one that is open), one line of news. */
+.adult-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.strip-id {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.strip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* The stage and the clock wrap rather than end in an ellipsis: "Passed away · 12:05 pm" is wider than its box at 320px. */
+.strip-sub {
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buttons in the strip are 44px or more each way (the Kid header's .gear is 46 wide). */
+.btn.strip-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  grid-auto-flow: column;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* The name column may shrink (to an ellipsis), the word "Switch" may not: without minmax(0, 1fr) the column is as wide as the whole name and a
+   20-letter name pushes the button, and the page, sideways. */
+.btn.strip-who {
+  max-width: 55%;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* .btn centres its grid items, and a centred item is as wide as its text: the name has to be held to its column to end in an ellipsis. */
+.btn.strip-who .who-name {
+  max-width: 100%;
+  text-align: left;
+}
+
+/* Coins and materials. They wrap to a second line rather than push the page sideways (all five and 99999 coins are checked at 320px). */
+.strip-bag {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip.tight {
+  gap: 4px;
+  padding: 2px 8px 2px 6px;
+  font-size: 0.85rem;
+}
+
+.astats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.astats[data-dim="true"] {
+  opacity: 0.4;
+}
+
+.astat {
+  appearance: none;
+  border: 0;
+  position: relative;
+  min-width: 0;
+  padding: 6px 3px 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+}
+
+button.astat {
+  cursor: pointer;
+  transition: background 0.14s;
+}
+
+button.astat:hover {
+  background: var(--panel-hi);
+}
+
+button.astat:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+button.astat[aria-expanded="true"] {
+  background: var(--panel-hi);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.astat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+/* The number and the poop count sit side by side. At 320px "100" plus a poop badge is wider than the cell, so the badge may drop under the number. */
+.astat-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 3px;
+}
+
+.astat-num {
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.astat-poop {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* The words under the bar wrap inside the cell (a narrow cell cannot hold "full in 10h" on one line). */
+.astat-span {
+  min-height: 1.15em;
+  font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.astat[data-level="amber"] .fill {
+  background: var(--ok);
+}
+
+.astat[data-level="red"] .fill {
+  background: var(--low);
+}
+
+.astat[data-level="red"] .astat-num {
+  color: var(--low);
+}
+
+.astat[data-level="amber"] .astat-num {
+  color: var(--ok);
+}
+
+/* A bar at 0 hides its fill once the slide out is done (the same reason as the Kid bars above). */
+.astat[data-zero="true"] .fill {
+  visibility: hidden;
+  transition:
+    transform 0.6s var(--ease),
+    visibility 0s 0.6s;
+}
+
+.astat-call {
+  position: absolute;
+  top: -6px;
+  right: -3px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #2a1a00;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.astat-card {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-lift);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.astat-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.adult-ctx {
+  min-height: 30px;
+  margin: 0;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  background: var(--bg-lift);
+  border-radius: var(--radius-md);
+}
+
+/* ---------- Adult Mode: the Growth Forecast (ui/ForecastPanel.tsx) ---------- */
+
+/* The strip's name and stage text is the way in: a button that looks like the text it replaces (the row is 44px, so it adds no height). */
+.strip-open {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  min-height: 44px;
+  justify-content: center;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  cursor: pointer;
+}
+
+.strip-open:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.strip-more {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.fc-lead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  background: var(--bg-lift);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.fc-lead > div {
+  min-width: 0;
+}
+
+.fc-lead p,
+.fc-timer,
+.fc-confidence,
+.fc-note {
+  margin: 0;
+}
+
+.fc-kicker,
+.fc-sub,
+.fc-note {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.fc-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.fc-timer {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-confidence {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-lift);
+  border-left: 4px solid var(--ok);
+}
+
+.fc-confidence[data-kind="locked"] {
+  border-left-color: var(--good);
+}
+
+.fc-confidence[data-kind="now"] {
+  border-left-color: var(--accent);
+}
+
+.fc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fc-block h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.fc-rows,
+.fc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fc-list li {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  background: var(--bg-lift);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+
+.fc-row {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-lift);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.fc-row[data-leads="true"] {
+  border-color: var(--accent);
+}
+
+.fc-row-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.fc-label {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.fc-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-tag {
+  padding: 1px 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #231a38;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.fc-pips {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.fc-pip {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-radius: 4px;
+}
+
+.fc-pip[data-on="true"] {
+  background: var(--good);
+  border-color: var(--good);
+}
+
+.fc-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-added {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.fc-whatif {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-lift);
+  border-radius: var(--radius-md);
+}
+
+.fc-whatif p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.fc-rule-toggle {
+  align-self: flex-start;
+}

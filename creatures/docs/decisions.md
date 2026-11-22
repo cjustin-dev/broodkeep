@@ -727,3 +727,64 @@ are called A1 to A5 in the repo (CLAUDE.md section 9).
 - **Sign in and sign out are offered only in the first profile**, and a session that ends in another profile signs the device out and
   reloads into single player (plan decision 11).
 
+
+## Adult track A1.1: the Adult Mode header (2026-11-22, branch `adult-a1`)
+
+The plan and edge cases are in [adult-a1-plan.md](adult-a1-plan.md). Decisions made while building, beyond the ones listed there:
+
+- **The header is the only thing Adult Mode changes in A1.1.** With `settings.adultMode` not exactly `true`, `App.tsx` renders the old header
+  (`.top`, the five bars, the two gear buttons, the switch chip) unchanged. Checked in a browser: 38 pages (every saved state on its room,
+  habitat and arena screens, at 320 and 390 px wide) compared between `main` and the branch, 1,808 elements and 893,152 computed styles, 0
+  differences. The room canvas pixels are not compared (the idle animation uses random numbers). Settings is the one Kid screen that changes
+  (it gains a "Display" part with the Adult Mode checkbox).
+- **The care row is not touched.** It still reads "feed, clean, lights, medicine, go somewhere" as icons. Labels and reasons on the buttons are slice A1.3.
+- **Numbers are floored** (a hunger of 94.6 shows 94 and food is accepted), so the number agrees with every whole-number rule. Kid Mode's bars still round.
+- **Time left is counted, not divided.** `minutesUntil` in `game/hud.ts` steps the value down with the simulation's own arithmetic (one rate per
+  minute, held between 0 and 100). Dividing gave one minute too many at hunger 100, because 42 steps of 0.1190476 take it to
+  94.99999999999994, under the line, while the division said 43. A test compares it with `feed` and `simulateTo` for hungers 0 to 100, awake and asleep.
+- **The words under a cell** are `9h left`, `full in 2h` (energy while asleep), or for wellness one word from the same conditions as
+  `updateWellness`: sick, falling, rising, steady. The first draft of the plan had only sick and steady. A tap opens a card with the rates per hour
+  (awake and asleep), the time to empty at this rate, where food is refused and when it eats again, the level where it calls, and the discipline with what it costs in a fight.
+- **The cell's spoken name starts with its visible word** ("FOOD: Hunger 22 of 100, 3h left, needs attention"), so voice control by the
+  word on screen works. The bag chips have `role="img"` so the labels are read.
+- **The strip is two rows** (name, stage and clock with the Book and Settings buttons; then coins and materials with the Switch button when
+  there is another player). The stage and clock line wraps instead of ending in an ellipsis: "Passed away · 12:05 pm" is wider than its box at 320 px.
+  Every strip button is 44 px or more each way (the Kid header's switch chip was 40 px high).
+- **Discipline 30 for newborns touches Kid fights too** (owner's answer 3): a fresh creature now ignores a command in about 1 round in 5 (the
+  sulk rule: 50 minus discipline, in percent). Nothing raises discipline yet. The detail card says so in numbers.
+- **The clock reads game time** (`game.now()`), not the device clock: dev mode's skips move one and not the other. A browser check has a
+  state with game time 3 hours ahead of the device and fails if the strip reads the device.
+- **How much space it takes (measured):** the adult header is 177 to 221 px high (Kid: 60 px). The Kid page just fits at 320 x 568 and every
+  larger size tried; the adult page is 643 to 687 px tall at 320 x 568 and 360 x 640 (scrolls 3 to 119 px) and fits from 360 x 780 up.
+  The plan said "about 60 px net"; it was low. Whether to make it more compact is for the owner (known-issues.md).
+
+## Adult track A1.2: the Growth Forecast (2026-11-22, branch `adult-a1`)
+
+The plan and edge cases are in [adult-a1-plan.md](adult-a1-plan.md), section 3b. Decisions made while building, beyond the ones listed there:
+
+- **A panel, not a card on the page.** Measured on the real Adult Mode header (2026-11-22): the page is 659 px tall for an adult, 674 px for a baby, and
+  703 (at 320 x 568) or 687 (at 360 x 640) for a young one with needs, in windows 568 and 640 px high, so an inline card would push the care buttons off the screen. The
+  Forecast is a full-screen panel of the same kind as the Creature Book.
+- **The way in is the strip's name and stage text** (a button, with a "›"). Measured: row 1 is 44 px high and that text block 34.5 px, so
+  it costs no height; making the context line a 44 px button would have added 14 px at 320 x 568 and 360 x 640 for a young one and an adult.
+- **It reads the real checkpoint.** `forecast.ts` counts to `stageStartedAt + hours`, as `nextForm` does, not to the header's clamped
+  countdown (A1.1 clamps to the stage's length). After a device clock is set back the stage waits for real time to catch up (known-issues.md); a
+  "Locked" built on the clamped time would be too small, so the panel shows the real time and says the clock was set back.
+- **"Locked" is a promise, so it is conservative.** It is said only when a bound proves nothing the player can still do changes the leader:
+  the baby's most possible cells per field, the kid's most possible meals (room in hunger divided by the least a meal adds, 5), the young
+  one's best and worst tier (mistakes at most one per 60 unanswered awake minutes), and no neglect long enough for the special. The bounds
+  count `ceil(minutes left) + 1` steps from where the creature was last simulated, because the game steps on whole minutes and the step that
+  ends the stage still runs the care first. Tests play the real simulation against every claim: baby in each field, kid feeding each food as
+  often as the game lets it in one instant, young letting every call go and caring at every chance, and a random sweep (240 creatures) in which
+  each stage must produce locked cases. "Still open" claims nothing.
+- **The spec's "Avoid mistakes" stepper became a "slip" stepper.** The count of mistakes never goes down, so the preview adds mistakes (the
+  risk), and the count now is the best case already shown. The young one's steppers are hunger cells, happy cells and mistakes.
+- **A what-if with two fields at the 4 cells that end the baby stage** shows no leader: in the game one gets there first and the stage ends,
+  the code would pick the first in the list. The panel says so.
+- **The rival numbers are found by asking the game.** For each row that is not leading, the amount that changes the leader is the least
+  amount (minutes, servings, mistakes) that `leadingForm` on a copy of the creature gives a different answer for. A kid's tie is shown
+  (the fourth young) with the amount that makes the food lead on its own. Both are checked against `leadingForm` one step either side.
+- **The Care Log is on the stage's counters** (`counters.mistakeLog`, the last 8, `tuning.calls.mistakeLogMax`), so it is cleared with the
+  other counters at each evolution. 36 to 44 characters an entry; a full log adds a few hundred characters to the save (a test holds it under 600).
+- **Names and portraits of forms not yet in the Book are shown** (the spec's choice). One line to change if the owner prefers "???" until found.
+- **Kid Mode:** no markup changes. The save gains one optional field; `growth.ts` gains the word `export` on `canBecomeSpecial`.

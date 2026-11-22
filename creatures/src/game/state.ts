@@ -17,7 +17,7 @@ export interface Stats {
   energy: number;
   hygiene: number;
   wellness: number; // low wellness means sickness (not the same as battle HP)
-  discipline: number; // nothing raises it yet; only combat reads it (the chance of sulking)
+  discipline: number; // nothing raises it yet and nothing lowers it; only combat reads it (the chance of sulking). A newborn starts at 30
 }
 
 // Counters for the current stage. They reset at each evolution and decide the next form (game/growth.ts):
@@ -28,6 +28,7 @@ export interface Counters {
   hungerCells: number; // feedings that filled the creature up, at most tuning.growth.careCellsMax (the young stage)
   happyCells: number; // times happiness reached 100, at most the same (the young stage)
   careMistakes: number; // calls left unanswered too long
+  mistakeLog?: Array<{ at: number; call: CallKind }>; // when and which call, for the last few of them (tuning.calls.mistakeLogMax), newest last; the Care Log
   neglectMinutes?: number; // awake minutes since the last care (baby and kid stages); at tuning.growth.neglectHours it turns into the special
   chores?: number; // jobs finished in this stage
   battles?: number; // fights fought in this stage, won or lost
@@ -93,7 +94,7 @@ export interface Save {
   lastSimulatedAt: number; // game time the simulation has reached
   clockOffsetMs: number; // dev mode shifts game time forward with this
   rngState: number;
-  settings: { sleepStartHour: number; sleepEndHour: number };
+  settings: { sleepStartHour: number; sleepEndHour: number; adultMode?: boolean }; // adultMode: show the numbers (ui/AdultHud.tsx); only `true` turns it on
   log: LogEntry[]; // event log for dev mode, newest last
   coins: number;
   inventory: Partial<Record<MaterialId, number>>; // materials gathered so far
