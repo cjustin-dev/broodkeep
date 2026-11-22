@@ -492,11 +492,15 @@ Built after the owner merged slice 1 ("merged, start slice 2"). Plan section 7.6
 
 ## Cloud saves (2026-11-21, branch `cloud-saves`; the plan and edge cases are in [cloud-saves.md](cloud-saves.md))
 
-- **The password is stretched in the browser** (PBKDF2-SHA256, 600,000 rounds, salt `broodkeep-v1:` plus the lower case email) and the
+- **The password is stretched in the browser** (PBKDF2-SHA256, 600,000 rounds, salt `broodkeep-v1:` plus the lower case username; it was the email until 2026-11-22) and the
   server stores only a salted SHA-256 of the 32 byte result. Measured in `workerd`: 100,000 rounds took 19 ms and 600,000 took 68 ms
   against the free plan's 10 ms CPU limit, and the plan says no paid plans. CLAUDE.md section 3 says "PBKDF2 on the server": its edit
   is proposed, not applied.
-- **Sign up needs a family code** (`SIGNUP_CODE`, a dashboard secret; closed when unset). Email is a login name only.
+- **Sign up needs a family code** (`SIGNUP_CODE`, a dashboard secret; closed when unset). The account name is a login name only.
+- **A username, not an email, signs in (2026-11-22, the owner asked "can we just do user id instead of email?"; read as a name the
+  family picks).** 3 to 20 characters of `a-z 0-9 . _ -`, starting with a letter or digit, lower cased and trimmed; the PBKDF2 salt, the
+  API field, the two database columns and the stored device record all say `username`. Nothing was ever emailed, so nothing is lost.
+  Old email accounts are left inert in the table (not deleted); the migration is `migrations/0002_username.sql`. Plan section 7.
 - **Sessions** are a random token in an HttpOnly `__Host-` cookie, 90 days, stored as a SHA-256. **CSRF**: every write needs the
   site's own `Origin` and `application/json`.
 - **Which save wins:** the same base revision is accepted; otherwise the strictly newer `savedAt` wins, ties keep the server's, and

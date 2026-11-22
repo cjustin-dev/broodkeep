@@ -5,7 +5,7 @@ import type { Env } from "./types";
 
 export interface AccountRow {
   id: number;
-  email: string;
+  username: string;
   password_hash: string;
 }
 
@@ -19,21 +19,21 @@ export const isUniqueViolation = (error: unknown): boolean => error instanceof E
 
 // ---- accounts ----
 
-export const findAccount = (env: Env, email: string): Promise<AccountRow | null> =>
-  env.DB.prepare("SELECT id, email, password_hash FROM accounts WHERE email = ?").bind(email).first<AccountRow>();
+export const findAccount = (env: Env, username: string): Promise<AccountRow | null> =>
+  env.DB.prepare("SELECT id, username, password_hash FROM accounts WHERE username = ?").bind(username).first<AccountRow>();
 
-// Makes the account and its one profile together. An email that is already taken answers 409.
-export async function createAccount(env: Env, email: string, passwordHash: string, now: number): Promise<number> {
+// Makes the account and its one profile together. A username that is already taken answers 409.
+export async function createAccount(env: Env, username: string, passwordHash: string, now: number): Promise<number> {
   try {
     await env.DB.batch([
-      env.DB.prepare("INSERT INTO accounts (email, password_hash, created_at) VALUES (?, ?, ?)").bind(email, passwordHash, now),
+      env.DB.prepare("INSERT INTO accounts (username, password_hash, created_at) VALUES (?, ?, ?)").bind(username, passwordHash, now),
       env.DB.prepare("INSERT INTO profiles (account_id, name, created_at) VALUES (last_insert_rowid(), 'Player', ?)").bind(now),
     ]);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new HttpError(409, "That email is already signed up.");
+    if (isUniqueViolation(error)) throw new HttpError(409, "That username is already taken.");
     throw error;
   }
-  const account = await findAccount(env, email);
+  const account = await findAccount(env, username);
   if (!account) throw new Error("the new account was not found");
   return account.id;
 }
@@ -50,10 +50,10 @@ export async function insertSession(env: Env, tokenHash: string, accountId: numb
   await env.DB.prepare("INSERT INTO sessions (token_hash, account_id, expires_at) VALUES (?, ?, ?)").bind(tokenHash, accountId, expiresAt).run();
 }
 
-export const findSession = (env: Env, tokenHash: string, now: number): Promise<{ accountId: number; email: string } | null> =>
-  env.DB.prepare("SELECT s.account_id AS accountId, a.email AS email FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ? AND s.expires_at > ?")
+export const findSession = (env: Env, tokenHash: string, now: number): Promise<{ accountId: number; username: string } | null> =>
+  env.DB.prepare("SELECT s.account_id AS accountId, a.username AS username FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ? AND s.expires_at > ?")
     .bind(tokenHash, now)
-    .first<{ accountId: number; email: string }>();
+    .first<{ accountId: number; username: string }>();
 
 export async function deleteSession(env: Env, tokenHash: string): Promise<void> {
   await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(tokenHash).run();
@@ -69,8 +69,8 @@ export async function purgeExpired(env: Env, now: number): Promise<void> {
 
 // ---- failed attempts (login passwords and sign up codes) ----
 
-export async function recordFailure(env: Env, kind: "login" | "register", email: string, ip: string, now: number): Promise<void> {
-  await env.DB.prepare("INSERT INTO login_failures (kind, at, email, ip) VALUES (?, ?, ?, ?)").bind(kind, now, email, ip).run();
+export async function recordFailure(env: Env, kind: "login" | "register", username: string, ip: string, now: number): Promise<void> {
+  await env.DB.prepare("INSERT INTO login_failures (kind, at, username, ip) VALUES (?, ?, ?, ?)").bind(kind, now, username, ip).run();
 }
 
 export interface FailureCount {
@@ -78,15 +78,15 @@ export interface FailureCount {
   oldest: number | null;
 }
 
-// Failures newer than `since` for one email, or for one address.
-export const failuresByEmail = (env: Env, kind: "login" | "register", email: string, since: number): Promise<FailureCount | null> =>
-  env.DB.prepare("SELECT COUNT(*) AS count, MIN(at) AS oldest FROM login_failures WHERE kind = ? AND email = ? AND at > ?").bind(kind, email, since).first<FailureCount>();
+// Failures newer than `since` for one username, or for one address.
+export const failuresByUsername = (env: Env, kind: "login" | "register", username: string, since: number): Promise<FailureCount | null> =>
+  env.DB.prepare("SELECT COUNT(*) AS count, MIN(at) AS oldest FROM login_failures WHERE kind = ? AND username = ? AND at > ?").bind(kind, username, since).first<FailureCount>();
 
 export const failuresByIp = (env: Env, kind: "login" | "register", ip: string, since: number): Promise<FailureCount | null> =>
   env.DB.prepare("SELECT COUNT(*) AS count, MIN(at) AS oldest FROM login_failures WHERE kind = ? AND ip = ? AND at > ?").bind(kind, ip, since).first<FailureCount>();
 
-export async function clearFailures(env: Env, kind: "login" | "register", email: string): Promise<void> {
-  await env.DB.prepare("DELETE FROM login_failures WHERE kind = ? AND email = ?").bind(kind, email).run();
+export async function clearFailures(env: Env, kind: "login" | "register", username: string): Promise<void> {
+  await env.DB.prepare("DELETE FROM login_failures WHERE kind = ? AND username = ?").bind(kind, username).run();
 }
 
 // ---- saves (the rules about which save wins are in saves.ts) ----

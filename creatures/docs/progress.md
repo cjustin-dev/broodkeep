@@ -443,3 +443,19 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    One earlier probe of the sign up route answered 500 once, right after the deploy, and never again in 3 more tries; the cause is not
    known (no access to the function logs). **Still to do by the owner:** sign up on the live site, then sign in on a second device and check
    the game follows. The probes added a few failed tries from this server's address to the rate limit (they expire after 15 minutes).
+   **Username instead of email (2026-11-22, owner: "can we just do user id instead of email?", read as a username the family picks):**
+   branch `username-login` in ~/broodkeep-cloud; plan section 7 of [cloud-saves.md](cloud-saves.md). Needs `migrations/0002_username.sql` run in
+   the D1 Console by the owner (numbered steps in section 7).
+   **Status (2026-11-22): built, checked, committed (0775bcc) and pushed to `origin/username-login` on the owner's "commit and push"; the owner opens and merges the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/username-login), after running 0002 in the D1 Console.** `npm run typecheck` and `npm run build` exit 0;
+   1279 tests in 24 files pass (`origin/main`: 1270), and 40 full runs in a row had no failure. A cheap-model review, before any test ran, found one
+   broken test (my own global replace had turned an email shaped entry of a "refused" list into the valid name `kid`), one title that claimed more
+   than it checked, and the Kelvin sign (a letter that lower cases to plain `k`: same account on both sides, now pinned by a test). Mutation
+   checks: 104 deliberate breaks, all caught on the tests they should fail, each file restored and compared byte for byte. The first run had one
+   survivor, the guard that ignores the server's answer to a send when the player has signed in as someone else meanwhile (an old test gap); a new
+   test with a held back answer now catches it (its first version failed for the wrong reason, a racy precondition, which I found by reading the
+   failure message and not trusting "caught"). End to end: the three browser script (13 checks) passes against `wrangler pages dev` with a local D1
+   after 0001, an old style email row and 0002 were applied in that order (the old row survived); the Username field looks right at 320 and 390 px.
+   **Test race found and fixed:** two existing sync tests asserted that the request list was exactly `["GET /api/save"]` right after a timer fired;
+   the server answers on a real clock, so the send after the GET can already be there. They failed 4 of 32 full runs on this branch, 0 of 32 on
+   `origin/main` (and 1 of 25 file only runs on `origin/main`); they now check only that the first request is the GET, and 40 full runs pass.
+   **The owner approved the three reflect edits** ("make the edits and push", 2026-11-22; applied: two rules and an extension in the home CLAUDE.md, and the `accounts` line of this project's CLAUDE.md now says username). `origin/main` had moved (PR #20, the note above) and was merged into the branch; only this file conflicted.

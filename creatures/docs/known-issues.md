@@ -261,8 +261,14 @@
 
 ## Cloud saves (accepted for now)
 
-- **No password reset.** Emails are only login names and nothing is sent. A forgotten password means the owner resets the account by
+- **No password reset.** Usernames are only login names and nothing is sent. A forgotten password means the owner resets the account by
   hand in the D1 console (delete the account row, or replace `password_hash` with a hash made from a new key).
+- **A username is easy to guess, and anyone can use it to block that account for 15 minutes.** Names like `kid` are not secret (an
+  email at least looked private), and five wrong tries for a name from any address fill its 15 minute allowance. Signing up still needs
+  the family code, and a wrong password is slowed by the per username and per address limits, so guessing gets nowhere fast; the cost is
+  that someone who knows a name can keep that account locked out. Accepted for a family game.
+- **Accounts made with an email before 2026-11-22 cannot be signed in to.** They stay in the table. Rename or delete them in the D1
+  console if one ever mattered (as far as I know the owner had not signed up for real by then).
 - **Password strength is only checked in the browser** (8 to 128 characters). The server sees a 43 character key, never the password,
   so it cannot tell a weak password from a strong one. Anyone can also send the server a key made some other way.
 - **Signing in stretches the password 600,000 times in the browser.** That took about 64 ms in headless Chromium on this machine; on a

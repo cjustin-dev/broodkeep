@@ -19,11 +19,11 @@ import type { TestDb } from "./cloud-helpers";
 // Stretching a password 600,000 times takes a moment each time: these tests use 1,000 (the recipe is tested in cloud-rules.test.ts).
 vi.mock("../src/sync/account-rules", async (importOriginal) => {
   const real = await importOriginal<typeof import("../src/sync/account-rules")>();
-  return { ...real, deriveKey: (email: string, password: string) => real.deriveKey(email, password, 1_000) };
+  return { ...real, deriveKey: (username: string, password: string) => real.deriveKey(username, password, 1_000) };
 });
 
 const T0 = Date.UTC(2026, 10, 21, 12, 0, 0);
-const EMAIL = "kid@example.com";
+const USERNAME = "kid";
 const PASSWORD = "correct horse battery";
 
 // ---- the network: fetch answered by the real routes ----
@@ -43,6 +43,7 @@ let activeJar: Jar;
 let offline: boolean;
 let override: ((method: string) => Response | null) | null; // answers a request with this instead of the server (null: the server answers)
 let duringPut: (() => void) | null; // runs once, right after a save has been sent (the game is played while it is on its way)
+let holdPut: Promise<void> | null; // holds back the answer to the next save until it settles (a slow connection)
 let requests: string[];
 
 async function fakeFetch(input: string | URL | Request, init: RequestInit = {}): Promise<Response> {
@@ -62,6 +63,8 @@ async function fakeFetch(input: string | URL | Request, init: RequestInit = {}):
   if (method === "PUT") {
     duringPut?.();
     duringPut = null;
+    await holdPut;
+    holdPut = null;
   }
   const response = await pending;
   const set = response.headers.getSetCookie()[0];
@@ -151,12 +154,12 @@ const puts = (): number => requests.filter((request) => request.startsWith("PUT"
 
 // Waits for everything a device has queued.
 const settle = (device: Device): Promise<void> => device.sync.sync();
-async function signUp(device: Device, email = EMAIL): Promise<void> {
-  expect(await device.sync.signUp(email, PASSWORD, "family-code")).toBeNull();
+async function signUp(device: Device, username = USERNAME): Promise<void> {
+  expect(await device.sync.signUp(username, PASSWORD, "family-code")).toBeNull();
   await settle(device);
 }
-async function signIn(device: Device, email = EMAIL): Promise<void> {
-  expect(await device.sync.signIn(email, PASSWORD)).toBeNull();
+async function signIn(device: Device, username = USERNAME): Promise<void> {
+  expect(await device.sync.signIn(username, PASSWORD)).toBeNull();
   await settle(device);
 }
 
@@ -167,6 +170,7 @@ beforeEach(() => {
   offline = false;
   override = null;
   duringPut = null;
+  holdPut = null;
   requests = [];
   vi.stubGlobal("fetch", fakeFetch);
 });
@@ -185,7 +189,7 @@ describe("the times the plan names", () => {
 // ---- the decisions on their own ----
 
 describe("what to do once the account's save has been looked at", () => {
-  const meta = (revision: number, dirty: boolean): CloudMeta => ({ email: EMAIL, signedIn: true, revision, savedAt: 5, dirty });
+  const meta = (revision: number, dirty: boolean): CloudMeta => ({ username: USERNAME, signedIn: true, revision, savedAt: 5, dirty });
   const saved = { revision: 3, savedAt: 9, save: { version: 3 } };
   const empty = { revision: 0, savedAt: 0, save: null };
 
@@ -232,16 +236,21 @@ describe("an untouched egg", () => {
 });
 
 describe("the account details a device remembers", () => {
-  const good: CloudMeta = { email: EMAIL, signedIn: true, revision: 3, savedAt: 99, dirty: false };
+  const good: CloudMeta = { username: USERNAME, signedIn: true, revision: 3, savedAt: 99, dirty: false };
 
   it("are read back as they were written", () => {
     expect(parseMeta(JSON.parse(JSON.stringify(good)))).toEqual(good);
   });
 
   it("are dropped when anything is missing or the wrong kind, never guessed", () => {
-    for (const bad of [null, undefined, "text", 5, [], {}, { ...good, email: 5 }, { ...good, signedIn: "yes" }, { ...good, dirty: 1 }, { ...good, revision: -1 }, { ...good, revision: 1.5 }, { ...good, savedAt: "5" }, { ...good, revision: undefined }]) {
+    for (const bad of [null, undefined, "text", 5, [], {}, { ...good, username: 5 }, { ...good, signedIn: "yes" }, { ...good, dirty: 1 }, { ...good, revision: -1 }, { ...good, revision: 1.5 }, { ...good, savedAt: "5" }, { ...good, revision: undefined }]) {
       expect(parseMeta(bad), JSON.stringify(bad)).toBeNull();
     }
+  });
+
+  it("are dropped (parseMeta answers null) when the record is from the days of email sign in", () => {
+    const { username: _kept, ...rest } = good;
+    expect(parseMeta({ ...rest, email: "kid@example.com" })).toBeNull();
   });
 });
 
@@ -257,30 +266,30 @@ describe("signed out", () => {
     await settle(d);
     await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(requests).toEqual([]);
-    expect(d.sync.email).toBeNull();
+    expect(d.sync.username).toBeNull();
   });
 });
 
 describe("signing in and out", () => {
   it("creates an account with the family code, and says what is wrong when the code is not right", async () => {
     const d = newDevice();
-    const refused = await d.sync.signUp(EMAIL, PASSWORD, "wrong code");
+    const refused = await d.sync.signUp(USERNAME, PASSWORD, "wrong code");
     expect(refused).toBe("That family code is not right.");
-    expect(d.sync.email).toBeNull();
+    expect(d.sync.username).toBeNull();
     expect(countRows(t.raw, "accounts")).toBe(0);
     await signUp(d);
-    expect(d.sync.email).toBe(EMAIL);
-    expect(d.written.at(-1)).toMatchObject({ email: EMAIL, signedIn: true });
+    expect(d.sync.username).toBe(USERNAME);
+    expect(d.written.at(-1)).toMatchObject({ username: USERNAME, signedIn: true });
   });
 
-  it("signs in with the same password from another device, and says the same thing for a wrong password and an unknown email", async () => {
+  it("signs in with the same password from another device, and says the same thing for a wrong password and an unknown username", async () => {
     await signUp(newDevice());
     const d = newDevice();
-    expect(await d.sync.signIn(EMAIL, "wrong password!")).toBe("That email or password is not right.");
-    expect(await d.sync.signIn("nobody@example.com", PASSWORD)).toBe("That email or password is not right.");
-    expect(d.sync.email).toBeNull();
+    expect(await d.sync.signIn(USERNAME, "wrong password!")).toBe("That username or password is not right.");
+    expect(await d.sync.signIn("nobody", PASSWORD)).toBe("That username or password is not right.");
+    expect(d.sync.username).toBeNull();
     await signIn(d);
-    expect(d.sync.email).toBe(EMAIL);
+    expect(d.sync.username).toBe(USERNAME);
   });
 
   it("signs out here and at the server, sends what was waiting first, and then stays quiet", async () => {
@@ -291,7 +300,7 @@ describe("signing in and out", () => {
     expect(serverCoins()).toBe(2);
     expect(countRows(t.raw, "sessions")).toBe(0);
     expect(d.jar.cookie).toBeNull();
-    expect(d.sync.email).toBeNull();
+    expect(d.sync.username).toBeNull();
     expect(d.written.at(-1)!.signedIn).toBe(false);
     requests.length = 0;
     play(d, 3);
@@ -304,11 +313,11 @@ describe("signing in and out", () => {
     await signUp(d);
     offline = true;
     await d.sync.signOut();
-    expect(d.sync.email).toBeNull();
+    expect(d.sync.username).toBeNull();
     expect(d.sync.message).toContain("Signed out on this device");
   });
 
-  it("remembers the account for the same email, so signing in again asks nothing; another email starts as a new device", async () => {
+  it("remembers the account for the same username, so signing in again asks nothing; another username starts as a new device", async () => {
     const d = newDevice(gameWith(1));
     await signUp(d);
     await d.sync.signOut();
@@ -316,9 +325,9 @@ describe("signing in and out", () => {
     expect(d.sync.choosing).toBeNull();
     expect(d.written.at(-1)).toMatchObject({ revision: 1, dirty: false });
 
-    await signUp(newDevice(gameWith(50)), "sib@example.com"); // another account with a game of its own
+    await signUp(newDevice(gameWith(50)), "sib"); // another account with a game of its own
     await d.sync.signOut();
-    await signIn(d, "sib@example.com");
+    await signIn(d, "sib");
     expect(d.sync.choosing).not.toBeNull(); // this device's game against that account's game: the player decides
   });
 
@@ -326,7 +335,7 @@ describe("signing in and out", () => {
     const d = newDevice(gameWith(1));
     await signUp(d);
     const reopened = d.restart();
-    expect(reopened.email).toBe(EMAIL);
+    expect(reopened.username).toBe(USERNAME);
     reopened.start();
     await reopened.sync();
     expect(requests.at(-1)).toBe("GET /api/save");
@@ -492,7 +501,7 @@ describe("while signed in", () => {
     await vi.advanceTimersByTimeAsync(9_999);
     expect(requests).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(requests).toEqual(["GET /api/save"]); // the timer itself started it, before settle() could (settle looks at the account too)
+    expect(requests.slice(0, 1)).toEqual(["GET /api/save"]); // the timer itself started it, before settle() could (settle looks at the account too); the send after it may already follow, the server answers on a real clock
     await settle(d);
     expect(puts()).toBe(1);
     expect(serverCoins()).toBe(3);
@@ -518,6 +527,28 @@ describe("while signed in", () => {
     expect(serverCoins()).toBe(3); // the second send carried it
     expect(serverRow()!.revision).toBe(3);
     expect(puts()).toBe(2);
+  });
+
+  it("ignores the answer to a send when the player has signed in as someone else meanwhile, and leaves that account's game alone", async () => {
+    const other = newDevice(gameWith(50));
+    await signUp(other, "sib"); // another account, with a game of its own
+    requests.length = 0;
+    play(d, 2);
+    let release!: () => void;
+    holdPut = new Promise<void>((resolve) => (release = resolve));
+    try {
+      d.sync.flush(); // sends straight away, without looking first, so the send is on its way at once
+      await vi.advanceTimersByTimeAsync(0);
+      expect(requests).toEqual(["PUT /api/save"]); // d's game is on its way, and the answer is held back
+      expect(await d.sync.signIn("sib", PASSWORD)).toBeNull(); // meanwhile the player signs in as sib on this device
+    } finally {
+      release();
+    }
+    await settle(d);
+    expect(d.sync.username).toBe("sib");
+    expect(d.sync.choosing).not.toBeNull(); // this device's game against sib's game: the player decides, nothing is sent for them
+    const sibCoins = (t.raw.prepare("SELECT s.data FROM saves s JOIN profiles p ON p.id = s.profile_id JOIN accounts a ON a.id = p.account_id WHERE a.username = 'sib'").get() as { data: string }).data;
+    expect(JSON.parse(sibCoins).coins).toBe(50);
   });
 
   it("does not count a save that only carries the clock forward as a change: nothing is sent for it", async () => {
@@ -550,7 +581,7 @@ describe("while signed in", () => {
     play(d, 2);
     offline = true;
     await d.sync.signOut();
-    expect(d.sync.email).toBeNull();
+    expect(d.sync.username).toBeNull();
     expect(d.game.save.coins).toBe(2);
     expect(d.written.at(-1)).toMatchObject({ signedIn: false, dirty: true });
   });
@@ -652,7 +683,7 @@ describe("when the server does not answer well", () => {
     await vi.advanceTimersByTimeAsync(RETRY_MS - 1);
     expect(requests).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(requests).toEqual(["GET /api/save"]); // the retry itself, before settle() could do it
+    expect(requests.slice(0, 1)).toEqual(["GET /api/save"]); // the retry itself, before settle() could do it; the send after it may already follow, the server answers on a real clock
     await settle(d);
     expect(serverCoins()).toBe(2);
   });
@@ -662,7 +693,7 @@ describe("when the server does not answer well", () => {
     play(d, 2);
     await vi.advanceTimersByTimeAsync(SYNC_DELAY_MS);
     await settle(d);
-    expect(d.sync.email).toBeNull();
+    expect(d.sync.username).toBeNull();
     expect(d.sync.message).toBe("Please sign in again.");
     expect(d.written.at(-1)).toMatchObject({ signedIn: false, dirty: true });
     requests.length = 0;

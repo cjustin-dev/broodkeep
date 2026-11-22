@@ -1,7 +1,7 @@
 // The Account part of Settings: sign in or create an account, see how saving to it is going, sign out.
 // The game works without an account; this only adds a copy of the game online (docs/cloud-saves.md).
 import { useEffect, useState } from "preact/hooks";
-import { PASSWORD_MAX, PASSWORD_MIN, isValidEmail, isValidPassword, normalizeEmail } from "../sync/account-rules";
+import { PASSWORD_MAX, PASSWORD_MIN, USERNAME_HELP, USERNAME_MAX, isValidPassword, isValidUsername, normalizeUsername } from "../sync/account-rules";
 import type { CloudSync } from "../sync/sync";
 
 function useCloud(cloud: CloudSync): void {
@@ -13,7 +13,7 @@ const timeText = (at: number): string => new Date(at).toLocaleTimeString([], { h
 
 function SignedOut({ cloud }: { cloud: CloudSync }) {
   const [mode, setMode] = useState<"in" | "up">("in");
-  const [email, setEmail] = useState(cloud.lastEmail);
+  const [username, setUsername] = useState(cloud.lastUsername);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [problem, setProblem] = useState(cloud.message);
@@ -21,8 +21,8 @@ function SignedOut({ cloud }: { cloud: CloudSync }) {
 
   const submit = async (event: Event): Promise<void> => {
     event.preventDefault();
-    const clean = normalizeEmail(email);
-    if (!isValidEmail(clean)) return setProblem("Please enter a valid email address.");
+    const clean = normalizeUsername(username);
+    if (!isValidUsername(clean)) return setProblem(USERNAME_HELP);
     if (mode === "in" && password === "") return setProblem("Please enter your password.");
     if (mode === "up" && !isValidPassword(password)) return setProblem(`Choose a password of ${PASSWORD_MIN} to ${PASSWORD_MAX} characters.`);
     if (mode === "up" && code.trim() === "") return setProblem("Please enter the family code.");
@@ -53,8 +53,17 @@ function SignedOut({ cloud }: { cloud: CloudSync }) {
         </button>
       </div>
       <label class="stack">
-        Email
-        <input type="email" value={email} autocomplete="username" autocapitalize="off" spellcheck={false} onInput={(e) => setEmail(e.currentTarget.value)} />
+        Username
+        <input
+          type="text"
+          value={username}
+          maxLength={USERNAME_MAX}
+          autocomplete="username"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck={false}
+          onInput={(e) => setUsername(e.currentTarget.value)}
+        />
       </label>
       <label class="stack">
         Password
@@ -88,14 +97,14 @@ function SignedOut({ cloud }: { cloud: CloudSync }) {
   );
 }
 
-function SignedIn({ cloud, email }: { cloud: CloudSync; email: string }) {
+function SignedIn({ cloud, username }: { cloud: CloudSync; username: string }) {
   const status = cloud.busy
     ? "Saving…"
     : cloud.message || (cloud.lastSyncedAt === null ? "" : `Up to date at ${timeText(cloud.lastSyncedAt)}.`);
   return (
     <>
       <p>
-        Signed in as <strong>{email}</strong>
+        Signed in as <strong>{username}</strong>
       </p>
       {cloud.choosing ? (
         <div class="notice" role="alert">
@@ -126,11 +135,11 @@ function SignedIn({ cloud, email }: { cloud: CloudSync; email: string }) {
 
 export function AccountSection({ cloud }: { cloud: CloudSync }) {
   useCloud(cloud);
-  const email = cloud.email;
+  const username = cloud.username;
   return (
     <fieldset>
       <legend>Account</legend>
-      {email === null ? <SignedOut cloud={cloud} /> : <SignedIn cloud={cloud} email={email} />}
+      {username === null ? <SignedOut cloud={cloud} /> : <SignedIn cloud={cloud} username={username} />}
     </fieldset>
   );
 }

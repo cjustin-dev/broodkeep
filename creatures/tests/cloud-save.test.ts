@@ -16,7 +16,7 @@ const DAY = 24 * 3_600_000;
 let t: TestDb;
 let cookie: string;
 
-const signUp = async (email: string): Promise<string> => cookieOf(await call(register, t.env, "/api/register", { body: { email, key: key("a"), code: "family-code" } }));
+const signUp = async (username: string): Promise<string> => cookieOf(await call(register, t.env, "/api/register", { body: { username, key: key("a"), code: "family-code" } }));
 const game = (marker: number | string, pad = ""): Record<string, unknown> => ({ version: 3, marker, pad });
 const put = (body: unknown, options: { cookie?: string; env?: Env } = {}): Promise<Sent> =>
   call(putSave, options.env ?? t.env, "/api/save", { method: "PUT", cookie: "cookie" in options ? options.cookie : cookie, body });
@@ -35,7 +35,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(T0);
   t = newTestDb();
-  cookie = await signUp("kid@example.com");
+  cookie = await signUp("kid");
 });
 afterEach(() => vi.useRealTimers());
 
@@ -139,15 +139,15 @@ describe("the backups", () => {
   });
 
   it("keeps each account's backups to itself", async () => {
-    const other = await signUp("sib@example.com");
+    const other = await signUp("sib");
     await send(0, 1000, game("mine"));
     await send(1, 2000, game("mine2"));
     await put({ baseRevision: 0, savedAt: 1000, save: game("theirs") }, { cookie: other });
     await put({ baseRevision: 1, savedAt: 2000, save: game("theirs2") }, { cookie: other });
-    const owned = (email: string): string[] =>
-      (t.raw.prepare("SELECT b.data FROM save_backups b JOIN profiles p ON p.id = b.profile_id JOIN accounts a ON a.id = p.account_id WHERE a.email = ?").all(email) as { data: string }[]).map((row) => JSON.parse(row.data).marker);
-    expect(owned("kid@example.com")).toEqual(["mine"]);
-    expect(owned("sib@example.com")).toEqual(["theirs"]);
+    const owned = (username: string): string[] =>
+      (t.raw.prepare("SELECT b.data FROM save_backups b JOIN profiles p ON p.id = b.profile_id JOIN accounts a ON a.id = p.account_id WHERE a.username = ?").all(username) as { data: string }[]).map((row) => JSON.parse(row.data).marker);
+    expect(owned("kid")).toEqual(["mine"]);
+    expect(owned("sib")).toEqual(["theirs"]);
   });
 });
 
@@ -217,7 +217,7 @@ describe("what is refused", () => {
 
   it("another account's save is never reachable: each account has its own, and a stranger's send changes nothing of mine", async () => {
     await send(0, 1000, game("mine"));
-    const other = await signUp("sib@example.com");
+    const other = await signUp("sib");
     expect((await get(other)).body).toEqual({ revision: 0, savedAt: 0, save: null });
     expect((await put({ baseRevision: 0, savedAt: 5000, save: game("theirs") }, { cookie: other })).body).toEqual({ status: "saved", revision: 1 });
     expect((await get()).body).toEqual({ revision: 1, savedAt: 1000, save: game("mine") });

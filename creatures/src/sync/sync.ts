@@ -11,7 +11,7 @@ export const WAIT_MS = 5 * 60_000; // after "too many tries"
 // What this device remembers about the account (kept in IndexedDB, see local.ts). `revision` is the account's save this device last
 // matched (0: never), `savedAt` when this device last wrote its game, `dirty` that it has written since the last sync.
 export interface CloudMeta {
-  email: string;
+  username: string;
   signedIn: boolean;
   revision: number;
   savedAt: number;
@@ -23,9 +23,9 @@ const isWhole = (value: unknown): value is number => typeof value === "number" &
 export function parseMeta(raw: unknown): CloudMeta | null {
   if (typeof raw !== "object" || raw === null) return null;
   const meta = raw as Partial<CloudMeta>;
-  if (typeof meta.email !== "string" || typeof meta.signedIn !== "boolean" || typeof meta.dirty !== "boolean") return null;
+  if (typeof meta.username !== "string" || typeof meta.signedIn !== "boolean" || typeof meta.dirty !== "boolean") return null;
   if (!isWhole(meta.revision) || !isWhole(meta.savedAt)) return null;
-  return { email: meta.email, signedIn: meta.signedIn, revision: meta.revision, savedAt: meta.savedAt, dirty: meta.dirty };
+  return { username: meta.username, signedIn: meta.signedIn, revision: meta.revision, savedAt: meta.savedAt, dirty: meta.dirty };
 }
 
 // A device that could not load its own game starts a new egg. That egg says nothing about the account's game, so the device counts
@@ -57,8 +57,8 @@ export function planAfterPull(meta: CloudMeta, untouched: boolean, server: Serve
 }
 
 export interface Api {
-  signIn(email: string, password: string): Promise<Reply<{ email: string }>>;
-  signUp(email: string, password: string, code: string): Promise<Reply<{ email: string }>>;
+  signIn(username: string, password: string): Promise<Reply<{ username: string }>>;
+  signUp(username: string, password: string, code: string): Promise<Reply<{ username: string }>>;
   signOut(): Promise<Reply<unknown>>;
   fetchSave(): Promise<Reply<ServerSave>>;
   sendSave(put: SavePut): Promise<Reply<PutReply>>;
@@ -100,12 +100,12 @@ export class CloudSync {
     game.onSave = (byPlayer) => this.noteSave(byPlayer);
   }
 
-  // Who is signed in (null: nobody), and the last email used here, to fill in the form again.
-  get email(): string | null {
-    return this.meta?.signedIn ? this.meta.email : null;
+  // Who is signed in (null: nobody), and the last username used here, to fill in the form again.
+  get username(): string | null {
+    return this.meta?.signedIn ? this.meta.username : null;
   }
-  get lastEmail(): string {
-    return this.meta?.email ?? "";
+  get lastUsername(): string {
+    return this.meta?.username ?? "";
   }
 
   subscribe(listener: () => void): () => void {
@@ -131,11 +131,11 @@ export class CloudSync {
   }
 
   // Both return a message for the player when it did not work, and null when it did.
-  async signIn(email: string, password: string): Promise<string | null> {
-    return this.enter(await this.api.signIn(email, password));
+  async signIn(username: string, password: string): Promise<string | null> {
+    return this.enter(await this.api.signIn(username, password));
   }
-  async signUp(email: string, password: string, code: string): Promise<string | null> {
-    return this.enter(await this.api.signUp(email, password, code));
+  async signUp(username: string, password: string, code: string): Promise<string | null> {
+    return this.enter(await this.api.signUp(username, password, code));
   }
 
   async signOut(): Promise<void> {
@@ -180,11 +180,11 @@ export class CloudSync {
 
   // ---- inside ----
 
-  private async enter(reply: Reply<{ email: string }>): Promise<string | null> {
+  private async enter(reply: Reply<{ username: string }>): Promise<string | null> {
     if (!reply.ok) return reply.error.message;
-    const email = reply.value.email;
-    const known = this.meta?.email === email ? this.meta : null; // the same account as last time keeps what this device knew of it
-    await this.setMeta(known ? { ...known, signedIn: true } : { email, signedIn: true, revision: 0, savedAt: 0, dirty: false });
+    const username = reply.value.username;
+    const known = this.meta?.username === username ? this.meta : null; // the same account as last time keeps what this device knew of it
+    await this.setMeta(known ? { ...known, signedIn: true } : { username, signedIn: true, revision: 0, savedAt: 0, dirty: false });
     this.choosing = null;
     this.message = "";
     void this.sync();
@@ -271,7 +271,7 @@ export class CloudSync {
     const put = forced ?? { baseRevision: meta.revision, savedAt: meta.dirty ? meta.savedAt : this.clock(), save: this.game.save };
     const reply = await this.api.sendSave(put);
     const now = this.current();
-    if (!now || now.email !== meta.email) return;
+    if (!now || now.username !== meta.username) return;
     if (!reply.ok) return this.failed(reply.error);
     if (reply.value.status === "kept-server") return this.adopt(reply.value); // the account's game was newer
     await this.setMeta({ ...now, revision: reply.value.revision, dirty: this.edits !== edits });

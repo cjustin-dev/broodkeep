@@ -7,9 +7,9 @@ import type { Context, Env } from "./types";
 export const SESSION_COOKIE = "__Host-bk_session"; // "__Host-" makes browsers insist on Secure, Path=/ and no Domain
 export const SESSION_MS = 90 * 24 * 3_600_000;
 
-// Failed attempts that are allowed in the window before the answer becomes 429. An address gets more than an email, since a family
+// Failed attempts that are allowed in the window before the answer becomes 429. An address gets more than a username, since a family
 // can share one address.
-export const LIMITS = { windowMs: 15 * 60_000, loginPerEmail: 5, loginPerIp: 20, registerPerIp: 5 };
+export const LIMITS = { windowMs: 15 * 60_000, loginPerUsername: 5, loginPerIp: 20, registerPerIp: 5 };
 
 type Bytes = Uint8Array<ArrayBuffer>;
 const encode = (text: string): Bytes => new TextEncoder().encode(text);
@@ -39,7 +39,7 @@ export async function hashKey(key: string): Promise<string> {
   return `sha256$${toBase64Url(salt)}$${toBase64Url(hash)}`;
 }
 
-// A well formed value that no key matches. An unknown email is checked against it, so it takes the same steps as a wrong password.
+// A well formed value that no key matches. An unknown username is checked against it, so it takes the same steps as a wrong password.
 export const DUMMY_HASH = `sha256$${"A".repeat(22)}$${"A".repeat(43)}`;
 
 export async function checkKey(key: string, stored: string): Promise<boolean> {
@@ -78,7 +78,7 @@ export async function startSession(env: Env, accountId: number, now: number): Pr
 }
 
 // The signed in account, or a 401.
-export async function requireSession(ctx: Context, now: number): Promise<{ accountId: number; email: string }> {
+export async function requireSession(ctx: Context, now: number): Promise<{ accountId: number; username: string }> {
   const token = readToken(ctx.request);
   const found = token ? await db.findSession(ctx.env, await tokenHash(token), now) : null;
   if (!found) throw new HttpError(401, "Please sign in.");
@@ -89,12 +89,12 @@ export async function requireSession(ctx: Context, now: number): Promise<{ accou
 
 export const clientIp = (request: Request): string => request.headers.get("CF-Connecting-IP") ?? "unknown";
 
-// Throws 429 (with Retry-After) if this email or this address has already failed too often lately. Checked before the password is
+// Throws 429 (with Retry-After) if this username or this address has already failed too often lately. Checked before the password is
 // looked at, so a correct password does not get through while blocked.
-export async function assertNotLimited(env: Env, kind: "login" | "register", email: string | null, ip: string, now: number): Promise<void> {
+export async function assertNotLimited(env: Env, kind: "login" | "register", username: string | null, ip: string, now: number): Promise<void> {
   const since = now - LIMITS.windowMs;
   const checks: [db.FailureCount | null, number][] = [];
-  if (email !== null) checks.push([await db.failuresByEmail(env, kind, email, since), LIMITS.loginPerEmail]);
+  if (username !== null) checks.push([await db.failuresByUsername(env, kind, username, since), LIMITS.loginPerUsername]);
   checks.push([await db.failuresByIp(env, kind, ip, since), kind === "login" ? LIMITS.loginPerIp : LIMITS.registerPerIp]);
   for (const [found, allowed] of checks) {
     if (found && found.count >= allowed && found.oldest !== null) {
