@@ -1,4 +1,4 @@
-"""Writes tests/fixtures/face-hashes.json: a fingerprint of every stamped face (each Land creature, each look, each drawing) as the
+"""Writes tests/fixtures/face-hashes.json: a fingerprint of every stamped face (each Land and Water creature, each look, each drawing) as the
 Python library makes it. tests/face.test.ts stamps the same pictures in TypeScript and compares, so the two engines cannot drift.
 
 Usage:
@@ -14,13 +14,14 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import land_all  # noqa: E402
 import lib  # noqa: E402
+import water_all  # noqa: E402
 
 OUT = HERE.parents[2] / "tests" / "fixtures" / "face-hashes.json"
 
 
 def hashes():
     out = {}
-    for cr in land_all.ROSTER:
+    for cr in land_all.ROSTER + water_all.ROSTER:
         for look in lib.LOOKS:
             for frame in (0, 1):
                 rows = cr.look(look, frame).rows()

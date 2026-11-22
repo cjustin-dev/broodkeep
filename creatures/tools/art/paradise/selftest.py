@@ -3,7 +3,7 @@
 Usage: python3 selftest.py            (exit code 1 if any case fails; the field emitter cases need Pillow and are skipped without it)
 
 Edge cases, one test each:
-  good creatures     every real creature (all 22 of the Land field, plus water and sky) passes (no false alarms)
+  good creatures     every real creature (the Land and Water fields in full, plus the Sky ones drawn so far) passes (no false alarms)
   cut off            a body colour on the top, bottom, left and right edge; the outline letter on the edge is fine;
                      a body colour one pixel in from the edge is fine
   missing letter     a letter the palette does not have
@@ -31,7 +31,7 @@ import lib  # noqa: E402
 import land  # noqa: E402
 import land_all  # noqa: E402
 import sky  # noqa: E402
-import water  # noqa: E402
+import water_all  # noqa: E402
 from lib import Anchor, Body, Canvas, Creature  # noqa: E402
 
 BASE = land.ROSTER[0]  # Pebblin: kid, 24 x 24, outline "O"
@@ -69,7 +69,7 @@ def run(name, cr, *needles):
 
 
 # ---------- good creatures ----------
-for mod in (land_all, water, sky):
+for mod in (land_all, water_all, sky):
     for cr in mod.ROSTER:
         expect_clean(f"good: {cr.id}", lib.problems(cr))
 expect_clean("good: face-patterns.json", lib.validate_patterns())

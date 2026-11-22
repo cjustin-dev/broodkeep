@@ -10,6 +10,10 @@ export const foods: Record<FoodId, Food> = {
   meat: { id: "meat", name: "Meat", hunger: 35, happiness: 3, wellness: 0, digestMinutes: [90, 130] },
   carrot: { id: "carrot", name: "Carrot", hunger: 20, happiness: 2, wellness: 3, digestMinutes: [60, 90] },
   worm: { id: "worm", name: "Worm", hunger: 25, happiness: 5, wellness: 0, digestMinutes: [70, 100] },
+  // Water (the same numbers as the Land food in the same place: filling, light and green, small and cheerful)
+  seafood: { id: "seafood", name: "Seafood", hunger: 35, happiness: 3, wellness: 0, digestMinutes: [90, 130] },
+  seaweed: { id: "seaweed", name: "Seaweed", hunger: 20, happiness: 2, wellness: 3, digestMinutes: [60, 90] },
+  shrimp: { id: "shrimp", name: "Shrimp", hunger: 25, happiness: 5, wellness: 0, digestMinutes: [70, 100] },
 };
 
 export const foodIds = Object.keys(foods) as FoodId[];

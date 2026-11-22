@@ -1,6 +1,6 @@
-// A scripted player raises a creature from the egg to every Land adult, and checks the times of docs/paradise-plan.md section 2:
-// the baby becomes a kid after 4 field cells (1 hour in the Land field), the kid a young after 24 hours, the young an adult after
-// 48 hours. Each of the 16 adults is reached by food (4 young) and by care (4 tiers). If a number in tuning.ts moves so that a
+// A scripted player raises a creature from the egg to every Land and Water adult, and checks the times of docs/paradise-plan.md
+// section 2: the baby becomes a kid after 4 field cells (1 hour in a field), the kid a young after 24 hours, the young an adult after
+// 48 hours. Each field's 16 adults are reached by food (4 young) and by care (4 tiers). If a number in tuning.ts moves so that a
 // line or a tier can no longer be reached, this test says which.
 import { describe, expect, it } from "vitest";
 import { clean, feed, giveMedicine, goTo, toggleLights, touch } from "../src/game/actions";
@@ -8,7 +8,7 @@ import { setStat } from "../src/game/dev";
 import { tierOf } from "../src/game/growth";
 import { simulateTo } from "../src/game/sim";
 import { HOUR, MINUTE } from "../src/game/time";
-import type { FoodId, Stage } from "../src/game/types";
+import type { FieldId, FoodId, Stage } from "../src/game/types";
 import { getForm } from "../src/data/forms";
 import { aliveSave, at } from "./helpers";
 
@@ -19,11 +19,32 @@ interface Care {
   neglectHours?: number;
 }
 
-const lines: Array<{ young: string; food: FoodId; adults: [string, string, string, string] }> = [
-  { young: "cragpup", food: "meat", adults: ["gravelhorn", "cindermane", "scrapjaw", "gutterfang"] },
-  { young: "dugling", food: "carrot", adults: ["moonlop", "barrowbun", "tuskmole", "mudlop"] },
-  { young: "frillet", food: "worm", adults: ["sunfrill", "plateback", "bogviper", "slugwyrm"] },
-  { young: "sporeling", food: "pellet", adults: ["hollowbloom", "potterling", "needlecap", "mossheap"] },
+interface Line {
+  young: string;
+  food: FoodId;
+  adults: [string, string, string, string];
+}
+const playable: Array<{ field: FieldId; kid: string; lines: Line[] }> = [
+  {
+    field: "land",
+    kid: "pebblin",
+    lines: [
+      { young: "cragpup", food: "meat", adults: ["gravelhorn", "cindermane", "scrapjaw", "gutterfang"] },
+      { young: "dugling", food: "carrot", adults: ["moonlop", "barrowbun", "tuskmole", "mudlop"] },
+      { young: "frillet", food: "worm", adults: ["sunfrill", "plateback", "bogviper", "slugwyrm"] },
+      { young: "sporeling", food: "pellet", adults: ["hollowbloom", "potterling", "needlecap", "mossheap"] },
+    ],
+  },
+  {
+    field: "water",
+    kid: "drizzle",
+    lines: [
+      { young: "lanternfin", food: "seafood", adults: ["murkfang", "puffglow", "rustgill", "wilteel"] },
+      { young: "kelpet", food: "seaweed", adults: ["coralback", "bubblebelly", "brinetusk", "limpseal"] },
+      { young: "scuttlet", food: "shrimp", adults: ["rampclaw", "shellsnug", "chipclaw", "softshell"] },
+      { young: "bellet", food: "pellet", adults: ["stormbell", "inkpot", "spinewad", "droopstar"] },
+    ],
+  },
 ];
 const tiers: Array<{ tier: number; care: Care }> = [
   { tier: 1, care: { topUp: true } },
@@ -40,10 +61,10 @@ function stageAt(t: number, t0: number): Stage {
   return "adult";
 }
 
-function raise(food: FoodId, care: Care): { adult: string; tier: number; history: string[] } {
+function raise(field: FieldId, food: FoodId, care: Care): { adult: string; tier: number; history: string[] } {
   const t0 = at(8);
   const save = aliveSave("blip", t0);
-  goTo(save, "land", t0); // the player takes the baby out to the Land field straight away
+  goTo(save, field, t0); // the player takes the baby out to the field straight away
   const youngStart = t0 + 25 * HOUR;
   const history: string[] = [];
   let tier = 0;
@@ -79,16 +100,18 @@ function raise(food: FoodId, care: Care): { adult: string; tier: number; history
   return { adult: save.creature!.formId, tier, history };
 }
 
-describe("raising a creature to every Land adult", () => {
-  for (const line of lines) {
-    for (const { tier, care } of tiers) {
-      const adult = line.adults[tier - 1]!;
-      it(`${line.food} then tier ${tier} care gives ${adult}, at the times of the plan`, () => {
-        const result = raise(line.food, care);
-        expect(result.history).toEqual(["blip", "pebblin", line.young, adult]);
-        expect(result.tier).toBe(tier);
-        expect(result.adult).toBe(adult);
-      });
+for (const { field, kid, lines } of playable) {
+  describe(`raising a creature to every ${field} adult`, () => {
+    for (const line of lines) {
+      for (const { tier, care } of tiers) {
+        const adult = line.adults[tier - 1]!;
+        it(`${line.food} then tier ${tier} care gives ${adult}, at the times of the plan`, () => {
+          const result = raise(field, line.food, care);
+          expect(result.history).toEqual(["blip", kid, line.young, adult]);
+          expect(result.tier).toBe(tier);
+          expect(result.adult).toBe(adult);
+        });
+      }
     }
-  }
-});
+  });
+}

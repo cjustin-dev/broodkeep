@@ -38,6 +38,9 @@ export type IconName =
   | "meat"
   | "carrot"
   | "worm"
+  | "seafood"
+  | "seaweed"
+  | "shrimp"
   | "fish"
   | "zzz"
   | "cloud"
@@ -192,6 +195,38 @@ export const icons: Record<IconName, Sprite> = {
     "...PPPP.",
     ".PPPPP..",
     "........",
+  ]),
+  // A silver fish with a pink belly, so it does not look like the blue fish of the pond.
+  seafood: icon([
+    "........",
+    "..SSS..S",
+    ".SSSSSSS",
+    "SKSSSSS.",
+    "SPPPPPSS",
+    ".SSSSS.S",
+    "..SSS...",
+    "........",
+  ]),
+  seaweed: icon([
+    "..G..G..",
+    ".GG..GG.",
+    "..GG.G..",
+    ".GG..GG.",
+    "..G.GG..",
+    ".GG.G...",
+    "..GGG...",
+    "..G.G...",
+  ]),
+  // A curled red shrimp with orange stripes along its body.
+  shrimp: icon([
+    "..R.....",
+    "R.RRR...",
+    ".RRKRR..",
+    "..RRORR.",
+    "...ROROR",
+    "..RROROR",
+    ".RRRRRR.",
+    "RR.RRR..",
   ]),
   meat: icon([
     "....OOO.",

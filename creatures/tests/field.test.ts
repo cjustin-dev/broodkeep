@@ -9,6 +9,12 @@ describe("field pictures", () => {
     for (const id of openFieldIds) expect(fieldPictures[id], id).toBeDefined();
   });
 
+  it("gives each field its own picture", () => {
+    const looks = Object.values(fieldPictures).map((p) => p!.rows.join("|"));
+    expect(looks.length).toBeGreaterThan(1);
+    expect(new Set(looks).size).toBe(looks.length);
+  });
+
   it("has none for a field that is still locked, and none for an unknown one", () => {
     for (const id of fieldIds) if (!openFieldIds.includes(id)) expect(fieldPictures[id], id).toBeUndefined();
     expect(Object.keys(fieldPictures).every((id) => (fieldIds as string[]).includes(id))).toBe(true);

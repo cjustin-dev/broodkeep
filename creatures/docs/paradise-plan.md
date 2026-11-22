@@ -118,8 +118,31 @@ needs a rule for which wins on a neglected baby, the 4 hour special or the 6 hou
 | Frillet | Sunfrill, huge sun-fan frill | Plateback, small stegosaur | Bogviper, snake | Slugwyrm, limp half-slug wyrm |
 | Sporeling | Hollowbloom, flower sprite with glowing fangs | Potterling, flower-pot creature | Needlecap, cactus | Mossheap, shaggy moss heap |
 
-Water (seafood, seaweed, shrimp) and Sky (chicken, corn, syrup) get their rosters when their slice starts. Their kids Drizzle and
-Cinderling, and Lanternfin, Murkfang, Scorchlet and Ashwing, are drawn.
+Sky (chicken, corn, syrup) gets its roster when its slice starts. Its kid Cinderling and Scorchlet and Ashwing are drawn.
+
+### The Water roster (slice 2, written 2026-11-21; names and animals are my choice and can change)
+
+Foods: seafood, seaweed, shrimp. One animal family per line, so no two lines share a silhouette (and none repeats a Land one).
+Colors: each line has a palette family; the young is halfway between the kid Drizzle and the line's tier 1.
+
+| Stage | Water |
+|---|---|
+| Kid | Drizzle, a pale aqua blob with a glowing lure (drawn) |
+| Young, seafood | Lanternfin, a mid-teal angler (drawn) |
+| Young, seaweed | Kelpet, a sea-turtle pup with a kelp tuft |
+| Young, shrimp | Scuttlet, a small pink shrimp-crab with big claws |
+| Young, other | Bellet, a jellyfish sprout |
+
+| Young | Tier 1 | Tier 2 | Tier 3 | Tier 4 |
+|---|---|---|---|---|
+| Lanternfin (fish) | Murkfang, deep-sea angler (drawn) | Puffglow, round pufferfish with glowing spots | Rustgill, scarred underbite piranha | Wilteel, thin limp eel |
+| Kelpet (sea herbivores) | Coralback, armored sea turtle with a coral shell | Bubblebelly, round manatee | Brinetusk, grumpy walrus | Limpseal, slumped seal |
+| Scuttlet (crustaceans) | Rampclaw, armored lobster king | Shellsnug, hermit crab in a spiral shell | Chipclaw, scrappy crab with a chipped claw | Softshell, limp molting shrimp |
+| Bellet (soft sea life) | Stormbell, huge glowing jellyfish | Inkpot, round friendly octopus | Spinewad, grumpy sea urchin | Droopstar, limp starfish |
+
+Tier rules as for Land: tier 1 biggest and most striking, tier 2 round and friendly, tier 3 scrappy and grumpy, tier 4 thin or
+limp and sad. The Water field is a sunken ruin with a glowing pearl shell for the creature to stand on (the Land one is a rune
+slab); the baby that never went outside grows toward the field of its egg pattern, so a striped egg now gives Drizzle.
 
 ## 5. What changes in the code
 
@@ -167,7 +190,9 @@ Milestones 1 to 3 are on the branch `paradise` and go nowhere until milestone 4,
   saves do not matter, so there is no migration: save version 3 is the only one read, and an older save is kept under the name
   `save-unreadable` while a new egg starts (sync/local.ts). Coins, bag and settings of an old save are not carried over. The
   owner is told when pull request 1 is ready.
-- Bundle: 64 forms with two drawings each is roughly 260 KB of text before compression, so the size is acceptable.
+- Bundle: measured with Land only (22 forms) the JavaScript was 205.6 KB; with Land and Water (43 forms) it is 319 KB (64.6 KB
+  gzipped). Each field adds about 113 KB, so all three will be about 430 KB (an estimate). Acceptable for now; if it matters, load a
+  field's forms only when a creature of that field exists.
 
 ## 8. My choices, which the owner can change (not blocking)
 
@@ -175,5 +200,8 @@ Everything marked "my choice" above: the place model (home and three fields), fi
 the 6 hour baby safety net and the egg pattern fallback, one food item per type, 2 servings per food cell, the 95 and 100 lines
 for hunger and happy cells, stage lengths (6, 24, 48 real hours), the stage remap and caps, derived base stats, the treat kept, berry and fish dropped, Land first, the special form later. Added while building milestone 3: a creature
 sleeps in its own bed, so bedtime and a nap send it home (with a log line); a baby is offered pellets and the treat only (the
-field foods start with the kid); an unanswered call's timer restarts when the creature grows up; while Water and Sky are locked
-a baby that never went outside grows into the Land kid, and each later field adds its three foods and its forms.
+field foods start with the kid); an unanswered call's timer restarts when the creature grows up; while a field is locked a baby
+whose egg pattern names it, and that never went outside, grows into the first open field's kid, and each later field adds its three
+foods and its forms. Added with the Water slice (2026-11-21): the Water names and animals (the table in section 4), the three foods
+with the same numbers as the Land food in the same slot, and the Water field picture (a sunken ruin, a pearl shell instead of the
+rune slab). With Water open a striped egg grows into Drizzle.

@@ -4,6 +4,13 @@ Plan: [../CLAUDE.md](../CLAUDE.md). Repo: github.com/cjustin-dev/broodkeep. Loca
 
 ## State (2026-11-21)
 
+**Paradise growth: milestones 1 to 3 (Land playable) are merged as PR #14 (`main` efb3f04) and live** (the bundle on
+https://broodkeep.pages.dev matched my local build). **The Water slice is built on branch `water`** (worktree
+~/broodkeep-paradise/creatures, off `main` efb3f04): 18 new creatures, the Water field, 3 foods, Water open in the picker. It was
+**committed and pushed to `origin/water` on the owner's "commit and push" (2026-11-21); no pull request is open yet** (the owner opens and merges it); `npm run typecheck`, 830 tests in 17 files, `selftest.py` (102 cases),
+`emit_ts.py --check`, `face_hashes.py --check` and `npm run build` all exit 0. See "Next", item 1, and the Water section of
+decisions.md. The older text below was written before the Paradise work and still describes the old forms.
+
 **Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slices 1 and 2 are merged** (PR #3
 to #6, #8, #9, #11, #12 and #13, `main` at 932497c; the first four are confirmed live at https://broodkeep.pages.dev, and so is
 slice 1 (the page showed the version label "0.3 (Phase 3a)"), the deploys in between and slice 2's were not checked).
@@ -327,14 +334,26 @@ chances). Not checked: a real phone, and the motion as motion (tests cover sizes
    where it is); the test titles "changes nothing else" and "as wide as its picture allows" promised more than they checked (the
    first is covered by the Python parity hashes and the title now says so, the second now checks the width, and a new test checks
    that a protected column is never doubled); plus a poop spot drawn over the food bowl, a hard-coded "4" in the dev tree text and
-   a stale size comment. Its other two points were left: a job does not send a creature home from a field (open question for the
-   owner, below) and the dev tree's option lists have no keys (no visible effect). See decisions.md and
+   a stale size comment. Its other two points were left: a job does not send a creature home from a field (the owner chose to leave it, 2026-11-21, see Next) and the dev tree's option lists have no keys (no visible effect). See decisions.md and
    known-issues.md ("Paradise growth, game side"). Next for this branch: milestone 4, pull request 1 (Land playable, Water and
-   Sky locked). Tell the owner then that existing saves reset. Milestones 1 to 3 are committed and pushed to branch `paradise` (2026-11-21, on the
-   owner's "commit and push"); `main` is untouched and the owner opens and merges the pull request.
-   **Open, for the owner at pull request 1 time (my default is in place):** a creature that starts a habitat job from a field
-   comes back to that same field when the job ends (nothing sends it home), while bedtime and naps do send it home. Alternative:
-   starting a job sends it home, so it never silently goes back to counting field minutes. Which is wanted?
+   Sky locked). Tell the owner then that existing saves reset. Milestones 1 to 3 were committed and pushed to branch `paradise` (2026-11-21, on the
+   owner's "commit and push") and merged by the owner as PR #14 (`main` efb3f04, live).
+   **Water slice built (2026-11-21, branch `water`, pushed, no PR yet):** the Water roster is in paradise-plan.md section 4 (names and
+   animals are my choice). Drawn in `tools/art/paradise/`: `water_lanternfin.py` (Puffglow, Rustgill, Wilteel), `water_kelpet.py`
+   (Kelpet, Coralback, Bubblebelly, Brinetusk, Limpseal), `water_scuttlet.py` (Scuttlet, Rampclaw, Shellsnug, Chipclaw, Softshell),
+   `water_bellet.py` (Bellet, Stormbell, Inkpot, Spinewad, Droopstar), `water_field.py` (the sunken ruin with a pearl shell) and
+   `water_all.py` (the 21 Water forms in order). `emit_ts.py` now also writes `forms/water.ts` and `art/field-water.ts`. Game side:
+   seafood, seaweed and shrimp (same numbers as meat, carrot and worm), the Water plan in `data/fields.ts`, `fieldPictures.water`, three icons. A
+   striped egg now grows into Drizzle. The playthrough test reaches all 32 adults of both fields at the planned hours. Looked at:
+   every Water creature on the field on one contact sheet, and the real game in a headless phone browser (kid and adult in the
+   field, the places tray with Water open and Sky locked, the five-food tray); no page errors. Fresh-eyes review: 6 code defects,
+   all real, all fixed, plus three picture changes. Five mutation checks failed the new tests as they should. JavaScript is
+   319 KB (64.6 KB gzipped), up from 205.6 KB. **Next for this branch:** the owner opens the pull request (https://github.com/cjustin-dev/broodkeep/pull/new/water) and
+   merges it. When they do, tell them the Water slice changes nothing for a Land creature except that a striped egg now grows into
+   Drizzle. Then the Sky slice (the Sky roster in the plan is still pending; Cinderling,
+   Scorchlet and Ashwing are drawn).
+   **Closed 2026-11-21 (owner: "leave it as it is"):** a creature that starts a habitat job from a field comes back to that same
+   field when the job ends (nothing sends it home), while bedtime and naps do send it home. Do not ask again.
 2. Later: the "no care for 4 hours" special form, the secret evolutions (two players, so after accounts), slice 3 of the old
    Phase 3 (garden plots become a food source, standing chores, habitat upgrades) and slice 4 (the Creature Book, which fits a
    64 creature game, and the legacy shelf).
