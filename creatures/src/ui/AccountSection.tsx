@@ -97,7 +97,7 @@ function SignedOut({ cloud }: { cloud: CloudSync }) {
   );
 }
 
-function SignedIn({ cloud, username }: { cloud: CloudSync; username: string }) {
+function SignedIn({ cloud, username, signOutFrom }: { cloud: CloudSync; username: string; signOutFrom: string | null }) {
   const status = cloud.busy
     ? "Saving…"
     : cloud.message || (cloud.lastSyncedAt === null ? "" : `Up to date at ${timeText(cloud.lastSyncedAt)}.`);
@@ -125,21 +125,26 @@ function SignedIn({ cloud, username }: { cloud: CloudSync; username: string }) {
         <button class="btn small" disabled={cloud.busy || cloud.choosing !== null} onClick={() => void cloud.sync()}>
           Sync now
         </button>
-        <button class="btn small" disabled={cloud.busy} onClick={() => void cloud.signOut()}>
-          Sign out
-        </button>
+        {signOutFrom === null && (
+          <button class="btn small" disabled={cloud.busy} onClick={() => void cloud.signOut()}>
+            Sign out
+          </button>
+        )}
       </div>
+      {signOutFrom !== null && <p class="hint">To sign out, switch to {signOutFrom} and sign out there.</p>}
     </>
   );
 }
 
-export function AccountSection({ cloud }: { cloud: CloudSync }) {
+// signOutFrom: the name of the profile to sign out from, when this is another one (the account is signed in or out from the first
+// profile, the one that is played while nobody is signed in); null when it can be done here.
+export function AccountSection({ cloud, signOutFrom }: { cloud: CloudSync; signOutFrom: string | null }) {
   useCloud(cloud);
   const username = cloud.username;
   return (
     <fieldset>
       <legend>Account</legend>
-      {username === null ? <SignedOut cloud={cloud} /> : <SignedIn cloud={cloud} username={username} />}
+      {username === null ? <SignedOut cloud={cloud} /> : <SignedIn cloud={cloud} username={username} signOutFrom={signOutFrom} />}
     </fieldset>
   );
 }

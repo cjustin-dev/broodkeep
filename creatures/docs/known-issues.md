@@ -335,3 +335,21 @@
 - **Three existing tests changed to keep a baby or kid looked after** (a pet an hour, `petUntil`). A new test that leaves a baby alone for
   more than 4 awake hours will find the special, not the safety net.
 - **The JavaScript is 441.9 KB (79.1 KB gzipped)**, up from 436.7 KB before the Book and the special (439.5 KB with the Book). See plan section 7.
+
+## Profiles slice 1 (2026-11-22)
+
+- **The header is 24 px too wide at 320 px on `main`**, with or without profiles (the gear button ends at 344 px). The fix is in the
+  `pwa-install` pull request. The profile screens are measured as no wider than the same screen signed out, and nothing inside the
+  Settings dialog may reach past the screen (the browser run checks both at 320, 360 and 390 px).
+- **At 320 x 568 the switch chip makes the page 16 px taller than the screen** (584 px against 568 px). The buttons still end at 566 px,
+  so only the space under them scrolls. Not fixed: that size is rare, and the chip keeps a 40 px touch height.
+- **A reload does not wait for the "changed" mark to be written.** Switching profile (and a session that ends in another profile) saves
+  the game and starts the send, then reloads. If the mark written a moment earlier had not landed and the send also failed, the profile
+  reopens as unchanged and its last change stays on this device until the profile changes again. Rare (a tap in the last few
+  milliseconds before a switch, then no network).
+- **The shell has no unit test.** `src/main.tsx` (key wiring, the switch, the end of a session, the double tap guard) is covered by the
+  browser run only; that script is not in the repo (it lives in the session scratchpad and needs `wrangler pages dev` with a local D1).
+- **A blocked or private window plays the first profile every time**, with no picker (a choice cannot be kept); Settings says so.
+- **Real D1 is not checked.** The migration and the conditional insert ran on SQLite 3.51.2 and on wrangler's local D1; the live
+  database's report of `changes` for `INSERT ... SELECT` and its text for the unique index are the owner's live check (plan section 9).
+
