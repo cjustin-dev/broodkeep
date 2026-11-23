@@ -1570,3 +1570,112 @@ button.astat[aria-expanded="true"] {
   font-size: 0.85rem;
   color: var(--ink-soft);
 }
+
+/* ---------- the spot card and the job card (Adult Mode, under the habitat's spots) ---------- */
+
+/* One surface for what a spot gives and costs, and for the creature while it is away. Its buttons are the retire card's kind (their own fill
+   AND a light edge, --card-edge is the same 3.4:1 against the card), and the answer that goes ahead is the warm yellow. The second class
+   (.btn.card-btn) outranks .btn, as .btn.retire-btn does. */
+.habitat-card {
+  --card-edge: #8d7bc6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--panel);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  animation: rise 0.2s var(--ease) both;
+}
+
+.habitat-card h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-line {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  text-wrap: balance; /* a line that must wrap breaks in the middle, never leaves one word alone */
+}
+
+.card-soft {
+  color: var(--ink-soft);
+}
+
+.card-back {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Why a spot is shut, on the card itself: a warm tint from the game's amber, not an error. */
+.card-reason {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  background: rgba(244, 185, 66, 0.14);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px rgba(244, 185, 66, 0.45);
+}
+
+.job-bar {
+  height: 12px;
+  overflow: hidden;
+  background: var(--bg);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.job-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px; /* no transition: the fill moves by under a pixel a second, so it needs no animation (and none that touches layout) */
+}
+
+.btn.card-btn {
+  min-height: 48px;
+  padding: 0 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+  border-radius: 16px;
+  background: var(--panel-hi);
+  box-shadow: var(--lift), inset 0 0 0 2px var(--card-edge), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.btn.card-btn:hover {
+  background: #5a4891;
+}
+
+.btn.card-btn.primary {
+  min-width: 88px;
+  color: var(--bg); /* dark on yellow: 11.5:1 */
+  background: var(--accent);
+  box-shadow: var(--lift), inset 0 -3px 0 rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn.card-btn.primary:hover {
+  background: #ffdf85;
+}

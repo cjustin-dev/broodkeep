@@ -48,11 +48,57 @@ export function stepJob(save: Save, rng: Rng, t: number): void {
   if (t < job.endsAt) return;
   const coins = rng.int(spot.coins[0], spot.coins[1]);
   const amount = rng.int(spot.amount[0], spot.amount[1]);
-  save.coins += coins;
-  save.inventory[spot.material] = (save.inventory[spot.material] ?? 0) + amount;
   c.counters.chores = (c.counters.chores ?? 0) + 1;
   c.job = null;
-  save.hauls.push({ spot: job.spot, at: t, coins, material: spot.material, amount });
-  if (save.hauls.length > habitatTuning.unseenHaulsMax) save.hauls.splice(0, save.hauls.length - habitatTuning.unseenHaulsMax);
+  bringHome(save, job.spot, t, coins, amount);
   logEvent(save, t, `Came back from the ${spot.name} with ${coins} coins and ${amount} ${spot.material}`);
+}
+
+// Put a haul into the bag and into the "welcome back" list (the oldest card is forgotten past the limit; its coins are already in the bag).
+function bringHome(save: Save, spotId: SpotId, at: number, coins: number, amount: number): void {
+  const material = spots[spotId].material;
+  save.coins += coins;
+  save.inventory[material] = (save.inventory[material] ?? 0) + amount;
+  save.hauls.push({ spot: spotId, at, coins, material, amount });
+  if (save.hauls.length > habitatTuning.unseenHaulsMax) save.hauls.splice(0, save.hauls.length - habitatTuning.unseenHaulsMax);
+}
+
+// What calling the creature back at nowMs brings home: the middle of each range times the share of the job already done, rounded down.
+// Whole numbers all the way (milliseconds, and the two ends of a range added up), so a third of a job that pays 3 is 1 and never 0.9999.
+// The share is clamped: a clock set back (nowMs before the start) earns nothing, and past the end it earns the whole middle.
+export function callBackHaul(job: NonNullable<Creature["job"]>, nowMs: number): { coins: number; amount: number } {
+  const spot = spots[job.spot];
+  const { done, total } = jobTime(job, nowMs);
+  if (total === 0) return { coins: 0, amount: 0 };
+  const share = (range: [number, number]): number => Math.floor(((range[0] + range[1]) * done) / (2 * total));
+  return { coins: share(spot.coins), amount: share(spot.amount) };
+}
+
+// How much of the job is done at nowMs, in milliseconds out of its whole length. A job with no length (a hand-made save) is 0 of 0.
+function jobTime(job: NonNullable<Creature["job"]>, nowMs: number): { done: number; total: number } {
+  const total = job.endsAt - job.startedAt;
+  if (!(total > 0)) return { done: 0, total: 0 };
+  return { done: Math.min(total, Math.max(0, nowMs - job.startedAt)), total };
+}
+
+// The share of the job that is done, 0 to 1, for the progress bar (the same clamp the haul uses).
+export function jobProgress(job: NonNullable<Creature["job"]>, nowMs: number): number {
+  const { done, total } = jobTime(job, nowMs);
+  return total === 0 ? 0 : done / total;
+}
+
+// Bring the creature home early with what the time earned (callBackHaul). The energy it spent is not given back, and the job does not count
+// as a chore. A call back that earned nothing leaves no "welcome back" card. The caller has already caught the save up to nowMs.
+export function endJobEarly(save: Save, c: Creature, nowMs: number): void {
+  const job = c.job;
+  if (!job) return;
+  const spot = spots[job.spot];
+  const { coins, amount } = callBackHaul(job, nowMs);
+  c.job = null;
+  if (coins + amount > 0) {
+    bringHome(save, job.spot, nowMs, coins, amount);
+    logEvent(save, nowMs, `Called back from the ${spot.name} early with ${coins} coins and ${amount} ${spot.material}`);
+  } else {
+    logEvent(save, nowMs, `Called back from the ${spot.name} early`);
+  }
 }
