@@ -258,6 +258,23 @@ export interface FightInfo {
   rung: number;
 }
 
+// The pieces of the context line that the reasons for a refused button (reasons.ts) say too, so the two cannot word the same fact differently.
+
+// When an away creature is back: "back in 2:31", or "back any moment" once the time is up.
+export function backText(job: NonNullable<Creature["job"]>, nowMs: number): string {
+  const left = job.endsAt - nowMs;
+  return left > 0 ? `back in ${formatMmSs(left)}` : "back any moment";
+}
+
+// When a night sleep ends: "wakes 7 am (in 2:14)". Null when there is no night (the start hour equals the end hour), which a saved game can only be given by hand.
+export function wakeText(save: Save, nowMs: number): string | null {
+  const wake = nextWake(nowMs, save.settings.sleepStartHour, save.settings.sleepEndHour);
+  return wake === null ? null : `wakes ${hourLabel(hourOf(wake))} (in ${formatHm(Math.ceil((wake - nowMs) / MINUTE))})`;
+}
+
+// When a nap ends: "wakes when rested (energy 41 of 100)".
+export const napText = (c: Creature): string => `wakes when rested (energy ${shownValue(c.stats.energy)} of 100)`;
+
 // The one line under the stats. The most time-sensitive fact for the screen it is on. Which fact wins: dead, egg, away on a job, asleep,
 // then what the screen is for.
 export function contextLine(save: Save, nowMs: number, screen: HudScreen, fight: FightInfo | null): string {
@@ -271,18 +288,12 @@ export function contextLine(save: Save, nowMs: number, screen: HudScreen, fight:
   const c = save.creature;
   if (!c) return "";
 
-  if (c.job) {
-    const left = c.job.endsAt - nowMs;
-    const spot = spots[c.job.spot].name;
-    return left > 0 ? `Away at ${spot} · back in ${formatMmSs(left)}` : `Away at ${spot} · back any moment`;
-  }
+  if (c.job) return `Away at ${spots[c.job.spot].name} · ${backText(c.job, nowMs)}`;
   if (c.sleep === "night") {
-    const wake = nextWake(nowMs, save.settings.sleepStartHour, save.settings.sleepEndHour);
-    return wake === null
-      ? "Asleep"
-      : `Asleep · wakes ${hourLabel(hourOf(wake))} (in ${formatHm(Math.ceil((wake - nowMs) / MINUTE))})`;
+    const wake = wakeText(save, nowMs);
+    return wake === null ? "Asleep" : `Asleep · ${wake}`;
   }
-  if (c.sleep === "nap") return `Napping · wakes when rested (energy ${shownValue(c.stats.energy)} of 100)`;
+  if (c.sleep === "nap") return `Napping · ${napText(c)}`;
 
   if (screen === "arena") {
     const rung = fight ? fight.rung : rungOf(c);

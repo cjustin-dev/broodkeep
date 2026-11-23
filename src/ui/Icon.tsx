@@ -22,3 +22,12 @@ export function Pic({ sprite, id, px, class: className }: PicProps) {
 export function Icon({ name, px = 40 }: { name: IconName; px?: number }) {
   return <Pic sprite={icons[name]} id={`icon:${name}`} px={px} />;
 }
+
+// The word under an icon in Adult Mode. The button's own aria-label is its name, so the word is hidden from a screen reader.
+export function Word({ text }: { text: string }) {
+  return (
+    <span class="word" aria-hidden="true">
+      {text}
+    </span>
+  );
+}

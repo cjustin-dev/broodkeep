@@ -10,7 +10,9 @@ import { tuning } from "../data/tuning";
 import { beginFight, fightRefusal, finishFight } from "./combat/fight";
 import type { FightRefusal, FightResult } from "./combat/fight";
 import type { Battle } from "./combat/battle";
-import { countCareCells, countServing, menuOf, noteCare } from "./growth";
+import { cleanRefusal, feedRefusal, goRefusal, lightsRefusal, medicineRefusal } from "./availability";
+import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefusal } from "./availability";
+import { countCareCells, countServing, noteCare } from "./growth";
 import { beginJob, jobRefusal } from "./habitat/jobs";
 import type { JobRefusal } from "./habitat/jobs";
 import { hatchIfReady, simulateTo } from "./sim";
@@ -36,11 +38,15 @@ function aliveOrAway(save: Save, nowMs: number): Creature | null {
 
 export type FeedResult = "ate" | "full" | "sleeping" | "unavailable";
 
+// What each reason to refuse is called as a result. (The reasons and their order are in availability.ts. "away" cannot reach these maps:
+// alive() has already answered "unavailable" for an away creature.)
+const feedWord: Record<FeedRefusal, FeedResult> = { away: "unavailable", "off-menu": "unavailable", asleep: "sleeping", full: "full" };
+
 export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
   const c = alive(save, nowMs);
-  if (!c || !menuOf(c).includes(foodId)) return "unavailable"; // only what the menu offers (pellets, the treat, its own field's foods)
-  if (c.sleep) return "sleeping";
-  if (c.stats.hunger >= tuning.fullAtHunger) return "full";
+  if (!c) return "unavailable";
+  const refusal = feedRefusal(c, foodId);
+  if (refusal) return feedWord[refusal];
 
   const food = foods[foodId];
   const rng = makeRng(save.rngState);
@@ -72,10 +78,13 @@ export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
 
 export type CleanResult = "cleaned" | "nothing" | "unavailable";
 
+const cleanWord: Record<CleanRefusal, CleanResult> = { away: "unavailable", nothing: "nothing" };
+
 export function clean(save: Save, nowMs: number): CleanResult {
   const c = alive(save, nowMs);
   if (!c) return "unavailable";
-  if (c.poop === 0 && c.stats.hygiene >= 99) return "nothing";
+  const refusal = cleanRefusal(c);
+  if (refusal) return cleanWord[refusal];
   logEvent(save, nowMs, c.poop > 0 ? `Cleaned up ${c.poop} poop` : "Cleaned the creature");
   c.poop = 0;
   c.stats.hygiene = 100;
@@ -85,11 +94,14 @@ export function clean(save: Save, nowMs: number): CleanResult {
 
 export type MedicineResult = "cured" | "not-sick" | "unavailable";
 
+const medicineWord: Record<MedicineRefusal, MedicineResult> = { away: "unavailable", "not-sick": "not-sick" };
+
 // Phase 1 has unlimited medicine. A real supply comes with crafting.
 export function giveMedicine(save: Save, nowMs: number): MedicineResult {
   const c = alive(save, nowMs);
   if (!c) return "unavailable";
-  if (!c.sick) return "not-sick";
+  const refusal = medicineRefusal(c);
+  if (refusal) return medicineWord[refusal];
   c.sick = false;
   c.stats.wellness = clamp(Math.max(c.stats.wellness + tuning.medicine.wellnessBoost, tuning.medicine.wellnessFloor));
   c.wellnessZeroMinutes = 0;
@@ -100,17 +112,19 @@ export function giveMedicine(save: Save, nowMs: number): MedicineResult {
 
 export type LightsResult = "napping" | "woke" | "not-tired" | "night" | "unavailable";
 
+const lightsWord: Record<LightsRefusal, LightsResult> = { away: "unavailable", night: "night", "not-tired": "not-tired" };
+
 // The lights button: put the creature down for a nap, or wake it from one.
 export function toggleLights(save: Save, nowMs: number): LightsResult {
   const c = alive(save, nowMs);
   if (!c) return "unavailable";
-  if (c.sleep === "night") return "night"; // night sleep follows the clock
+  const refusal = lightsRefusal(c);
+  if (refusal) return lightsWord[refusal];
   if (c.sleep === "nap") {
     c.sleep = null;
     logEvent(save, nowMs, "Woken from a nap");
     return "woke";
   }
-  if (c.stats.energy >= tuning.napBelowEnergy) return "not-tired";
   c.sleep = "nap";
   if (c.place !== "home") {
     c.place = "home"; // it naps in its own bed
@@ -122,14 +136,15 @@ export function toggleLights(save: Save, nowMs: number): LightsResult {
 
 export type GoResult = "went" | "already" | "locked" | "sleeping" | "unavailable";
 
+const goWord: Record<GoRefusal, GoResult> = { away: "unavailable", asleep: "sleeping", already: "already", locked: "locked" };
+
 // Take the creature home or to a field. Only an open field can be visited, and only a creature that is awake and at home
 // in the app (not away on a job).
 export function goTo(save: Save, place: Place, nowMs: number): GoResult {
   const c = alive(save, nowMs);
   if (!c) return "unavailable";
-  if (c.sleep) return "sleeping";
-  if (place === c.place) return "already";
-  if (place !== "home" && !fields[place].plan) return "locked";
+  const refusal = goRefusal(c, place);
+  if (refusal) return goWord[refusal];
   c.place = place;
   logEvent(save, nowMs, place === "home" ? "Went home" : `Went to the ${fields[place].name} field`);
   return "went";

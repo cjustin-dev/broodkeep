@@ -7,7 +7,10 @@ import type { IconName } from "../art/sprites";
 import { combatTuning } from "../data/combat";
 import { materials } from "../data/habitat";
 import type { StartFightResult } from "../game/actions";
+import { fightRefusal } from "../game/combat/fight";
 import type { FightResult } from "../game/combat/fight";
+import { isAdultMode } from "../game/hud";
+import { fightReason } from "../game/reasons";
 import type { CombatStat } from "../game/types";
 import type { Game } from "./game";
 import { Icon } from "./Icon";
@@ -79,7 +82,10 @@ export function ArenaBar({ game }: { game: Game }) {
     timer.current = window.setTimeout(() => setNote(null), 1600);
   };
 
+  const adult = isAdultMode(game.save);
+
   const onFight = (): void => {
+    if (adult && game.whyNot(fightRefusal, fightReason) !== null) return;
     const status = game.fight();
     if (status === "started") {
       triggerPose(game.view, "hop");
@@ -142,7 +148,12 @@ export function ArenaBar({ game }: { game: Game }) {
   return (
     <div class="actions">
       {noteRow}
-      <button class="btn wide fight" aria-label="Fight a wild creature" onClick={onFight}>
+      <button
+        class="btn wide fight"
+        aria-label="Fight a wild creature"
+        aria-disabled={adult && fightRefusal(c) !== null ? true : undefined}
+        onClick={onFight}
+      >
         <Icon name="swords" px={40} />
       </button>
     </div>
