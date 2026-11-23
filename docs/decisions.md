@@ -709,7 +709,11 @@ are called A1 to A5 in the repo (CLAUDE.md section 9).
 
 ### Space and size (measured 2026-11-22)
 
-- The scene is 256 px at every phone width. Free vertical space on today's layout is 56 px at 320 x 568, 128 at 360 x 640, 268 at
+- **Correction (2026-11-22, measured for the A1.3 plan):** the figures in this section were taken at device pixel ratio 1, which no real phone has. The room's size is
+  `floor(width x ratio / 128)` game pixels of `128 / ratio` CSS px (`ui/Stage.tsx`): 256 px at 320 wide for every ratio, but at 360 wide 256 (ratio 1), 320 (ratio 2) and 298.7 (ratio 3), and at 390 wide 256, 320
+  and 341.3. So on a real phone the room is bigger and the free space smaller: the Adult Mode room page at 360 x 640 runs 83 px below the window at ratio 2 and 62 px at ratio 3 (19 px at ratio 1), and at 320 x 568 it
+  runs 106 px below at every ratio. 360 x 780 and 390 x 844 still fit at every ratio. The A1.1 question "is the header too tall" is therefore worse on a real phone than it was reported (plan section 3c has the table).
+- The scene is 256 px at pixel ratio 1 (see the correction above). Free vertical space on today's layout (at ratio 1) is 56 px at 320 x 568, 128 at 360 x 640, 268 at
   360 x 780, 332 at 390 x 844 and 403 at 412 x 915. The spec's added zones need about 150 to 170 px: they fit from about 360 x 780 up (268 px
   free). At 360 x 640 (128 px), at 320 x 568 (and while the header is 24 px too wide at 320 on `main`) the cards collapse behind a tap. The "switch player" row
   of profiles (+40 px) is folded into the status strip in Adult Mode. Every screen is measured at 320, 360 and 390.
@@ -789,7 +793,7 @@ The plan and edge cases are in [adult-a1-plan.md](adult-a1-plan.md), section 3b.
 - **Names and portraits of forms not yet in the Book are shown** (the spec's choice). One line to change if the owner prefers "???" until found.
 - **Kid Mode:** no markup changes. The save gains one optional field; `growth.ts` gains the word `export` on `canBecomeSpecial`.
 
-## Repo flattened (2026-11-22, branch `flatten`)
+## Repo flattened (2026-11-22, branch `flatten`; merged as PR #28, main e10c6e3, and deployed the same day)
 
 The owner asked whether `broodkeep/creatures/...` was normal and whether there was a better structure ("The github main seems to be under creatures"), then queued the move
 ("let's queue for after a1.1 merging"). A1 merged as PR #27 (1ee3674), so the move was built on a branch off that commit.
@@ -805,4 +809,33 @@ The owner asked whether `broodkeep/creatures/...` was normal and whether there w
   starts no build), then merge the flatten pull request. The reverse order gives one failed build, because the old setting points at a folder that no longer exists. This is how Pages is expected to behave
   and was not tested against Cloudflare; the check is the deployment list and the live bundle's file name.
 - **Open branches:** every remote branch is already merged, so no branch needs a rebase. `pokemon-look` exists only locally (~/broodkeep, never pushed, its look was dropped) and keeps the old layout.
+- **Merged and deployed (checked 2026-11-22):** the owner cleared the Root directory first and then merged. The Cloudflare Pages check run on e10c6e3 completed with success (deployment a41e7247), the live site answers 200 with the same bundle (`index-BUPkyQdo.js`), and `/api/me` answers its JSON 401. The Pages behaviour described above is now observed, not only expected.
 
+
+## Adult track A1.3: honest buttons (2026-11-22, branch `adult-a1-3`)
+
+The plan, its 22 edge cases and the log of its 28 review findings are in [adult-a1-plan.md](adult-a1-plan.md), section 3c. Decisions made while building, beyond the ones listed there:
+
+- **One rule, asked in two places.** `game/availability.ts` holds each action's refusals in the order the action checks them; `actions.ts` calls it and keeps its old result words through a
+  map, and the screen calls the same functions to dim a button and to say why. A test sweeps every state against the real action, so the two cannot drift apart.
+- **A tap asks the live state.** In Adult Mode a tap calls `game.whyNot(refusal, reason)`: it catches the game up to the clock first (`tick()`), asks again, shows the sentence and returns the
+  code. Only when the code is null does the button do what it does today. The note is a statement made at that moment: it is built once and not recomputed while it shows.
+- **The note is screen state, not game state.** `Game.note` is set by `say()`, which only tells the listeners. It never goes through `changed()`, so it cannot mark the player as having played, schedule a
+  save or ask for an upload. It is cleared by one 6 s timer, by leaving the screen, by `replaceSave`, by a death (a tap or the clock) and by switching Adult Mode off.
+- **The note is drawn at the TOP of the room picture.** It was tried at the bottom first and covered the creature on the floor. It is a second item in the picture's grid cell, sized to the picture, with
+  `pointer-events: none` so the creature under it can still be petted.
+- **`grid-area` is scoped to `.stage.adult > *`.** Putting it on `.room` changed Kid Mode's computed styles; the scoped rule leaves Kid Mode's stage and canvas exactly as they were (the Kid comparison
+  with `main` covers markup, boxes and every computed style).
+- **A refused Feed or Go tap does not open its tray**, and a refusal that had a head-shake pose before (full, not sick, not tired, locked field) still plays it.
+- **The sentences quote the rule's own numbers**: the thresholds come from `data/tuning.ts`, `data/habitat.ts` and `data/combat.ts`, and Clean's 99 is the one literal the old action had, now the exported
+  constant `cleanAtHygiene`. Values are floored like the header (94.99 shows 94).
+- **No new saved state.** Nothing in the save changes: no migration, no sync change.
+- **Owner's answers (2026-11-22):** Clean, Meds, the spots and Fight dim in Adult Mode (today only Feed, Lights and Go dim): "can dim". The note stays 6 s at the top of the picture: "i dont knwo you choose", so my choice stands.
+- **Dropped on the owner's word (2026-11-22, "do your suggestions", "you can drop those notes"):** the poke, pet and tickle notes and the Room dot. Touch behaves as on `main`
+  again (`Stage.tsx` keeps only the Adult class and the note box). The words under the dock icons stay.
+- **Dimmed buttons are at 0.55 opacity** (Adult Mode's `aria-disabled` only; Kid Mode's `:disabled` is still 0.4): the dimmed word then has 4.56:1 against its dimmed button, over the 4.5:1
+  line (0.4 gave 3.1:1; 0.5 gives 4.03).
+- **Kid Mode's care row changed on the owner's word ("i dont want overflow if it affects things visually").** The base `.care` rule is now `repeat(5, minmax(0, 1fr))` (it was `repeat(5, 1fr)`,
+  which will not shrink below its icon). Before: at 320 wide the Go button ended 28 px past the window on every room view, and tapping it scrolled the page 27 px sideways. After: no Kid or Adult
+  screen runs past the window at 320, 360 or 390 (6 saved games, room, both trays, habitat, arena). It is the only Kid Mode CSS change, it changes nothing at 390, and the Adult-only `care adult`
+  class and its CSS went away because the base rule does the job. The `.spots` row is untouched in Kid Mode (it did not overflow); Adult Mode's spot row keeps its own `minmax` rule.

@@ -12,12 +12,15 @@ import { playRound } from "../game/combat/battle";
 import type { Battle, BattleAction } from "../game/combat/battle";
 import type { FightResult } from "../game/combat/fight";
 import { advanceClock } from "../game/dev";
+import { isAdultMode } from "../game/hud";
 import { simulateTo } from "../game/sim";
-import type { Save } from "../game/state";
+import type { Creature, Save } from "../game/state";
 import { gameNow } from "../game/time";
 import { writeSave } from "../sync/local";
 
 export type Screen = "room" | "habitat" | "arena";
+
+const NOTE_MS = 6000; // how long a note stays over the room
 
 // A fight on the arena screen. It lives here, not in the save: only a finished fight changes the save (endFight).
 export interface Arena {
@@ -33,10 +36,12 @@ export class Game {
   arena: Arena | null = null; // the fight on the arena screen (not saved: closing the app in a fight forgets it)
   view: View = createView(); // looks only (position, pose), never saved
   devSpeed = 1; // dev mode time multiplier
+  note: string | null = null; // Adult Mode: why a button did nothing, shown over the room for a few seconds (not saved)
   onSave: ((byPlayer: boolean) => void) | null = null; // told each time the game is saved on this device (the cloud sync listens, sync/sync.ts)
   private lastReal = Date.now();
   private listeners = new Set<() => void>();
   private saveTimer: number | undefined;
+  private noteTimer: number | undefined;
   private playerChanged = false; // something the player did since the last save (not just the clock moving on)
 
   // saveKey: where this game is kept on the device ("save" is the first profile's, see sync/roster.ts).
@@ -83,6 +88,7 @@ export class Game {
   setScreen(screen: Screen): void {
     if (this.screen === screen || this.fighting) return;
     this.screen = screen;
+    this.dropNote();
     if (screen !== "arena") this.arena = null; // a finished fight's card goes with the screen
     this.listeners.forEach((listener) => listener());
   }
@@ -114,6 +120,43 @@ export class Game {
     this.listeners.forEach((listener) => listener());
   }
 
+  // Say something over the room (Adult Mode only: Kid Mode never shows a note). A new note replaces the old one and starts the clock again.
+  // This only wakes the screens, like setScreen. It must never go through changed(): a note is not something the player did to the game, and
+  // changed() would mark the game as changed by the player and schedule a save and a cloud upload.
+  say(text: string): void {
+    if (!isAdultMode(this.save) || text === "") return;
+    window.clearTimeout(this.noteTimer);
+    this.note = text;
+    this.noteTimer = window.setTimeout(() => this.clearNote(), NOTE_MS);
+    this.listeners.forEach((listener) => listener());
+  }
+
+  clearNote(): void {
+    if (this.note === null) return;
+    this.dropNote();
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // Forget the note without waking the screens (the callers do that themselves).
+  private dropNote(): void {
+    window.clearTimeout(this.noteTimer);
+    this.note = null;
+  }
+
+  // Adult Mode: before a button does its job, ask the live state why not. The game is caught up to now first, the same moment the action itself
+  // would use, so a button that looked lit a moment ago but is not (night began, a job ended) tells the truth. `refusal` gives the code (see
+  // availability.ts), `reason` the sentence for it; the sentence is said over the room and the code returned, or null when the tap may go on.
+  // Always null in Kid Mode, which keeps its own flow.
+  whyNot<K extends string>(refusal: (c: Creature) => K | null, reason: (save: Save, c: Creature, code: K, nowMs: number) => string): K | null {
+    if (!isAdultMode(this.save)) return null;
+    this.tick();
+    const c = this.save.creature;
+    if (this.save.phase !== "alive" || !c) return null;
+    const code = refusal(c);
+    if (code !== null) this.say(reason(this.save, c, code, this.now()));
+    return code;
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -123,6 +166,7 @@ export class Game {
   changed(byPlayer = true): void {
     if (byPlayer) this.playerChanged = true;
     if (this.screen !== "room" && this.save.phase !== "alive") this.screen = "room"; // an egg or a death goes back to the room, and stays there when the next creature hatches
+    if (this.save.phase !== "alive" || !isAdultMode(this.save)) this.dropNote(); // a note is about the creature that was there, and Adult Mode's
     const c = this.save.creature;
     if (this.arena && (this.save.phase !== "alive" || c?.formId !== this.arena.battle.me.formId)) this.arena = null; // the creature is gone or has evolved: that fight is over
     this.listeners.forEach((listener) => listener());
@@ -149,6 +193,7 @@ export class Game {
     this.screen = "room";
     this.arena = null;
     this.view.moment = null; // a scene belongs to the old game
+    this.dropNote();
     this.view.shown = shownOf(save);
     this.lastReal = Date.now();
     this.devSpeed = 1;

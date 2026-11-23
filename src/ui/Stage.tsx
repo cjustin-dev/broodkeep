@@ -13,6 +13,7 @@ import { fields } from "../data/fields";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
 import { tapEgg, touch } from "../game/actions";
+import { isAdultMode } from "../game/hud";
 import type { CallKind, Save } from "../game/state";
 import type { Game } from "./game";
 
@@ -123,6 +124,8 @@ export function Stage({ game }: { game: Game }) {
     return x >= box.x - pad && x <= box.x + box.size + pad && y >= box.y - pad && y <= box.y + box.size + pad;
   };
 
+  const adult = isAdultMode(game.save);
+
   const pet = (h: Hold): void => {
     h.petted = true;
     const result = game.act((s, now) => touch(s, "pet", now));
@@ -193,7 +196,7 @@ export function Stage({ game }: { game: Game }) {
   useEffect(() => endHold, []); // stop any timers if the screen goes away
 
   return (
-    <div class="stage" ref={wrapRef}>
+    <div class={adult ? "stage adult" : "stage"} ref={wrapRef}>
       <canvas
         ref={canvasRef}
         class="room"
@@ -207,6 +210,11 @@ export function Stage({ game }: { game: Game }) {
         onPointerCancel={onPointerCancel}
         onContextMenu={(e) => e.preventDefault()}
       />
+      {adult && (
+        <div class="reason-box" role="status" style={{ width: `${size.css}px`, height: `${size.css}px` }}>
+          {game.note && <p class="reason">{game.note}</p>}
+        </div>
+      )}
     </div>
   );
 }

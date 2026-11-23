@@ -400,6 +400,8 @@
   A1.3 rebuilds the care row anyway.
 - **The adult header is tall:** 177 to 221 px, so at 320 x 568 and 360 x 640 the care buttons are below the fold and the page scrolls
   (643 to 687 px against 568 and 640). It fits from 360 x 780 up. See decisions.md (A1.1) for the numbers.
+  **Those page heights were measured at pixel ratio 1; real phones are worse** (measured 2026-11-22 for the A1.3 plan): the Adult Mode room page at 360 x 640 is 723 px at ratio 2 (83 px below the window) and 702 px at
+  ratio 3 (62 below), against 659 (19 below) at ratio 1; at 320 x 568 it is 674 px (106 below) at every ratio. The room is bigger on a real phone (decisions.md, "Space and size").
 - **The Adult Mode setting can come back after being switched off or on** if a second device that was playing an older copy saves later
   (newest save wins, like every field in the save).
 - **The "!" mark can stay up to a minute after the need is met:** it follows `creature.call`, which the simulation updates once per game minute.
@@ -430,3 +432,15 @@ Found while planning and reviewing A1.2, in the game as it is (none are new, non
 - **The forecast is as live as the game's catch-up** (about once a second, on whole minutes): the bounds count from the creature's
   `lastSimulatedAt`, so a page that is a little behind never says Locked too early.
 - **Not checked:** a real phone, browsers other than Chromium, a screen reader reading the panel.
+
+## Honest buttons (A1.3, 2026-11-22)
+
+- **Dimmed words are at 0.55 opacity**, which measures 4.56:1 against the dimmed button (over the 4.5:1 line; the first build at 0.4 gave 3.1:1). The dimmed look is weaker than Kid Mode's
+  `:disabled` look (0.4), which is unchanged. One line (`.btn[aria-disabled="true"]` in `app.css`) sets it.
+- **The note is a status region, 6 s, three lines at most.** It was not read with a screen reader. It is replaced by the next note, not queued.
+- **Tap, then game state.** A tap on a care button first catches the game up to the clock (the same step the one-second timer takes), so a button that
+  was lit a moment ago can answer "night" at once. That catch-up can change the saved game (time that was due is simulated); it never marks the player as having played.
+- **No Room dot and no Arena dot, and no notes for poke, pet and tickle** (the owner dropped them). The header's "!" still shows a waiting call in Adult Mode.
+- **The page is still taller than the window on a 320x568 and 360x640 phone** (674 and 723 px at pixel ratio 2): A1.3 adds no height (words are inside the buttons), but it does not remove any either (A1.1 question 1).
+- **Kid Mode's care row changed** (owner's word): `minmax(0, 1fr)` columns, so it no longer runs 28 px past a 320 px window. At 320 wide the five Kid buttons are 51 px wide instead of 60, with the 48 px icon inside.
+- **The egg's progress fill** reports a negative left edge (`span.fill`, -10 px at 320 wide). It is clipped by its bar (`overflow: hidden`), so nothing shows and nothing scrolls; it is the same on `main`.

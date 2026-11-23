@@ -8,8 +8,14 @@ import { materialIds, materials, spotIds, spots } from "../data/habitat";
 import type { SpotId } from "../data/habitat";
 import { callBack, startJob } from "../game/actions";
 import type { StartJobResult } from "../game/actions";
+import { jobRefusal } from "../game/habitat/jobs";
+import { isAdultMode } from "../game/hud";
+import { spotReason, stageWord } from "../game/reasons";
 import type { Game } from "./game";
-import { Icon } from "./Icon";
+import { Icon, Word } from "./Icon";
+
+// The short word under a spot's icon in Adult Mode (the full name does not fit under it at 320 px; it stays in the button's aria-label).
+const spotWord: Record<SpotId, string> = { meadow: "Bugs", herbs: "Herbs", trees: "Trees", pond: "Pond", rocks: "Rocks" };
 
 // Why a tap on a spot did nothing, as a picture.
 const refusalIcon: Partial<Record<StartJobResult, IconName>> = { asleep: "zzz", sick: "sick", tired: "energy", "too-young": "lock" };
@@ -22,6 +28,7 @@ export function HabitatBar({ game }: { game: Game }) {
   const c = game.save.creature;
   if (game.save.phase !== "alive" || !c) return null;
   const away = c.job;
+  const adult = isAdultMode(game.save);
 
   const show = (icon: IconName): void => {
     setNote(icon);
@@ -30,6 +37,7 @@ export function HabitatBar({ game }: { game: Game }) {
   };
 
   const onSpot = (id: SpotId): void => {
+    if (adult && game.whyNot((live) => jobRefusal(live, id), (save, live, code, now) => spotReason(save, live, code, id, now)) !== null) return;
     const result = game.act((s, now) => startJob(s, id, now));
     if (result === "started") triggerPose(game.view, "hop");
     else {
@@ -62,16 +70,18 @@ export function HabitatBar({ game }: { game: Game }) {
           <Icon name="house" px={40} />
         </button>
       ) : (
-        <div class="spots" role="group" aria-label="Places to work">
+        <div class={adult ? "spots adult" : "spots"} role="group" aria-label="Places to work">
           {spotIds.map((id) => {
             const locked = isLocked(c, id);
             return (
               <button
-                class="btn spot"
+                class={adult ? "btn spot labelled" : "btn spot"}
                 aria-label={locked ? `${spots[id].name} (too young)` : spots[id].name}
+                aria-disabled={adult && jobRefusal(c, id) !== null ? true : undefined}
                 onClick={() => onSpot(id)}
               >
                 <Icon name={spots[id].material} px={40} />
+                {adult && <Word text={locked ? stageWord(spots[id].minStage) : spotWord[id]} />}
                 {locked && (
                   <span class="badge">
                     <Icon name="lock" px={20} />

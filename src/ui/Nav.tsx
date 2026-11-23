@@ -1,6 +1,8 @@
 // Big buttons that switch between the room, the habitat (the outdoors) and the arena. Only shown for a living creature.
 // A fight in progress holds the player in the arena: the other buttons wait until it is over or the creature runs away.
-import { Icon } from "./Icon";
+// Adult Mode writes the name under each icon.
+import { isAdultMode } from "../game/hud";
+import { Icon, Word } from "./Icon";
 import type { Game, Screen } from "./game";
 
 const places: Array<{ screen: Screen; label: string; icon: "house" | "tree" | "swords" }> = [
@@ -10,17 +12,19 @@ const places: Array<{ screen: Screen; label: string; icon: "house" | "tree" | "s
 ];
 
 export function Nav({ game }: { game: Game }) {
+  const adult = isAdultMode(game.save);
   return (
     <div class="nav" role="group" aria-label="Where to look">
       {places.map(({ screen, label, icon }) => (
         <button
-          class="btn nav-btn"
+          class={adult ? "btn nav-btn labelled" : "btn nav-btn"}
           aria-label={label}
           aria-pressed={game.save.phase === "alive" && game.screen === screen}
           disabled={game.fighting && game.screen !== screen}
           onClick={() => game.setScreen(screen)}
         >
           <Icon name={icon} px={32} />
+          {adult && <Word text={label} />}
         </button>
       ))}
     </div>
