@@ -1,37 +1,37 @@
 # Broodkeep: Plan v2 (expanded design)
 
-**Game name: Broodkeep.** Use it for the PWA name, page titles and the Cloudflare Pages project (`broodkeep`). The game folder in the repo stays `creatures/` so the plan below still reads correctly. The forms and the evolution tree are replaced by the Paradise growth design in `docs/paradise-plan.md` (section 6). Version 2 adds the full gameplay design: stats, the habitat and room, the crafting economy, combat details, fun systems and a revised seven-phase order (sections 7 and 9).
+**Game name: Broodkeep.** Use it for the PWA name, page titles and the Cloudflare Pages project (`broodkeep`). The repo root is the game's project folder (until 2026-11-22 it sat in a `creatures/` folder inside the repo; see docs/decisions.md). The forms and the evolution tree are replaced by the Paradise growth design in `docs/paradise-plan.md` (section 6). Version 2 adds the full gameplay design: stats, the habitat and room, the crafting economy, combat details, fun systems and a revised seven-phase order (sections 7 and 9).
 
 ## Handoff notes for Claude Code
 
 - Build **Phase 1 only**, deploy it, give the phone test steps, then stop for feedback.
 - Sections 7 and 9 describe the whole game. Build only what the current phase lists, but keep the data files and code ready for the later systems (items, recipes, habitat, combat).
 - Explain every Cloudflare dashboard step as plain, numbered instructions. This is the owner's first game and first deploy.
-- Hosting is one Cloudflare Pages project, `broodkeep`, built from the `creatures/` folder (see section 2). The repo root holds nothing else but `.gitignore`.
+- Hosting is one Cloudflare Pages project, `broodkeep`, built from the repo root (see section 2).
 - Keep game rules and content in data files (`src/data/`), not in logic, so new creatures can be added later.
 - Keep code commented enough for a beginner to follow.
 - Owner preference: plain, direct writing. No em dashes, no corporate phrasing.
 
 ## 1. What's in the broodkeep repo today
 
-- The repo root holds only `.gitignore` and the `creatures/` folder. The game is all of `creatures/`.
+- The repo root is the game. It used to sit in a `creatures/` folder, a leftover of the old template site; the repo was flattened on 2026-11-22 (docs/decisions.md).
 - The repo started as the unmodified "cloudflare-pages-template" (plain static HTML, Bootstrap, no build step). Those files were removed on 2026-11-20, because nothing depended on that site.
-- `creatures/` is a Vite + TypeScript + Preact project: `package.json`, `wrangler.toml`, `src/`, `tests/`, `docs/`, plus `functions/` and `migrations/` that stay mostly empty until Phase 5.
+- The root is a Vite + TypeScript + Preact project: `package.json`, `wrangler.toml`, `src/`, `tests/`, `docs/`, plus `functions/` and `migrations/` that stay mostly empty until Phase 5.
 - There is no license file, so the code is all rights reserved. The template's MIT notice named its author, not this game, and was removed on 2026-11-21.
 - Cloudflare Pages builds from the `main` branch, so a merged pull request deploys. Work happens on feature branches and the owner merges.
 
-## 2. Hosting: one Pages project from a subfolder
+## 2. Hosting: one Pages project from the repo root
 
-The game is **one Cloudflare Pages project**, `broodkeep` (https://broodkeep.pages.dev), built from the `creatures/` folder:
+The game is **one Cloudflare Pages project**, `broodkeep` (https://broodkeep.pages.dev), built from the repo root:
 
-- Root directory: `creatures`
+- Root directory: blank, the repo root (it was `creatures` before the 2026-11-22 flatten; the owner clears the setting when the flatten merges)
 - Build command: `npm run build`
 - Build output directory: `dist`
 - Branch: `main`
 
 How it got here: the first version of this plan recommended a second Pages project beside the old template site, so a game deploy could never break that site. The old Cloudflare project turned out to be disposable and was deleted, and the old site files were removed from the repo, so there is only the one project.
 
-Why a subfolder with its own project still makes sense:
+Why the game is its own project:
 - The game needs a build step (TypeScript, bundling, PWA files) and backend functions, and the project settings are built around that.
 - The project has its own URL, its own D1 database binding and its own deploy logs.
 - A PWA works best when it owns the whole origin (its own home-screen icon, offline cache and cookies), not a subpath of another site.
@@ -60,32 +60,31 @@ Why a subfolder with its own project still makes sense:
 ## 4. Folder layout
 
 ```
-broodkeep/                       <- the repo root: only .gitignore and creatures/
-  creatures/                     <- root of the Pages project
-    package.json, vite.config.ts, wrangler.toml
-    index.html
-    migrations/0001_init.sql     <- D1 tables
-    functions/api/               <- backend: auth, profiles, sync
-    src/
-      main.ts
-      game/        <- pure rules, no screen code
-        state.ts       the save shape
-        sim.ts         ticks time forward (also used for offline catch-up)
-        care.ts        stat decay, care mistakes, sickness, sleep, death
-        evolution.ts   reads the rules in data/ and picks the next form
-        combat/        turn-based first, then auto and tap-timing
-        rng.ts         seeded randomness, so results are repeatable
-        habitat/       chores, gardens, gathering, job timers
-        crafting/      workshops, recipe timers
-      data/        <- everything you'd edit to add content
-        forms/         one file per creature: stats, art, evolution rules
-        foods.ts  items.ts  recipes.ts  jobs.ts  habitat.ts  room-items.ts  wild-creatures.ts  tuning.ts
-      art/         pixel renderer, palettes, animations
-      ui/          screens: profile picker, home, feed, jobs, battle, settings, dev
-      audio/       synthesized sound effects
-      sync/        local save + cloud sync
-    tests/
-    tools/art/                   <- Python drawing tools for the creatures (not part of the build or the tests)
+broodkeep/                       <- the repo root, also the root of the Pages project
+  package.json, vite.config.ts, wrangler.toml
+  index.html
+  migrations/0001_init.sql     <- D1 tables
+  functions/api/               <- backend: auth, profiles, sync
+  src/
+    main.ts
+    game/        <- pure rules, no screen code
+      state.ts       the save shape
+      sim.ts         ticks time forward (also used for offline catch-up)
+      care.ts        stat decay, care mistakes, sickness, sleep, death
+      evolution.ts   reads the rules in data/ and picks the next form
+      combat/        turn-based first, then auto and tap-timing
+      rng.ts         seeded randomness, so results are repeatable
+      habitat/       chores, gardens, gathering, job timers
+      crafting/      workshops, recipe timers
+    data/        <- everything you'd edit to add content
+      forms/         one file per creature: stats, art, evolution rules
+      foods.ts  items.ts  recipes.ts  jobs.ts  habitat.ts  room-items.ts  wild-creatures.ts  tuning.ts
+    art/         pixel renderer, palettes, animations
+    ui/          screens: profile picker, home, feed, jobs, battle, settings, dev
+    audio/       synthesized sound effects
+    sync/        local save + cloud sync
+  tests/
+  tools/art/                   <- Python drawing tools for the creatures (not part of the build or the tests)
 ```
 
 A creature file will look roughly like this, so adding one later is mostly copy, paste and draw:
@@ -265,7 +264,7 @@ At the end of each phase I will stop, give you the test URL and phone steps, and
 
 ## 10. What you'll do yourself (preview)
 
-- **Phase 1:** create the Cloudflare Pages project and point it at the `creatures` folder (about 5 minutes; I'll give numbered steps).
+- **Phase 1:** create the Cloudflare Pages project and point it at this repo's `main` branch (about 5 minutes; I'll give numbered steps).
 - **Phase 5:** create a D1 database, bind it to the project, and run one setup command (about 10 minutes; numbered steps then too).
 - No paid plans needed. Everything fits the free tiers.
 

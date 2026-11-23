@@ -20,7 +20,7 @@ and returns a `Canvas`. The two babies (Blip, Drip) are not drawn here.
 
 ## Run it
 
-Use plain `python3` from `creatures/`. `emit.py` needs only the standard library; `preview.py` needs Pillow.
+Use plain `python3` from the repo root. `emit.py` needs only the standard library; `preview.py` needs Pillow.
 
 ```
 python3 tools/art/preview.py stage3 /tmp/ultimates.png 8 3    # look at a stage: scale 8, 3 columns
