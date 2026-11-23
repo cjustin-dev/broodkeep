@@ -1436,3 +1436,137 @@ button.astat[aria-expanded="true"] {
   overflow-wrap: anywhere;
   animation: rise 0.2s var(--ease) both;
 }
+
+/* ---------- retiring a grown-up, and the completed lives (in the Creature Book) ---------- */
+
+/* The creature's face beside what is said about it (the same face as in its row under Completed lives). */
+.retire-who,
+.retire-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.retire-who .hint {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The buttons of this section. The card and the page are both dark purple, so a fill alone melts into them: every button here has its own
+   fill AND a light edge (--retire-edge is 3.4:1 against the card and 5.3:1 against the page), and the answer that goes ahead is the warm
+   yellow the game already uses for its focus ring. The second class (.btn.retire-btn) is needed to outrank .btn.small, which has no edge. */
+.retire {
+  --retire-edge: #8d7bc6;
+}
+
+.btn.retire-btn {
+  min-height: 52px;
+  padding: 0 18px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance; /* a label that must wrap breaks in the middle, never leaves one word alone */
+  border-radius: 16px;
+  background: var(--panel-hi);
+  box-shadow: var(--lift), inset 0 0 0 2px var(--retire-edge), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.btn.retire-btn:hover {
+  background: #5a4891;
+}
+
+.btn.retire-btn[aria-expanded="true"] {
+  box-shadow: var(--lift), inset 0 0 0 2px var(--accent); /* the card below belongs to this button */
+}
+
+.btn.retire-btn.primary {
+  color: var(--bg); /* dark on yellow: 11.5:1 */
+  background: var(--accent);
+  box-shadow: var(--lift), inset 0 -3px 0 rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn.retire-btn.primary:hover {
+  background: #ffdf85;
+}
+
+/* The question before a creature retires: asked once, on its own surface, with the creature it is about. The answers stack at full width,
+   so the longer label has the whole row at every phone width. */
+.retire-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--panel);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.retire-card h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.retire-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* What follows a retire: a quiet confirmation tinted from the game's green, not a bare line of text. */
+.retire-done {
+  padding: 12px 14px;
+  color: var(--ink);
+  background: rgba(103, 216, 138, 0.16);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px rgba(103, 216, 138, 0.45);
+}
+
+.retire-done:focus {
+  outline: none; /* it takes focus so a screen reader reads it; there is nothing to press */
+}
+
+.book-lives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-life {
+  min-height: 60px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border-radius: var(--radius-md);
+}
+
+/* The slot is as wide as the biggest face (48 rows, drawn at one and a half times: 72 px), so a grown-up's face stays inside it and a
+   smaller one is centered in the same column. At 48 px the big faces spilled 12 px each side, into the row's edge and against the text. */
+.book-life-face {
+  flex: none;
+  width: 72px;
+  display: flex;
+  justify-content: center;
+}
+
+.book-life-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-life-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.book-life-dates {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}

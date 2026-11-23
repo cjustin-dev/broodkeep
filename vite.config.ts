@@ -31,6 +31,9 @@ export default defineConfig({
   build: {
     // Must match pages_build_output_dir in wrangler.toml.
     outDir: "dist",
+    // The game is one bundle on purpose: the installed app keeps all of it offline, so splitting it would not make a visit lighter. Vite warns
+    // above 500 kB by default, and the Retire slice (A1.4) passed that line, so the line is now 600 kB. Look at splitting before it nears that.
+    chunkSizeWarningLimit: 600,
   },
   test: {
     include: ["tests/**/*.test.ts"],
