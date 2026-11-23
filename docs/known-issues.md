@@ -14,7 +14,7 @@
   Retrying the failed row fails the same way (seen 2026-11-20: `Cannot find cwd: /opt/buildhome/repo/creatures`).
 - **Two setup flows.** The Workers flow shows a "Deploy command" box (`npx wrangler deploy`). The Pages flow does not.
   This project is Pages. If you see a deploy command, you are in the wrong flow.
-- **The project builds from `main`.** `creatures/` must be on `main` before the first build can pass.
+- **The project builds from `main`.** (At the first build the game sat in `creatures/`, which had to be on `main` before the build could pass; since 2026-11-22 the game is at the repo root.)
 - **Renaming the GitHub repo does not rename the Cloudflare label.** The old project kept showing `kharbranth`. Cloudflare's
   docs do not cover renames. Moot now, the old project was deleted.
 

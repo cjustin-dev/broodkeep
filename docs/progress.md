@@ -44,7 +44,7 @@ decisions.md and known-issues.md.
 **Phase 1, the emotes, Phase 2, happy eyes, the creature redesign, the drawing toolkit and Phase 3 slices 1 and 2 are merged** (PR #3
 to #6, #8, #9, #11, #12 and #13, `main` at 932497c; the first four are confirmed live at https://broodkeep.pages.dev, and so is
 slice 1 (the page showed the version label "0.3 (Phase 3a)"), the deploys in between and slice 2's were not checked).
-Cloudflare Pages project `broodkeep`, root dir `creatures`, build `npm run build`, output `dist`, builds from `main`. The
+Cloudflare Pages project `broodkeep`, root dir `creatures` until the 2026-11-22 flatten, then blank (the owner changes it; see "Repo flattened"), build `npm run build`, output `dist`, builds from `main`. The
 owner deletes merged branches on GitHub. Owner feedback so far: the egg shakes on tap (PC and Android), the request for
 more emotion (the emotes below), then after seeing the 20 forms: the creatures look dopey and have no character, the
 evolutions are "the same circle like mass with some small affections", and the owner wants real changes like Digimon.
@@ -416,6 +416,19 @@ player feed several times in one; a forecast counted from the clock instead of f
 a job goes on while the creature sleeps; a device clock set back leaves the stage running until real time catches up (the panel shows the real time and says so).
 **Not checked:** a real phone, browsers other than Chromium, a screen reader reading the panel. **Not built (as planned):** the labelled care row (A1.3), Retire (A1.4). Committed (17 files, one commit with A1.1) and pushed to origin/adult-a1; the owner opens the pull request: https://github.com/cjustin-dev/broodkeep/pull/new/adult-a1. Next after it merges: flatten the repo (item 6 of Next), then A1.3.
 
+## Repo flattened (built 2026-11-22 after A1 merged as PR #27, 1ee3674; branch `flatten` in ~/broodkeep-adult; committed and pushed on the owner's "commit and push", 2026-11-22; the owner clears the Cloudflare Root directory FIRST, then merges the pull request)
+
+The A1 build (A1.1 and A1.2) is live: https://broodkeep.pages.dev serves `index-BUPkyQdo.js`, which contains "Growth Forecast". The contents of `creatures/` now sit at the repo root: 201 files moved with `git mv`
+(pure renames; 7 were then edited for paths, so git shows 194 as 100% renames), the project's `.gitignore` replaced the root one, and `node_modules`, `dist` and `.wrangler` were moved by hand. Paths updated: `CLAUDE.md` (intro, handoff note, sections 1, 2, 4, 10), `README.md`
+(two lines), `migrations/README.md`, `tools/art/README.md` and the hosting line under "State" in this file. Older history lines (decisions.md, the spec's "moved here from `creatures/`") stay as they were.
+**Checked:** typecheck 0; 30 files / 1,598 tests; build 0 warnings, with the same bundle names and byte sizes as the build before the move (`index-BUPkyQdo.js` 490,527 and `index-BLiHnHur.css` 15,988);
+`wrangler pages dev` from the root serves `/` (200) and a Pages Function (`/api/me` answers with its JSON 401). **Not checked:** Cloudflare building from the root (the setting is the owner's), a real phone.
+**Cheap-model review of the move (6 findings):** fixed 3 (the "all 100% renames" wording, wrong once files were edited; two lines that said the Cloudflare setting had already changed; one present-tense `creatures/` line in known-issues.md). Left 3 that were stale before the move and
+are not path problems, for the owner's call: the folder-layout block in CLAUDE.md section 4 lacks `docs/`, `public/`, `README.md`, `pwa-manifest.ts`, `tsconfig.json` and migrations 0002 and 0003; CLAUDE.md section 1 still says `functions/` and `migrations/` "stay mostly empty until Phase 5"
+(`functions/api` has six routes); `README.md` still says "there is no game yet". It also confirmed that every relative Markdown link, every tool path and the config files resolve from the new root.
+**Order for the owner:** (1) Cloudflare dashboard, Workers & Pages, `broodkeep`, Settings, Builds, Build configuration, Root directory: clear the box and save (no build starts); (2) at once, open and merge the flatten pull
+request; (3) check the new deployment succeeds and the live bundle's file name is `index-BUPkyQdo.js` (the same build). To undo: put `creatures` back in the box and revert the pull request. How Pages behaves here is expected, not tested.
+
 ## Open for the owner
 
 - A1.2 (the Growth Forecast), for the owner after trying it on a phone: (1) forms the player has not found yet show their real name and picture (the spec's choice; one line changes it to "???"); (2) the spec's "Avoid mistakes" stepper is a "slip" stepper
@@ -656,7 +669,4 @@ a job goes on while the creature sleeps; a device clock set back leaves the stag
    the iPhone start screen and status bar, iPhone storage), the free-plan CPU limit and the phone's PBKDF2 time (still the owner's from the cloud saves).
    **After "commit and push" and the owner's merge:** check the live site (the manifest and icons are served, `/sw.js` answers `Cache-Control: no-cache`,
    the JavaScript file matches my build), then the owner installs it on a phone: Android Chrome menu, "Install app"; iPhone Safari, Share, "Add to Home Screen".
-6. **Flatten the repo (queued 2026-11-22, the owner: "let's queue for after a1.1 merging"; not started).** The repo holds only `.gitignore` and `creatures/`, a leftover of
-   the old template site. Plan: one pull request that moves the contents of `creatures/` to the repo root with `git mv` (history kept) and updates the paths in the docs,
-   CLAUDE.md and the hub notes; the owner changes the Cloudflare Pages "Root directory" from `creatures` to blank, timed with the merge (the build fails in between).
-   Do it after A1.1 has merged and before the next slice branches, so no open branch has to be rebased. Nothing in the code depends on the folder name.
+6. **Flatten the repo: built 2026-11-22 on branch `flatten`, committed and pushed** (see the section above; the owner sets the Cloudflare Root directory blank, then merges). After it merges: A1.3 (honest care buttons) and A1.4 (minimal Retire), each with its own plan and edge-case list.

@@ -788,3 +788,21 @@ The plan and edge cases are in [adult-a1-plan.md](adult-a1-plan.md), section 3b.
   other counters at each evolution. 36 to 44 characters an entry; a full log adds a few hundred characters to the save (a test holds it under 600).
 - **Names and portraits of forms not yet in the Book are shown** (the spec's choice). One line to change if the owner prefers "???" until found.
 - **Kid Mode:** no markup changes. The save gains one optional field; `growth.ts` gains the word `export` on `canBecomeSpecial`.
+
+## Repo flattened (2026-11-22, branch `flatten`)
+
+The owner asked whether `broodkeep/creatures/...` was normal and whether there was a better structure ("The github main seems to be under creatures"), then queued the move
+("let's queue for after a1.1 merging"). A1 merged as PR #27 (1ee3674), so the move was built on a branch off that commit.
+
+- **The game now lives at the repo root.** The `creatures/` folder was a leftover of the old template site, whose files sat beside it until they were removed on 2026-11-20; since then nothing else has been beside it.
+  201 files moved with `git mv` as pure renames (7 of them were then edited for paths, so git shows 194 as 100% renames and those 7 as 90 to 99% similar; history and blame follow either way). The project's `.gitignore` replaced the root one, which held only `.DS_Store`
+  (the project one lists it too).
+- **Nothing in the code named the folder.** The tools, tests, `package.json`, `vite.config.ts` and `wrangler.toml` use relative paths only. After the move the type check, the 1,598 tests and the
+  build pass unchanged, and the build writes the same bundle names and byte sizes as before the move.
+- **Older lines in this file and in progress.md that say `creatures/` are left as history** (for example the note that progress notes live in `creatures/docs/`: they now live in `docs/`).
+  Present-tense text (CLAUDE.md sections 1, 2, 4 and 10, `README.md`, `migrations/README.md`, `tools/art/README.md`) was updated.
+- **Cloudflare Pages needs one dashboard change:** the "Root directory" setting goes from `creatures` to blank. The order that never produces a failed build is: set it blank first (a settings change
+  starts no build), then merge the flatten pull request. The reverse order gives one failed build, because the old setting points at a folder that no longer exists. This is how Pages is expected to behave
+  and was not tested against Cloudflare; the check is the deployment list and the live bundle's file name.
+- **Open branches:** every remote branch is already merged, so no branch needs a rebase. `pokemon-look` exists only locally (~/broodkeep, never pushed, its look was dropped) and keeps the old layout.
+

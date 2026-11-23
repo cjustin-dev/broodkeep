@@ -32,7 +32,7 @@ Right now this is only the scaffold: the folders, the tooling and the security s
 
 You need Node.js 22 or newer. Check with `node --version`.
 
-1. Open a terminal and go into this folder: `cd creatures`
+1. Open a terminal in this folder (the one with `package.json`).
 2. Install the tools (first time only, and after `package.json` changes): `npm install`
 3. Start the dev server: `npm run dev`
 4. Open the address it prints (usually http://localhost:5173). The page updates when you save a file.
@@ -76,7 +76,7 @@ The database id in `wrangler.toml` is not a secret, but it is a placeholder unti
 
 The game is one Cloudflare Pages project, `broodkeep`, with these settings:
 
-- Root directory: `creatures`
+- Root directory: leave blank (the repo root)
 - Build command: `npm run build`
 - Build output directory: `dist`
 

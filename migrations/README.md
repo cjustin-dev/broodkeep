@@ -7,7 +7,7 @@ and only runs the new ones, in number order.
 There is no database yet. It gets created in Phase 5 (accounts and cloud sync), and the first
 file will be 0001_init.sql.
 
-Commands, for later (run from the creatures folder):
+Commands, for later (run from the repo root):
 
     npx wrangler d1 create broodkeep                        # once, makes the database
     npx wrangler d1 migrations create broodkeep add_thing   # new empty numbered .sql file
