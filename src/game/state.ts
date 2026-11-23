@@ -85,6 +85,13 @@ export interface LogEntry {
   text: string;
 }
 
+// A creature that was retired as a completed life: what it was, when it hatched and when it retired (game time). Kept in `Save.retired`.
+export interface RetiredLife {
+  formId: string;
+  bornAt: number;
+  retiredAt: number;
+}
+
 export interface Save {
   version: 3;
   phase: Phase;
@@ -100,6 +107,7 @@ export interface Save {
   inventory: Partial<Record<MaterialId, number>>; // materials gathered so far
   hauls: Haul[]; // finished jobs the player has not looked at yet, oldest first
   book: string[]; // the Creature Book: ids of the forms the player has raised, in the order they were first met (game/book.ts)
+  retired: RetiredLife[]; // completed lives, oldest first (game/retire.ts); no cap, a record is 73 characters
 }
 
 export function freshCounters(): Counters {
@@ -138,6 +146,7 @@ export function newSave(nowMs: number, seed: number): Save {
     inventory: {},
     hauls: [],
     book: [],
+    retired: [],
   };
   logEvent(save, nowMs, "A new egg appeared");
   return save;
@@ -169,6 +178,12 @@ export function isSave(value: unknown): value is Save {
   );
 }
 
+function isRetiredLife(value: unknown): value is RetiredLife {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Partial<RetiredLife>;
+  return typeof v.formId === "string" && typeof v.bornAt === "number" && Number.isFinite(v.bornAt) && typeof v.retiredAt === "number" && Number.isFinite(v.retiredAt);
+}
+
 // Turn data read from storage into a current save, or null if it is not one. Only version 3 is read: the Paradise growth
 // rules replaced every old form, so an older save has no creature that could carry on (the owner chose a clean start, and the
 // loader keeps an unreadable save under another name, see sync/local.ts).
@@ -177,5 +192,9 @@ export function migrateSave(value: unknown): Save | null {
   // A save from before the Creature Book has no `book` (the version stays 3: the field is added here). It starts with the forms the living
   // creature must have been through to be what it is.
   if (!Array.isArray(value.book)) value.book = value.creature ? lineageOf(value.creature.formId) : [];
+  // A save from before Retire has no `retired`. Only records of the right shape are kept (a bad one from storage or the cloud must not
+  // break the Book), a record never runs backwards (its end is moved up to its start, as the action does when a clock was set back), and this
+  // runs for every profile at the picker, so it must never throw.
+  value.retired = Array.isArray(value.retired) ? value.retired.filter(isRetiredLife).map(({ formId, bornAt, retiredAt }) => ({ formId, bornAt, retiredAt: Math.max(retiredAt, bornAt) })) : [];
   return value;
 }

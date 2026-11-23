@@ -3,6 +3,7 @@
 // Each action returns a short word saying what happened, so the screen can react.
 
 import { fields } from "../data/fields";
+import { getForm } from "../data/forms";
 import { foods } from "../data/foods";
 import { spots } from "../data/habitat";
 import type { SpotId } from "../data/habitat";
@@ -15,6 +16,8 @@ import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefus
 import { countCareCells, countServing, noteCare } from "./growth";
 import { beginJob, jobRefusal } from "./habitat/jobs";
 import type { JobRefusal } from "./habitat/jobs";
+import { retireRefusal } from "./retire";
+import type { RetireRefusal } from "./retire";
 import { hatchIfReady, simulateTo } from "./sim";
 import { makeRng } from "./rng";
 import { clamp, logEvent, newEgg } from "./state";
@@ -192,10 +195,8 @@ export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   return { gained, asleep: false };
 }
 
-// After a death: start over with a new egg.
-export function startNewEgg(save: Save, nowMs: number): boolean {
-  simulateTo(save, nowMs);
-  if (save.phase !== "dead") return false;
+// A new egg takes the creature's place (after a death, or when a grown-up retires).
+function putInNewEgg(save: Save, nowMs: number): void {
   const rng = makeRng(save.rngState);
   save.egg = newEgg(nowMs, rng.pick(eggPatterns));
   save.rngState = rng.state();
@@ -203,7 +204,30 @@ export function startNewEgg(save: Save, nowMs: number): boolean {
   save.death = null;
   save.phase = "egg";
   logEvent(save, nowMs, "A new egg appeared");
+}
+
+// After a death: start over with a new egg.
+export function startNewEgg(save: Save, nowMs: number): boolean {
+  simulateTo(save, nowMs);
+  if (save.phase !== "dead") return false;
+  putInNewEgg(save, nowMs);
   return true;
+}
+
+export type RetireResult = "retired" | RetireRefusal;
+
+// A grown-up creature retires to the Book as a completed life, and the next egg starts. The Book, coins, bag and settings stay as they are.
+// The rule is game/retire.ts: it reads the creature itself after the catch-up (alive() would hide an away creature as "unavailable").
+export function retireCreature(save: Save, nowMs: number): RetireResult {
+  simulateTo(save, nowMs);
+  const refusal = retireRefusal(save);
+  if (refusal) return refusal;
+  const c = save.creature!; // retireRefusal found it
+  // After a clock set back, game time can be earlier than the hatch time: the record never runs backwards.
+  save.retired.push({ formId: c.formId, bornAt: c.bornAt, retiredAt: Math.max(nowMs, c.bornAt) });
+  logEvent(save, nowMs, `${getForm(c.formId).name} retired`);
+  putInNewEgg(save, nowMs);
+  return "retired";
 }
 
 export type StartJobResult = "started" | JobRefusal | "unavailable";

@@ -25,11 +25,12 @@ export function ActionBar({ game }: { game: Game }) {
   const c = game.save.phase === "alive" ? game.save.creature : null;
   const asleep = c?.sleep != null;
   const away = c?.job != null; // out working in the habitat: it cannot be cared for until it is home
+  const gone = c === null;
   const adult = isAdultMode(game.save);
 
   useEffect(() => {
-    if (asleep || away) setTray(null); // the trays make no sense while it sleeps or is out
-  }, [asleep, away]);
+    if (asleep || away || gone) setTray(null); // the trays make no sense while it sleeps or is out, and a creature that retired or died leaves none open for the next one
+  }, [asleep, away, gone]);
 
   if (!c) return null;
 
