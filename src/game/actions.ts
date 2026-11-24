@@ -14,7 +14,7 @@ import type { Battle } from "./combat/battle";
 import { cleanRefusal, feedRefusal, goRefusal, lightsRefusal, medicineRefusal } from "./availability";
 import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefusal } from "./availability";
 import { countCareCells, countServing, noteCare } from "./growth";
-import { beginJob, jobRefusal } from "./habitat/jobs";
+import { beginJob, endJobEarly, jobRefusal } from "./habitat/jobs";
 import type { JobRefusal } from "./habitat/jobs";
 import { retireRefusal } from "./retire";
 import type { RetireRefusal } from "./retire";
@@ -244,12 +244,11 @@ export function startJob(save: Save, spotId: SpotId, nowMs: number): StartJobRes
 
 export type CallBackResult = "called" | "nothing";
 
-// Bring the creature home early. It brings nothing back and the energy it spent is not given back.
+// Bring the creature home early. It brings back what the time earned (callBackHaul, rounded down), and the energy it spent is not given back.
 export function callBack(save: Save, nowMs: number): CallBackResult {
   const c = aliveOrAway(save, nowMs);
   if (!c?.job) return "nothing";
-  logEvent(save, nowMs, `Called back from the ${spots[c.job.spot].name} early`);
-  c.job = null;
+  endJobEarly(save, c, nowMs);
   return "called";
 }
 

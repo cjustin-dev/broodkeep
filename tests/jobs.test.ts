@@ -230,7 +230,7 @@ describe("coming home", () => {
 });
 
 describe("calling the creature back", () => {
-  it("brings it home with nothing, and does not give the energy back", () => {
+  it("an early call back that has earned nothing yet (one minute of three at the meadow) brings it home with nothing, and does not give the energy back", () => {
     const save = hatched("blip");
     startJob(save, "meadow", DAY);
     const energy = save.creature!.stats.energy;
