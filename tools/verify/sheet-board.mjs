@@ -1,6 +1,7 @@
-// Contact sheet for the request board (A2.3): one screenshot per state and window size, written to sheets-board/<WxH>-<state>.png, to be LOOKED at before any
-// check is trusted. It also prints each page's height against the window's. A state with the panel open is shot with the window as tall as the
-// panel's content (the panel scrolls inside a fixed layer, which a full-page shot does not follow), and the line says how tall that was.
+// Contact sheet for the request board (A2.3) and the Shop panel's scroll layout: one screenshot per state and window size, written to
+// sheets-board/<WxH>-<state>.png, to be LOOKED at before any check is trusted. It also prints each page's height against the window's. A state with the
+// panel open is shot at the window's own size, as a phone shows it (the Shop panel is a fixed top and a list that scrolls inside it), and its line says
+// how much of the list the window shows and how long the list is, and whether the panel itself would scroll.
 // Run: node sheet-board.mjs --base http://127.0.0.1:4173
 // Pixel ratio 2, UTC, en-US, frozen clock 2026-11-22T15:00:00Z, saves from saves/board-<scenario>-<mode>.json (made by gen-saves-board).
 // There are no assertions: a state that cannot be reached throws, prints "ERROR <name> <message>", and the exit code is 2. A console error or an uncaught
@@ -78,6 +79,11 @@ const openShop = async (page) => {
   await shopButton(page).click({ timeout: 5000 });
   await page.locator('section[aria-label="Shop"]').waitFor({ state: "visible", timeout: 5000 });
 };
+const scrollList = (page) => page.locator(".shop-scroll").evaluate((el) => void (el.scrollTop = el.scrollHeight));
+const openShopScrolled = async (page) => {
+  await openShop(page);
+  await scrollList(page);
+};
 const openRequests = async (page) => {
   await openShop(page);
   await page.locator(".shop-tabs").getByRole("button", { name: "Requests", exact: true }).click({ timeout: 5000 });
@@ -87,6 +93,8 @@ const openRequests = async (page) => {
 // state: [scenario, mode, what to do, whether the panel stays open (the shot then uses the panel's own height)]
 const STATES = {
   "items-default": ["rich", "adult", openShop, true],
+  "items-scrolled": ["rich", "adult", openShopScrolled, true],
+  "items-undo-pending": ["undo-pending", "adult", openShop, true],
   "req-three": ["three", "adult", openRequests, true],
   "req-types-b": ["types-b", "adult", openRequests, true],
   "req-stale": ["stale", "adult", openRequests, true],
@@ -119,16 +127,21 @@ try {
         await page.waitForTimeout(400);
         if (errors.length > 0) throw new Error(`the page reported ${errors.length} error(s): ${errors.slice(0, 2).join(" | ")}`);
         let height;
+        let detail = "";
         if (panelOpen) {
-          height = await page.evaluate(() => document.querySelector(".panel").scrollHeight);
-          await page.setViewportSize({ width: size[0], height: Math.max(size[1], height) });
-          await page.waitForTimeout(200);
+          const m = await page.evaluate(() => {
+            const panel = document.querySelector(".panel");
+            const list = document.querySelector(".shop-scroll");
+            return { height: panel.scrollHeight, list: list ? [Math.round(list.clientHeight), list.scrollHeight, Math.round(list.scrollTop)] : null };
+          });
+          height = m.height;
+          if (m.list) detail = `, the list shows ${m.list[0]} px of ${m.list[1]} (scrolled ${m.list[2]})`;
         } else {
           height = await page.evaluate(() => document.documentElement.scrollHeight);
         }
-        await page.screenshot({ path: join(SHEETS, `${size[0]}x${size[1]}-${state}.png`), fullPage: true });
+        await page.screenshot({ path: join(SHEETS, `${size[0]}x${size[1]}-${state}.png`), fullPage: !panelOpen }); // a panel is a fixed layer: the window is what a phone shows
         taken++;
-        console.log(`SHOT ${size[0]}x${size[1]}-${state} ${panelOpen ? "panel" : "page"} ${height} of window ${size[1]}`);
+        console.log(`SHOT ${size[0]}x${size[1]}-${state} ${panelOpen ? "panel" : "page"} ${height} of window ${size[1]}${detail}`);
       } catch (err) {
         failed++;
         console.log(`ERROR ${size[0]}x${size[1]}-${state} ${err && err.message ? err.message : err}`);

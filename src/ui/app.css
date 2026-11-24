@@ -1699,10 +1699,41 @@ button.astat[aria-expanded="true"] {
 /* ---------- the shop (adult track A2.2a) ---------- */
 
 .shop-hint {
-  margin: -4px 0 0;
+  margin: -2px 0 0;
   text-align: center;
   font-size: 0.85rem;
   color: var(--ink-soft);
+}
+
+/* The panel does not scroll as a page: the title, wallet, tabs, room picture and Undo bar stay put, and only the list under them scrolls. The fixed block
+   uses 10 px gaps (the panel's others are 16) and a room picture at most about a quarter of the window high, so a 320 x 568 window keeps room for a card. */
+.shop-panel {
+  overflow: hidden;
+}
+
+.shop-body {
+  height: 100%;
+  box-sizing: border-box;
+  padding-bottom: 0;
+}
+
+.shop-top {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shop-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+}
+
+.shop-scroll .shop-hint {
+  margin: 0; /* (the line under the room picture pulls up; this one starts the list and must not poke out of it) */
 }
 
 .shop-wallet {
@@ -1713,7 +1744,8 @@ button.astat[aria-expanded="true"] {
 
 .shop-preview {
   display: block;
-  width: min(100%, 256px);
+  width: min(100%, 256px, 26vh);
+  width: min(100%, 256px, 26dvh); /* (the window as it is with a browser's toolbar showing; a browser without dvh keeps the line above) */
   aspect-ratio: 1;
   margin: 0 auto;
   image-rendering: pixelated;
