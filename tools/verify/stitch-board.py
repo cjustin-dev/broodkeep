@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Puts the screenshots of sheet-board.mjs (sheets-board/<WxH>-<state>.png, full page, pixel ratio 2) into pictures per window size, at the
+"""Puts the screenshots of sheet-board.mjs (sheets-board/<WxH>-<state>.png, pixel ratio 2: a room page in full, a panel as the window shows it) into pictures per window size, at the
 page's own CSS size (half the file size), STATES in order, PER_ROW to a row, each with its state name above it; a row is as tall as its tallest
 page. Writes sheets-board/sheet-<WxH>-<group name>.png (one file per group of states). Exit 0 only when every expected screenshot exists; 2 when one is
 missing or unreadable (it is named)."""
@@ -13,7 +13,7 @@ OUT = os.environ.get("VERIFY_OUT") or os.path.join(tempfile.gettempdir(), "brood
 SHEETS = os.path.join(OUT, "sheets-board")
 SIZES = ["320x568", "360x640", "390x844"]
 GROUPS = {
-    "panels": ["items-default", "req-three", "req-types-b", "req-stale", "req-longest", "req-done", "req-empty", "req-undo-pending"],
+    "panels": ["items-default", "items-scrolled", "items-undo-pending", "req-three", "req-types-b", "req-stale", "req-longest", "req-done", "req-empty", "req-undo-pending"],
     "rooms": ["room-adult-board", "room-kid-board"],
 }
 PER_ROW = 4

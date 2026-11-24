@@ -1,5 +1,6 @@
 // Browser checks for A2.3 (docs/adult-a2-plan.md section 11): the Requests tab of the Shop panel, its cards, the layout at 320, 360 and 390 wide (pixel
 // ratio 1 and 2), a request finished by real taps in the room, the note over the room, the refill of a slot, and Kid Mode, which must show nothing of it.
+// It also holds `shop-scroll`: the Shop panel's title, tabs and room picture stay fixed and only its list scrolls (a real mouse wheel, a real tap deep in the list).
 //
 // Run: node board-browser.mjs --base http://127.0.0.1:4173 [--only id1,id2] [--sizes 320x568@1,360x640@2] [--modes kid,adult]
 // Exit: 0 when no check failed and at least one ran; 1 when any FAIL; 2 when the script broke (a requested --only id ran zero times,
@@ -29,6 +30,7 @@ const CHECK_MODES = {
   "board-cards": ["adult"],
   "board-fit": ["adult"],
   "board-tap": ["adult"],
+  "shop-scroll": ["adult"],
   "board-live": ["adult"],
   "board-note": ["adult"],
   "board-kid": ["kid"],
@@ -154,6 +156,8 @@ function fitScrollProblems() {
   const panel = document.querySelector(".panel");
   if (!panel) return ["no panel on the screen"];
   if (panel.scrollWidth > panel.clientWidth) problems.push(`panel scrollWidth ${panel.scrollWidth} > clientWidth ${panel.clientWidth}`);
+  const list = document.querySelector(".shop-scroll");
+  if (list && list.scrollWidth > list.clientWidth) problems.push(`list scrollWidth ${list.scrollWidth} > clientWidth ${list.clientWidth}`);
   // A box inside an element that clips its overflow (the bar's moving fill) is judged by that element, whose own box is measured; a rect ignores the clip.
   const clippedAbove = (el) => {
     for (let a = el.parentElement; a && a !== panel; a = a.parentElement) {
@@ -210,6 +214,34 @@ function tapProblems() {
   return { problems: problems.slice(0, 5), buttons: buttons.length };
 }
 
+// Runs in the page: where the Shop panel's parts are (boxes in window pixels), how far its list is scrolled, and whether the panel or the page behind it scrolled.
+function shopBoxes() {
+  const box = (selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+  };
+  const list = document.querySelector(".shop-scroll");
+  const panel = document.querySelector(".panel");
+  return {
+    panel: box(".panel"),
+    head: box(".panel-head"),
+    tabs: box(".shop-tabs"),
+    preview: box(".shop-preview"),
+    undo: box(".shop-undo"),
+    top: box(".shop-top"),
+    list: box(".shop-scroll"),
+    lastCard: box(".shop-scroll > ul > li:last-child, .shop-scroll > ul > .req-card:last-child"),
+    lastButton: box(".shop-scroll > ul > li:last-child .card-btn"),
+    listTop: list ? list.scrollTop : null,
+    listMax: list ? list.scrollHeight - list.clientHeight : null,
+    panelOverflow: panel ? panel.scrollHeight - panel.clientHeight : null,
+    panelScroll: panel ? panel.scrollTop : null,
+    pageScroll: document.scrollingElement.scrollTop,
+  };
+}
+
 // ---------- page helpers (run in Node, drive the page with real clicks and keys) ----------
 
 const navButton = (page, name) => page.locator(`.nav button[aria-label="${name}"]`);
@@ -220,6 +252,26 @@ const feedButton = (page) => page.locator('button[aria-label="Feed"]');
 const foodTray = (page) => page.locator('[aria-label="Choose food"]');
 const note = (page) => page.locator("p.reason");
 const coinChip = (page) => page.locator('.strip-bag [aria-label$=" coins"]');
+
+// A real mouse wheel over the list, far more than it can scroll.
+async function wheelList(page) {
+  const b = await page.locator(".shop-scroll").boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + Math.min(b.height / 2, 40));
+  await page.mouse.wheel(0, 100000);
+  // (a smooth scroll takes a moment: wait until two reads of the list's position agree)
+  let last = -1;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(100);
+    const now = await page.locator(".shop-scroll").evaluate((el) => el.scrollTop);
+    if (now === last) break;
+    last = now;
+  }
+  // A second wheel, a new gesture, with the list at its end: the first one is latched to the list whatever the rest of the delta, so only this one
+  // would go on to the page behind if the list let it.
+  await page.waitForTimeout(600);
+  await page.mouse.wheel(0, 3000);
+  await page.waitForTimeout(500);
+}
 
 async function openShop(page) {
   await navButton(page, "Shop").click({ timeout: 5000 });
@@ -395,6 +447,61 @@ const checks = {
       }
     }
     return `${buttons} buttons in 6 views, each at least 44 px high and wide, and no button or tab stop inside a request card`;
+  },
+
+  "shop-scroll": async (openScenario, env) => {
+    const LIST_MIN = 100; // px of list a window must show under the fixed part: a card's name and its price line at the least
+    const same = (a, b, what) => {
+      for (const k of ["top", "bottom", "left", "right"]) if (Math.abs(a[k] - b[k]) > 0.5) throw new Error(`${what} moved: ${k} ${Math.round(a[k])} to ${Math.round(b[k])}`);
+    };
+    let views = 0;
+    let scrolled = 0;
+    for (const scenario of ["rich", "undo-pending"]) {
+      const { page } = await openScenario(scenario);
+      await openShop(page);
+      for (const view of ["Items", "Requests"]) {
+        const at = `${scenario} ${view}`;
+        if (view === "Requests") await tabButton(page, "Requests").click({ timeout: 5000 });
+        await page.waitForTimeout(200);
+        const before = await page.evaluate(shopBoxes);
+        if (before.panelOverflow > 0.5) throw new Error(`${at}: the panel itself scrolls (${before.panelOverflow} px more than its window)`);
+        expectEq([before.panel.top, before.panel.bottom], [0, env.h], `${at}: the panel's box`);
+        if (before.top.bottom > before.list.top + 0.5) throw new Error(`${at}: the fixed part (ends at ${Math.round(before.top.bottom)}) overlaps the list (starts at ${Math.round(before.list.top)})`);
+        if (before.list.bottom > env.h + 0.5) throw new Error(`${at}: the list ends at ${Math.round(before.list.bottom)}, past the window (${env.h})`);
+        const shown = before.list.bottom - before.list.top;
+        if (shown < LIST_MIN) throw new Error(`${at}: the window shows ${Math.round(shown)} px of the list, fewer than ${LIST_MIN}`);
+        if ((view === "Items") !== (before.preview !== null)) throw new Error(`${at}: the room picture is ${before.preview === null ? "missing" : "shown"}`);
+        if ((scenario === "undo-pending") !== (before.undo !== null)) throw new Error(`${at}: the Undo bar is ${before.undo === null ? "missing" : "shown"}`);
+        if (view === "Items" && !(before.listMax > 0)) throw new Error(`${at}: the 9 items fit the list's window, so nothing was tested`);
+        // A list opens at its top, also after another tab's list was scrolled (the scroller is a new box for each tab).
+        if (before.listTop !== 0) throw new Error(`${at}: the list opens scrolled to ${before.listTop}, not at its top`);
+        if (before.listMax > 0) {
+          scrolled += 1;
+          await wheelList(page);
+          const after = await page.evaluate(shopBoxes);
+          if (!(after.listTop > 0) || Math.abs(after.listTop - after.listMax) > 1) throw new Error(`${at}: a mouse wheel moved the list to ${after.listTop} of ${after.listMax}, not the end`);
+          for (const part of ["head", "tabs", "preview", "undo"]) if (before[part] !== null) same(before[part], after[part], `${at}: the ${part}`);
+          // (The page behind may already be scrolled a little, by the tap that opened the panel: the wheel must not move it further.)
+          expectEq([after.panelScroll, after.pageScroll], [0, before.pageScroll], `${at}: the panel's and the page's scroll after the wheel`);
+          if (after.lastCard.bottom > after.list.bottom - 16 + 0.5) throw new Error(`${at}: the last card ends at ${Math.round(after.lastCard.bottom)}, less than 16 px above the list's end (${Math.round(after.list.bottom)})`);
+          if (view === "Items") {
+            if (after.lastButton === null) throw new Error(`${at}: the last card has no button`);
+            if (after.lastButton.top < after.list.top - 0.5 || after.lastButton.bottom > after.list.bottom - 16 + 0.5) throw new Error(`${at}: the last card's button (${Math.round(after.lastButton.top)} to ${Math.round(after.lastButton.bottom)}) is not inside the list (${Math.round(after.list.top)} to ${Math.round(after.list.bottom)})`);
+          }
+        }
+        if (view === "Items") {
+          // The point of it: from deep in the list a real tap on an item changes the room picture, which is still on the screen.
+          await page.locator(".shop-card").last().locator(".shop-pick").click({ timeout: 5000 });
+          await page.waitForTimeout(200);
+          expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your room with Garden Mix", `${at}: the room picture after a tap on the last item`);
+          const tapped = await page.evaluate(shopBoxes);
+          same(before.preview, tapped.preview, `${at}: the room picture after the tap`);
+        }
+        views += 1;
+      }
+    }
+    if (scrolled < 2) throw new Error(`only ${scrolled} of ${views} views had a list that scrolls: the two Items views must`);
+    return `${views} views (Items and Requests, with and without the Undo bar; ${scrolled} had a list long enough to scroll): every list opens at its top, the panel does not scroll, the list shows at least ${LIST_MIN} px, a mouse wheel scrolls only the list to its end with 16 px or more below the last card and its button inside the list, the title, tabs, room picture and Undo bar stay where they were, the page behind does not move further, and a tap on the last item changes the room picture still in view`;
   },
 
   "board-live": async (openScenario) => {

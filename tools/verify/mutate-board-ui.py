@@ -9,6 +9,7 @@ the browser checker board-browser.mjs runs with only the check ids that the muta
 Usage:
   python3 mutate-board-ui.py    --check-targets   verify each `old` occurs exactly once in the copy; print the table
   python3 mutate-board-ui.py                      clean baseline, every mutant, final clean rebuild
+  python3 mutate-board-ui.py --only id1,id2       the same baselines, then only these mutants (an unknown or empty id stops the run, exit 2)
 
 Exit codes: 0 every mutant CAUGHT and the final checks pass; 1 some mutant not caught, or a final check
 failed; 2 the run stopped (copy out of sync, clean build failed its own checks, build or serve broke).
@@ -47,7 +48,7 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["board-tab", "board-cards", "board-fit", "board-tap", "board-live", "board-note", "board-kid"]
+ALL_IDS = ["board-tab", "board-cards", "board-fit", "board-tap", "shop-scroll", "board-live", "board-note", "board-kid"]
 
 SHOP = "src/ui/ShopPanel.tsx"
 TAB = "src/ui/RequestsTab.tsx"
@@ -72,7 +73,7 @@ MUTANTS = [
          edits=[(SHOP, 'onClick={() => setTab("requests")}', "onClick={() => undefined}")]),
     dict(id="undo-missing-on-requests", expect=["board-tab"], kid_only=False,
          what="the Undo bar is only on the Items tab",
-         edits=[(SHOP, "            {undoBar}\n            <RequestsTab game={game} />", "            <RequestsTab game={game} />")]),
+         edits=[(SHOP, '          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>', '          {tab === "items" && undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>')]),
     dict(id="card-missing", expect=["board-cards"], kid_only=False,
          what="the first open request has no card",
          edits=[(TAB, "{board.open.map((r) => (", "{board.open.slice(1).map((r) => (")]),
@@ -106,6 +107,37 @@ MUTANTS = [
     dict(id="card-wider-than-a-320-window", expect=["board-fit"], kid_only=False, size="320x568@2",
          what="every request card is 310 px wide at least: by arithmetic (not run) it fits a 360 wide window (328 px of room, the card ends at x=326) and it crosses the edge of a 320 wide one (288 px of room, ends at x=326 of 320), so only the 320 run can see it; the clean build is run at 320x568@2 first",
          edits=[(CSS, ".req-card {\n  --card-edge: #8d7bc6;\n  display: grid;", ".req-card {\n  --card-edge: #8d7bc6;\n  min-width: 310px;\n  display: grid;")]),
+    # the Shop panel's list scrolls inside a fixed top (check shop-scroll), and the card never leaves the list sideways
+    dict(id="list-not-scrollable", expect=["shop-scroll"], kid_only=False,
+         what="the Shop's list does not scroll: the panel clips it",
+         edits=[(CSS, "  overflow-y: auto;\n  overscroll-behavior: contain;", "  overflow-y: visible;\n  overscroll-behavior: contain;")]),
+    dict(id="list-keeps-the-other-tabs-scroll", expect=["shop-scroll"], kid_only=False,
+         what="the list's box is not renewed by a change of tab, so a list opens where the other tab's was left",
+         edits=[(SHOP, '<div class="shop-scroll" key={tab}>', '<div class="shop-scroll">')]),
+    dict(id="whole-panel-scrolls-again", expect=["shop-scroll"], kid_only=False,
+         what="the panel scrolls as one page again, as before the change (title, tabs and room picture scroll away)",
+         edits=[(CSS, ".shop-panel {\n  overflow: hidden;\n}", ".shop-panel {\n  overflow: auto;\n}"),
+                (CSS, "  height: 100%;\n  box-sizing: border-box;\n  padding-bottom: 0;", "  box-sizing: border-box;"),
+                (CSS, "  flex: 1 1 0;\n  min-height: 0;\n  overflow-y: auto;", "  flex: none;\n  overflow-y: visible;")]),
+    dict(id="undo-bar-in-the-list", expect=["shop-scroll"], kid_only=False,
+         what="the Undo bar sits at the top of the list, so it scrolls away with it",
+         edits=[(SHOP, '          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>', '        </div>\n        <div class="shop-scroll" key={tab}>\n          {undoBar}')]),
+    dict(id="room-picture-in-the-list", expect=["shop-scroll"], kid_only=False,
+         what="the room picture sits at the top of the list, so it scrolls away with it",
+         edits=[(SHOP, '          {tab === "items" && (\n            <>\n              <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />\n              <p class="shop-hint">Tap an item to see it in the room.</p>\n            </>\n          )}\n          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>',
+                 '          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>\n          {tab === "items" && (\n            <>\n              <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />\n              <p class="shop-hint">Tap an item to see it in the room.</p>\n            </>\n          )}')]),
+    dict(id="no-room-below-the-last-card", expect=["shop-scroll"], kid_only=False,
+         what="the list has no padding below its last card",
+         edits=[(CSS, "  overscroll-behavior: contain;\n  padding-bottom: calc(28px + env(safe-area-inset-bottom));", "  overscroll-behavior: contain;")]),
+    dict(id="room-picture-too-tall-at-320", expect=["shop-scroll"], kid_only=False, size="320x568@2",
+         what="the room picture is as tall as before (256 px at most, not capped by the window): at 320 x 568 the list is left under 100 px in both Items views (by arithmetic, not run), and this mutant runs in that window",
+         edits=[(CSS, "  width: min(100%, 256px, 26vh);\n  width: min(100%, 256px, 26dvh); /* (the window as it is with a browser's toolbar showing; a browser without dvh keeps the line above) */", "  width: min(100%, 256px);")]),
+    dict(id="page-behind-follows-the-wheel", expect=["shop-scroll"], kid_only=False, size="320x568@2",
+         what="the list lets a wheel at its end go on to the page behind (that page is scrollable at 320 x 568 only)",
+         edits=[(CSS, "  overscroll-behavior: contain;\n  padding-bottom: calc(28px + env(safe-area-inset-bottom));", "  padding-bottom: calc(28px + env(safe-area-inset-bottom));")]),
+    dict(id="card-wider-than-the-list-at-320", expect=["board-fit"], kid_only=False, size="320x568@2",
+         what="every shop card is 300 px wide at least: it ends at x=316, inside the 320 window and past the list's 288 px, so only the list's own scrollWidth shows it",
+         edits=[(CSS, ".shop-card {\n  --card-edge: #8d7bc6;\n  display: flex;", ".shop-card {\n  --card-edge: #8d7bc6;\n  min-width: 300px;\n  display: flex;")]),
     dict(id="tab-buttons-short", expect=["board-tap"], kid_only=False,
          what="the two tab buttons are at most 32 px high",
          edits=[(CSS, ".shop-tabs {\n  display: grid;", ".shop-tabs .btn {\n  min-height: 0;\n  max-height: 32px;\n}\n\n.shop-tabs {\n  display: grid;")]),
@@ -443,6 +475,12 @@ def run(args):
     if not same:
         raise Stop("the copy differs from the repo before the run (delete $VERIFY_OUT/board-ui-copy to start again):\n" + diff_text)
     rows = target_rows()
+    if args.only is not None:  # (an empty value is an unknown id, not "all")
+        wanted = args.only.split(",")
+        unknown = [w for w in wanted if w not in {m["id"] for m, _e, _c in rows}]
+        if unknown:
+            raise Stop(f"--only names no mutant: {', '.join(unknown)}")
+        rows = [r for r in rows if r[0]["id"] in wanted]
     if args.check_targets:
         print_targets(rows)
         bad = [m["id"] for m, err, _c in rows if err is not None]
@@ -517,6 +555,7 @@ def main():
     ap = argparse.ArgumentParser(description="Mutation runner for the request board screen checks (A2.3).")
     ap.add_argument("--check-targets", action="store_true",
                     help="only verify that each old text occurs exactly once in the copy, and print the table")
+    ap.add_argument("--only", help="run only these mutants (comma separated ids), after the same clean baselines; the summary counts only them")
     args = ap.parse_args()
     assert PORT in range(4180, 4190), "this runner may use only ports 4180-4189"
     os.makedirs(LOGS, exist_ok=True)

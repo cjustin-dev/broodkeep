@@ -1,0 +1,130 @@
+# The Home: a bigger, designable home (plan v2, written 2026-11-24, before any code)
+
+The owner's request, 2026-11-24: "making the room much larger to allow more stuff. a bedroom, living room, kitchen. then the creature can jump around an entire home rather than this small space." Then: "i like the idea of a stardew valley designing home".
+Everything below is "will", not "is", except section 2, "What is true today". Facts in section 2 were read from the code on 2026-11-24 (files are named); a cheap-model review of v1 gave 15 findings (6 wrong facts, the rest gaps), all applied here, and a second review of v2 gave 11 more, 10 applied and 1 answered (section 9 lists them). Nothing is built; the plan stops for the owner's answers (section 8).
+
+## 1. What the owner decided (closed 2026-11-24, do not re-ask)
+
+- **A wide home that is bigger than the screen**: a bedroom, a living room and a kitchen.
+- **The camera does NOT follow the creature.** The player moves it by dragging a finger across the screen, and zooms in and out by pinching.
+- **The scale is close to Stardew Valley's** (a roomy home, a small creature, furniture with detail).
+- **Both modes get it.** Kid Mode changes. This replaces the rule "Kid Mode stays as it is" for this feature only.
+- **It comes before A2.4 (hats).**
+- **The Shop's picture of the room** (the small room picture that shows the selected item) is what the owner meant by "the room" in the Shop, and it stays as built until H1. What it shows once there are three rooms is question 6.
+- **The direction is a home the player designs, Stardew-style** (furniture placed where the player wants, wallpaper and floor for each room). That is its own slice (H2), after the home exists.
+
+## 2. What is true today
+
+- **The room is one hand-drawn 128 x 128 pixel scene** (`art/room.ts` `drawRoom`; sizes in `art/layout.ts` `ROOM`). The bed (`bedLeft` 68, `bedY` 82), the bowl (x 9 to 28, y 108 to 118), the rug and the window are drawn at fixed coordinates. The wall ends at `floorTop` 82; the floor has 46 pixels of depth (128 - 82).
+- **The creature walks on one line.** Its x moves between `walkMinX` 8 and `walkRight` 84 minus its own width; its feet stay at `groundY` 112 (`art/idle.ts`, `art/layout.ts`). Its x is view state (`game.view.x`), not saved. When it falls asleep it walks to the bed at 20 pixels a second (`goToBed` in `idle.ts`) and lies down there.
+- **Picture sizes**: babies 20, kids 24, young 36, adults 48 pixels (the `idle` arrays in `data/forms/*.ts`); an egg is `ROOM.sprite`, 16 (`art/layout.ts`; its comment lists the same sizes). The sprites are front-facing and a walk flips them left and right (CLAUDE.md 7.4 calls this the three-quarter view); there is no back or side art.
+- **Fixed spots**: the egg at `eggX` 56 / `eggY` 92, a dead creature at `deadCenter` 30 with its tombstone, poop at the five `POOP_SPOTS` (the save holds only the count), food beside the creature (`startEating`, `idle.ts`). The hatch scene sets the creature's x to the egg's (`art/moment.ts`); the evolve scene keeps the creature where it stands and re-centres it for its new size. A creature away on a job leaves an empty room with a tree bubble at a fixed spot (`art/scene.ts`). The sleep darkening (`scene.ts`) and the hatch flash (`moment.ts`) cover exactly `ROOM.w` x `ROOM.h`; the sleeping Z is clamped to `ROOM.w - 8`, and a call bubble sits 12 pixels above the creature.
+- **Who reads `ROOM`** (grep of `src` on 2026-11-24): eight files (`room.ts`, `scene.ts`, `moment.ts`, `idle.ts`, `habitat.ts`, `arena.ts`, `ui/Stage.tsx`, `ui/ShopPanel.tsx`); nine source files import from `layout` (those eight and `face.ts`, which uses `wideWidth` and never says `ROOM`). Six test files import it too (`art`, `arena`, `habitat-art`, `face`, `moment`, `field`). The Shop's picture draws the same room at 128 pixels, with a `Look` (wallpaper, Comfy Bed, Feeding Mat) in `room.ts`.
+- **The stage** (`ui/Stage.tsx`) is one square canvas. Each game pixel is k whole device pixels, k = floor(wrapper width x pixel ratio / 128), and the wrapper is the page width minus the 16 pixel side padding of `.app` on each side (`app.css`; `.app` is capped at 480 wide and every element is `box-sizing: border-box` (`app.css` line 29), so the wrapper tops out at 448). Computed from that formula, not yet measured in a browser (H0 measures it): a 320 wide phone has a 288 wrapper and a 256 CSS pixel picture at ratio 1, 2 and 3 (k 2, 4, 6); a 360 phone has a 328 wrapper and a picture of 256 (ratio 1), 320 (ratio 2) or 298.7 (ratio 3); a 390 phone has a 358 wrapper and 256, 320 or 341.3. So the picture is at most 341.3 CSS pixels wide on the three widths in use, and one game pixel is 2 to 2.67 CSS pixels. The same canvas draws the room, a field (`drawField`, `art/field.ts`, when the creature is out in one and not on a job), the habitat and the arena (`game.atHabitat`, `game.atArena`, the creature's place). The fields, the habitat and the arena use the same 128 x 128 size and are not part of this plan.
+- **Touch is pointer events on the canvas** (`Stage.tsx`), with `touch-action: manipulation` (`app.css` `.room`), which leaves the browser's own pinch-zoom on; the game itself does not pan or zoom the picture. A touch counts when it lands within 6 game pixels (about 15 CSS pixels at k 5, ratio 2) of the creature's box. Holding for 450 ms pets (again every 800 ms while held); a release that was not a pet is a tap (a startle, three quick taps tickle). **There is no movement check**: a drag that starts on the creature and ends anywhere is a tap on release; a second finger that lands off the creature leaves the 450 ms timer running; a second finger on the creature restarts the hold. The `describe` sentence for screen readers (`Stage.tsx`) never names a room, and the canvas has no `tabindex`.
+- **Adult Mode draws a note over the canvas** (`.reason-box`, the canvas's own size).
+- **There is no furniture or room data in the save**: `wall` (the wallpaper) and `owned` (the Comfy Bed and the Feeding Mat only change how the bed and the mat look, `art/room.ts` `Look`). The room editor of CLAUDE.md 7.4 (a tile grid, furniture that snaps, an icon tray, rotate, a bin, a separate Decorate toggle) was never built. CLAUDE.md 7.4 says "larger rooms" and "a second room can unlock later"; 7.5 has the Homestead level. **CLAUDE.md 7.4's note of 2026-11-22, "the adult track's shop places furniture free-form in the existing room", is not true of the code**: the shop's items carry no position (`data/shop.ts`) and the bed and mat are drawn at fixed coordinates. H2 starts from the code, not from that note.
+- **The Kid comparison with `main`** (`tools/verify/kid-compare.mjs`, `run-kid.sh`) exits 0 only when there are 0 differences on every page, for ratio 1, ratio 2 and the control.
+
+## 3. The design
+
+### 3.1 The view, and the walk
+
+- **Top-down, three-quarter, like Stardew's interiors**: each room has a wall band across the top and a floor below, and the creature can walk anywhere on the floor (x and y), around furniture, not along one line. It has only front pictures, so walking away from the viewer shows the same front picture (flipped left and right as today); whether that is good enough is question 7. This is a real change to `idle.ts` (movement in two directions, depth sorting against furniture), and it is why the home is a rewrite of the room scene, not a wider copy of it.
+- **A tile grid.** The tile size is decided by the H0 mock (section 4), not guessed: with 24 pixel tiles an adult (48 pixels) is two tiles tall and a baby (20) one; with 16 pixel tiles an adult is three tiles tall. (I recall Stardew's farmer as about two tiles tall; that is from memory, not checked.) Walls, floors, furniture and the doorways between rooms are on the grid. The creature's walk grid is the free floor tiles, for the footprint of its size (an adult needs more free floor than a baby, and the evolve scene changes the size in the middle), and a small search (such as breadth-first) finds a path round furniture and through a doorway.
+- **Three rooms in a row, joined by doorways**: bedroom, living room, kitchen (each about 10 x 8 tiles; the real size comes from the mock). The bed stands in the bedroom, the feeding bowl and the Feeding Mat in the kitchen, the rug in the living room.
+- **Care works as it does today.** The Feed button drops food on the nearest free tile next to the creature wherever it is (the same search as the walk; if none is free, on the tile it stands on; today `startEating` has no search, `idle.ts`). A creature that falls asleep keeps walking to the bed (now through the doorways and round the furniture, at the same speed). Poop appears on five fixed floor tiles of the living room (the save holds only a count, so the spots must be a function of it, as now). The egg sits on a fixed bedroom tile and a dead creature and its tombstone on another. A creature away on a job leaves the home empty with the tree bubble in the living room.
+- **Overlays and marks are in two spaces**: the sleep darkening and the hatch flash cover the whole viewport (screen space); the call bubble, the sleeping Z, the hearts and the sparkles are drawn in the home next to the creature, so the viewport's edge simply cuts them off with the rest of the picture. The Z and the call bubble are also kept inside the home's outer walls, as the Z is kept inside the room's width today (`scene.ts`), not inside the viewport. **The sleep darkening covers the whole viewport whatever room the creature sleeps in** (today it covers the whole room; sleep follows the night, so the whole home dims, and no per-room dimming is planned).
+
+### 3.2 The camera
+
+- **The viewport is the box the stage has today** (as wide as a whole k allows); the home is drawn into it through a camera (x, y, zoom) and only the part in view is drawn each frame. **The zoom is a whole number of device pixels per game pixel, and the smallest is 1.** At 1 the whole home is in view only if the viewport is at least as wide as the home in device pixels. For a planned home of 3 rooms of 10 x 8 tiles (will): at 16 pixel tiles it is 480 game pixels wide, which fits at 1 on the phone widths at ratio 2 and 3 (viewports of 512 to 1,024 device pixels) and not at ratio 1 (256); at 24 pixel tiles it is 720 wide, which fits only at ratio 3 (768 to 1,024) and not at ratio 2 (512, 640) or 1. Where it does not fit, the camera still pans at the smallest zoom, and the Find button is how the player gets back. A home smaller than the viewport is centred. Whether the viewport should stay square, since the home is wide, is for H0 to show; this plan keeps the stage as it is.
+- **Pan**: one finger dragged more than 8 CSS pixels. **Pinch**: two fingers; the point of the home under the middle of the fingers stays under them. **Limits**: the camera cannot leave the home; the largest zoom has a figure from the H0 mock.
+- **Sharp pixels**: while the fingers move the scale is smooth; when they lift it settles on the nearest whole number of device pixels per game pixel (as the stage does now with k).
+- **The camera stays where the player leaves it.** It frames the creature (or the egg) when the home opens and at the start of a hatch or evolve scene (the scene needs it in view), and can be moved again at once.
+- **Which fingers count**: the canvas takes pointer capture of every finger that lands on it, and a gesture is made only of such fingers; a finger that lands on a button, the HUD or the page's margin is not part of it. A drag that starts on a button never reaches the canvas.
+- **A "Find" button**, a separate element over a corner of the viewport (so its touches never reach the canvas), icon only so Kid Mode needs no reading, with an accessible name and at least 44 px, brings the creature (or the egg) back into view; while the creature is away on a job there is nothing of it in the home, so Find frames the tree bubble in the living room. It is shown when the creature (or the egg, or the bubble) is not fully in view; when a call is active (hungry, dirty, sick) it carries the call's icon. Moving the camera to it is a short glide, and with reduced motion it is a jump. `app.css` turns off only CSS animations and transitions (`prefers-reduced-motion`); there is no `matchMedia` in `src`, so a glide drawn on the canvas would ignore it. The camera code will read `matchMedia("(prefers-reduced-motion: reduce)")` itself. (The walking, sparkles and hearts on the canvas already ignore the setting today; that is outside this plan.)
+- **For a keyboard or a screen reader**: the canvas gets `tabindex="0"`; arrow keys pan and plus and minus zoom when it has focus; the spoken sentence (`describe`) will name the room the creature is in (it does not today).
+
+### 3.3 Touch rules
+
+- **A movement check is new.** A touch that lands near the creature and stays within 8 CSS pixels is a tap, or a hold that pets after 450 ms, as today. Past 8 pixels before the 450 ms it is a pan: the petting timer is cancelled, and nothing happens on release (no startle).
+- **A second finger**, wherever it lands on the canvas, ends the first finger's hold at once and starts a pinch; a pinch or a pan that ends on the creature never counts as a tap, and a pinch never pets.
+- **The pet target is in CSS pixels** (12 to 16, which is what 6 game pixels come to today on the three phone widths, section 2), so it does not grow with the zoom.
+- **A drag that starts on the egg** during the hatch scene, or at any time, is a pan, not a tap: it does not help the egg hatch. A tap on the egg still does.
+- `touch-action` on the canvas becomes `none` (the browser's own pan and zoom would fight the camera). The page above and below the stage still scrolls.
+
+### 3.4 Both modes
+
+Kid Mode gets the same home, camera and Find button; no word is added to it. Because the Kid room changes on purpose, `kid-compare.mjs` and `run-kid.sh` need a new mode: the room pages must show differences (proof that the comparison sees the change) and every other page 0; the self-test and the control stay. That change is H1 work with its own mutants.
+
+### 3.5 What is not in the first slice
+
+Decorate mode, new furniture, wallpaper per room, house growth, the creature's own initiatives, the habitat, the arena, and sound.
+
+## 4. Slices (each its own branch and pull request; each ends with a stop for the owner)
+
+| Slice | Ships | New saved state |
+|---|---|---|
+| **H0 The mock** | A throwaway script (kept in `tools/verify/`) that draws a three-room top-down home with the REAL sprites (egg, baby, kid, young, adult) at tile size 16 and 24, at the three phone widths and three zoom levels, as one contact sheet. The owner picks the tile size and the default zoom by looking. No game code. | none |
+| **H1 The home** | The home scene (three rooms, doorways, the starter furniture), the camera (pan, pinch, Find, keys), the creature walking in two directions through the whole home, the fixed spots of section 2 moved into it, the Kid comparison's new mode, both modes. | none (the camera is view state; the starter layout is data in `data/home.ts`; `wall` and the owned bed and mat still apply, the wallpaper to all three rooms if question 3 is answered "all") |
+| **H2 Decorate mode** | The Stardew-style designing: a tile grid, furniture from the shop that snaps, an icon tray, rotate, a bin, wallpaper and floor for each room, a separate Decorate toggle. | `home` (the layout), a save version bump with a default |
+| **H3 The house grows** (optional) | Rooms unlock as the house is upgraded (CLAUDE.md 7.5's Homestead level). | `home` grows |
+
+Then A2.4 (hats) and A3 (the creature's own initiatives, which will use the rooms). CLAUDE.md section 12 ("Kid Mode stays as it is", the A1 to A5 order) and 7.4's note of 2026-11-22 need amending for this work; that is question 8, and nothing in CLAUDE.md is edited without the owner's approval.
+
+## 5. Edge cases for H1 (a first list; the full numbered list is written when H1 starts)
+
+1. A drag on bare floor pans; the camera never leaves the home; a drag past the edge stops at it.
+2. A drag that starts on the creature and moves past 8 CSS pixels before 450 ms is a pan: no startle, no petting, a started petting timer is cancelled, and a release does nothing.
+3. A second finger anywhere on the canvas during a hold ends the hold and starts a pinch.
+4. A pinch keeps the point under the fingers fixed, is clamped between the whole-home zoom and the largest, and settles on a whole device-pixel scale on release, at pixel ratios 1, 2 and 3.
+5. A pinch or a pan that ends on the creature or the egg never counts as a tap; a drag that starts on the Find button, a care button or the HUD never moves the camera.
+6. Resizing or turning the phone keeps the same point of the home in the middle and recomputes the smallest zoom.
+7. A creature asleep, in another room, or away on a job while the camera is elsewhere: the Find button shows (the call icon on it when a call is active); an egg has Find too; an away creature's Find frames the tree bubble.
+8. The hatch and evolve scenes frame the creature at their start; the player can move the camera after. The evolve scene changes the creature's size mid-scene, so its footprint on the walk grid changes.
+9. The habitat, the arena and the fields are unchanged and nothing of the camera leaks into them (their stage transform is their own); going there and back keeps the camera.
+10. The egg sits on a bedroom tile and a tap on it (tested in home coordinates) still helps it hatch.
+11. A dead creature and its tombstone have a place in the home.
+12. Poop: at most five, on the five fixed living-room tiles, at the same place after a reload.
+13. A creature that falls asleep walks to the bed through the doorways and round the furniture; one that is already in the bedroom walks a short way.
+14. Food is dropped on a free tile next to the creature, in whichever room it is in, never inside furniture.
+15. Overlays (sleep darkening, hatch flash) cover the viewport, not the home's corner; the call bubble and the Z are kept inside the home's outer walls (the viewport cuts them off if it must), and the sleep darkening dims the whole viewport (3.1); the Adult note and the HUD are not moved by the camera.
+16. Reduced motion: with the setting on, the Find glide is a jump (the camera code checks `matchMedia` itself, 3.2), and no other new animation runs.
+17. A screen reader gets the room's name in the sentence and in a change of room, and the canvas can be reached and moved with the keys.
+18. Speed: only the part of the home in view is drawn each frame; a target of 30 frames a second on a mid phone (not checked without a real phone).
+19. An old save has no new field in H1 and plays on: its owned bed, mat and wallpaper show in the new home.
+20. Everything that assumes a 128 x 128 room is found by `grep ROOM` AND by the imports from `art/layout` (nine files) before the first edit, and each hit is moved or kept on purpose; the Shop's picture is one of them (question 6).
+21. A hold is checked on the creature only at pointer-down, as today (`Stage.tsx`). During a hold the repeated petting restarts the `happy` pose every 800 ms, and a walk only starts from the idle pose, so the creature stays put; before the first pet at 450 ms a walker covers at most 14 x 0.45 = 6.3 game pixels (8 x 0.45 = 3.6 when sad or sick), about the 6 pixel pad. H1 keeps this rule and tests it with a walking creature.
+22. A creature that evolves into a bigger form where it stands may overlap furniture or a doorway (today only its x is clamped, `moment.ts`): before the swap it is moved to the nearest spot where the new footprint fits, by the same search as the walk.
+23. Food with no free tile next to the creature goes on the tile it stands on (3.1), never inside furniture.
+
+## 6. How it will be verified (as the earlier slices)
+
+- A contact sheet of the home at 320, 360 and 390 wide, at three zooms, awake, asleep, with a call, with poop, with an egg and away on a job, looked at BEFORE any check is trusted.
+- Real touch gestures in a browser: taps, drags and a two-finger pinch sent as real touch events (Chrome DevTools Protocol `Input.dispatchTouchEvent`), with expected values from literals (the camera's bounds, the point under the fingers).
+- A mutation run for the camera and gesture rules (the clamp, the drag threshold, the pinch's fixed point, the snap on release, a pan cancelling a pet, the second finger's rule, the Find button's condition), each mutant applied by hand once first and read in the window it runs in, with a clean run in that window first.
+- A fresh-eyes review by a cheap model of every new script and test before its results count.
+- The Kid comparison in its new mode (3.4); the older suites that draw the room (the A2.2a, A2.2b and A2.3 browser runs and their contact sheets) run again and any edit to them is named.
+- Not checked without a real phone: frame rate, a real pinch's feel, momentum, the browser's toolbar.
+
+## 7. Cost and risk, in one paragraph
+
+I expect H1 to be the largest slice in the adult track so far (a judgement, not a count): new art for three rooms, a tile and walk grid, two-direction movement and depth sorting in `idle.ts`, a camera with touch gestures, a changed Kid Mode and a changed Kid comparison. The save needs nothing new in H1, which keeps it safe to ship. H0 exists so the one decision that is expensive to change later, the tile size against the creature sizes, is made by looking at a picture and not by guessing. Nothing in the plan breaks the guardrails of CLAUDE.md 7.9 and 7.10 (no reading for Kid Mode, no timers, no streaks, nothing bought with real money): the Find button and the keys add no text.
+
+## 8. Questions for the owner
+
+1. **The H0 mock first?** (My pick: yes. It shows the real creatures in a three-room home at two tile sizes and three zooms, so you can say "that scale".) Or build H1 with 24 pixel tiles, an adult two tiles tall, and adjust after?
+2. **Top-down (three-quarter) view with the creature walking anywhere on the floor**, as in Stardew's interiors: is that what you meant? It replaces today's side view with a one-line walk.
+3. **The Wallpaper items colour all three rooms** until Decorate mode (my pick), or only the living room?
+4. **The Find button** (icon only, shown when the creature is out of view): right?
+5. **Kid Mode** gets the home (closed, section 1). Open: it gets the same gestures as Adult Mode and no new words, fine?
+6. **The Shop's room picture** once there are three rooms: it shows the room the item belongs to (the bed in the bedroom, the mat in the kitchen, the wallpaper in the living room; my pick), or the whole home small, or the old single room?
+7. **The creature has only front pictures.** When it walks up or down the floor it shows the same front picture, flipped left and right: good enough for now, or should a back picture be drawn (a lot of art for 65 creatures)?
+8. **May I amend CLAUDE.md** (section 12's "Kid Mode stays as it is" and the A1 to A5 order, and the 2026-11-22 note in 7.4 that the shop places furniture free-form), once you approve this plan? Nothing is edited before you say yes.
+
+## 9. What the review of v1 changed (2026-11-24, cheap-model reviewer; each fact re-checked in the code)
+
+Wrong in v1 and fixed: the evolve scene is not at the egg's spot (only the hatch scene is); a creature already walks to the bed when it sleeps (`goToBed`); the stage's picture is not always the screen's width; the game pans nothing but the browser still can (`touch-action: manipulation`); there is no movement check in the touch code, a second finger off the creature leaves the pet timer running and one on it restarts it; `describe` never names a room and the canvas has no `tabindex`; the Kid comparison cannot accept differences today; CLAUDE.md 7.5 has no "larger rooms" (7.4 does), and 7.4's free-form note is not true of the code. The second review (v2, cheap-model, 2026-11-24) gave 11 findings, 10 right and applied, 1 wrong: (a) the wrapper cap is 448 not 480 and the 341 bound is 341.3; (b) the header's count of the v1 review, the closed Kid Mode answer asked again as question 5, clip against clamp for the Z and bubble, and what Find does for a creature away on a job; (c) the sleep darkening and the whole-home zoom (the smallest zoom rule, with the figures computed above), food with no free tile, the evolve footprint. Not accepted as written: "a hold can keep petting after the creature walks off" (the repeated petting holds the creature still; edge case 21 records why).
+
+Wrong in my own v2 draft, found when I re-checked its new facts against the code (not by the reviewer): the stage-size examples (the wrapper is the page minus 32 pixels of padding, so a 320 phone gets a 256 pixel picture and a 390 phone at ratio 2 gets 320, not 384), and "the app already turns animation off" (CSS only; there is no `matchMedia` in `src`). Added: the Shop picture conflict, which fingers count, who owns the Find button's touches, the overlays in screen space, the poop, egg, food and footprint rules, reduced motion, the small-home case, the away-on-a-job case, the CLAUDE.md amendments and the back-picture question.

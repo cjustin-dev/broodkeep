@@ -122,51 +122,54 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
   );
 
   return (
-    <section class="panel" role="dialog" aria-label="Shop">
-      <div class="panel-body">
-        <header class="panel-head">
-          <h2>Shop</h2>
-          <button class="btn small" ref={closeRef} onClick={onClose}>
-            Close
-          </button>
-        </header>
-        <div class="shop-wallet" role="group" aria-label="Wallet">
-          <span class="chip tight" role="img" aria-label={`${save.coins} coins`}>
-            <Icon name="coin" px={20} />
-            {save.coins}
-          </span>
-          {materialIds.map((id) => (
-            <span class="chip tight" key={id} role="img" aria-label={`${save.inventory[id] ?? 0} ${materials[id].name}`}>
-              <Icon name={id} px={20} />
-              {save.inventory[id] ?? 0}
+    <section class="panel shop-panel" role="dialog" aria-label="Shop">
+      <div class="panel-body shop-body">
+        <div class="shop-top">
+          <header class="panel-head">
+            <h2>Shop</h2>
+            <button class="btn small" ref={closeRef} onClick={onClose}>
+              Close
+            </button>
+          </header>
+          <div class="shop-wallet" role="group" aria-label="Wallet">
+            <span class="chip tight" role="img" aria-label={`${save.coins} coins`}>
+              <Icon name="coin" px={20} />
+              {save.coins}
             </span>
-          ))}
+            {materialIds.map((id) => (
+              <span class="chip tight" key={id} role="img" aria-label={`${save.inventory[id] ?? 0} ${materials[id].name}`}>
+                <Icon name={id} px={20} />
+                {save.inventory[id] ?? 0}
+              </span>
+            ))}
+          </div>
+          <div class="shop-tabs" role="group" aria-label="Show">
+            <button class="btn small" aria-pressed={tab === "items"} onClick={() => setTab("items")}>
+              Items
+            </button>
+            <button class="btn small" aria-pressed={tab === "requests"} onClick={() => setTab("requests")}>
+              Requests
+            </button>
+          </div>
+          {tab === "items" && (
+            <>
+              <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />
+              <p class="shop-hint">Tap an item to see it in the room.</p>
+            </>
+          )}
+          {undoBar}
         </div>
-        <div class="shop-tabs" role="group" aria-label="Show">
-          <button class="btn small" aria-pressed={tab === "items"} onClick={() => setTab("items")}>
-            Items
-          </button>
-          <button class="btn small" aria-pressed={tab === "requests"} onClick={() => setTab("requests")}>
-            Requests
-          </button>
-        </div>
-        {tab === "requests" ? (
-          <>
-            {undoBar}
+        <div class="shop-scroll" key={tab}>
+          {tab === "requests" ? (
             <RequestsTab game={game} />
-          </>
-        ) : (
-          <>
-            <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />
-            <p class="shop-hint">Tap an item to see it in the room.</p>
-            {undoBar}
+          ) : (
             <ul class="shop-list">
               {itemIds.map((id) => (
                 <ItemCard key={id} id={id} game={game} selected={picked === id} onPick={() => setPicked(id)} />
               ))}
             </ul>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </section>
   );
