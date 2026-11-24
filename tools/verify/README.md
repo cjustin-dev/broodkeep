@@ -1,7 +1,7 @@
-# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1)
+# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a)
 
 These scripts are not part of the game, the build or `npm test`. They check the Retire card in the Creature Book (A1.4) and the habitat's spot
-card, job card and call back (A2.1) on a real browser, and check the checks: a mutation run breaks the code on purpose and the named check must fail. What they found and how often they were run is
+card, job card and call back (A2.1) and the shop (A2.2a) on a real browser, and check the checks: a mutation run breaks the code on purpose and the named check must fail. What they found and how often they were run is
 in docs/progress.md (A1.4) and the reasons for them in docs/decisions.md.
 
 Everything they make (saved games, screenshots, builds, copies, logs) goes to `$VERIFY_OUT`, which is `<system temp>/broodkeep-verify`
@@ -23,6 +23,12 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 | `mutate-habitat-unit.py` | Mutation run for the call back rules and the cards' words (`src/game/habitat/jobs.ts`, `cards.ts`, `actions.ts`): each mutant must fail its named test in `tests/callback.test.ts`. Same use as `mutate-retire-unit.py`. |
 | `mutate-habitat-ui.py` | Mutation run for the habitat screen: each mutant is rebuilt and served on port 4180 and only its named check ids are run. `--check-targets` proves every `old` text occurs exactly once. Works on `$VERIFY_OUT/habitat-ui-copy`. |
 | `run-sheet-habitat.sh`, `sheet-habitat.mjs`, `stitch-habitat.py` | The habitat contact sheet: 21 states (every spot's card, the shut cards, the job cards, the welcome-back cards, Kid Mode) at three widths, as `$VERIFY_OUT/sheets-habitat/sheet-<W>x<H>-<group>.png`. It prints each page's height against the window's. Look at it before trusting any check. |
+| `gen-saves-shop.sh`, `gen-saves-shop.ts` | Writes the 18 saved games of the shop checks (`saves/shop-<scenario>-<mode>.json`: rich, poor, mixed, exact-meadow, one-short-meadow, long-name, owned-walls, owned-all, just-bought, each in Kid and Adult Mode). The shop run scripts call it themselves. |
+| `run-shop.sh`, `shop-browser.mjs` | The shop checks (14 ids) against `dist/`: the fourth nav button, opening and closing, buying at exactly the price, a refused buy, two taps on one Buy, the 10 second undo moving with a frozen clock, the preview and the live room drawn against literal pixel colours, the HUD's Mood line with the Comfy Bed, a reload, layout at 320, 360 and 390 wide at pixel ratio 1 and 2, and buttons with their own fill and edge. Output: `$VERIFY_OUT/shop-browser.out`. |
+| `mutate-shop-unit.py` | Mutation run for the shop rules and what they change (`src/game/shop.ts`, `perks.ts`, `care.ts`, `growth.ts`, `actions.ts`, `availability.ts`, `hud.ts`, `forecast.ts`, `state.ts`, `src/data/shop.ts`, `tuning.ts`, `src/sync/sync.ts`): 42 mutants, each must fail its named test in `tests/shop.test.ts`. `--list` proves every `old` text occurs exactly once. |
+| `mutate-shop-ui.py` | Mutation run for the shop screen: 34 mutants, each rebuilt and served on port 4180 and only its named check ids are run. `--check-targets` proves every `old` text occurs exactly once. Works on `$VERIFY_OUT/shop-ui-copy`. |
+| `run-sheet-shop.sh`, `sheet-shop.mjs`, `stitch-shop.py` | The shop contact sheet (every wallet and ownership state, the four looks of the room, Kid and Adult Mode) at three widths, as `$VERIFY_OUT/sheets-shop/sheet-<W>x<H>-<group>.png`. It has no assertions: look at it before trusting any layout check. |
+| `run-income.sh`, `income.ts` | Measures what a day of play earns (14 simulated days of an adult under six kinds of player, with the real rules) so the shop's prices come from numbers. Read-only: it prints coins and materials a day for each player. |
 | `lib.sh` | Shared by the run scripts: where output goes, and a server that refuses a port that already answers. |
 
 ## The usual order
@@ -40,6 +46,13 @@ tools/verify/run-sheet-habitat.sh
 tools/verify/run-habitat.sh
 python3 tools/verify/mutate-habitat-unit.py
 python3 tools/verify/mutate-habitat-ui.py
+
+# the shop (A2.2a), the same order; run-income.sh is the price measurement
+tools/verify/run-sheet-shop.sh
+tools/verify/run-shop.sh
+python3 tools/verify/mutate-shop-unit.py
+python3 tools/verify/mutate-shop-ui.py
+tools/verify/run-kid.sh
 ```
 
 A new check or mutant counts only after the matching mutant failed it on its own assertion (read the failure text), and each check id needs

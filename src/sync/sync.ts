@@ -42,6 +42,8 @@ export function isUntouched(save: Save): boolean {
     save.coins === 0 &&
     Object.values(save.inventory).every((count) => !count) &&
     save.hauls.length === 0 &&
+    save.owned.length === 0 &&
+    save.lastBuy === null &&
     save.log.length <= 1
   );
 }

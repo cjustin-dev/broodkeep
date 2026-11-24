@@ -20,6 +20,7 @@ import { Icon, Pic } from "./Icon";
 import { Nav } from "./Nav";
 import { WhoChip } from "./PlayersSection";
 import { SettingsPanel } from "./SettingsPanel";
+import { ShopPanel } from "./ShopPanel";
 import { Stage } from "./Stage";
 import { StatBars } from "./StatBars";
 import { useGame } from "./useGame";
@@ -50,7 +51,7 @@ function DeathCard({ game }: { game: Game }) {
 
 export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: CloudSync; roster: Roster; onSwitch: () => void }) {
   useGame(game);
-  const [panel, setPanel] = useState<"settings" | "dev" | "book" | "forecast" | null>(null);
+  const [panel, setPanel] = useState<"settings" | "dev" | "book" | "forecast" | "shop" | null>(null);
 
   // The installed app keeps its own copy of the game's files (a service worker). A new version waits until the player taps "Update
   // now" in Settings: reloading by itself could cut in on play. The game is saved and sent to the account first.
@@ -130,7 +131,7 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
           <DeathCard game={game} />
         ) : (
           <>
-            {save.phase === "alive" && <Nav game={game} />}
+            {save.phase === "alive" && <Nav game={game} onShop={() => setPanel("shop")} />}
             {game.atHabitat ? <HabitatBar game={game} /> : game.atArena ? <ArenaBar game={game} /> : <ActionBar game={game} />}
           </>
         )}
@@ -140,6 +141,7 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
       {panel === "dev" && <DevPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "book" && <BookPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "forecast" && <ForecastPanel game={game} onClose={() => setPanel(null)} />}
+      {panel === "shop" && <ShopPanel game={game} onClose={() => setPanel(null)} />}
     </main>
   );
 }

@@ -6,6 +6,8 @@ import { tuning } from "../data/tuning";
 import type { Rng } from "./rng";
 import { clamp, logEvent } from "./state";
 import type { CallKind, Creature, Save } from "./state";
+import { bedFactor } from "./perks";
+import type { Owned } from "./perks";
 import { hourOf, isNightHour } from "./time";
 
 // Stat loss per awake minute, worked out from "hours to empty" in tuning.ts.
@@ -22,7 +24,7 @@ export function stepCare(save: Save, rng: Rng, t: number): void {
   if (!c) return;
   updateSleep(save, c, t);
   const asleep = c.sleep !== null;
-  decayStats(c, asleep);
+  decayStats(c, asleep, save.owned);
   digest(save, c, t);
   checkSickness(save, c, rng, asleep, t);
   updateWellness(save, c, asleep, t);
@@ -55,15 +57,16 @@ function updateSleep(save: Save, c: Creature, t: number): void {
 // The four stats that change by themselves every minute (wellness has its own rules, see updateWellness).
 export type DrainStat = "hunger" | "happiness" | "hygiene" | "energy";
 
-// What ONE minute does to a stat before it is held between 0 and 100: negative while it runs down, positive for energy while asleep.
+// What ONE minute does to a stat before it is held between 0 and 100: negative while it runs down, positive for energy while asleep. `owned` is the
+// shop's list (save.owned): a Comfy Bed slows happiness while the creature sleeps at home (not while away on a job, where it is not in its bed).
 // decayStats uses this, and so does the adult HUD (game/hud.ts) for "empty in", so what the screen says is what the simulation does.
-export function statChangePerMinute(c: Creature, stat: DrainStat, asleep: boolean): number {
+export function statChangePerMinute(c: Creature, stat: DrainStat, asleep: boolean, owned: Owned = []): number {
   const slow = asleep ? tuning.asleepDecayFactor : 1;
   switch (stat) {
     case "hunger":
       return -rate.hunger * slow;
     case "happiness":
-      return -rate.happiness * slow;
+      return -rate.happiness * slow * (asleep && !c.job ? bedFactor(owned) : 1);
     case "hygiene":
       return -((rate.hygiene + c.poop * tuning.poopHygieneDrainPerMinute) * slow);
     case "energy":
@@ -71,10 +74,10 @@ export function statChangePerMinute(c: Creature, stat: DrainStat, asleep: boolea
   }
 }
 
-function decayStats(c: Creature, asleep: boolean): void {
+function decayStats(c: Creature, asleep: boolean, owned: Owned): void {
   const s = c.stats;
   for (const stat of ["hunger", "happiness", "hygiene", "energy"] as const) {
-    s[stat] = clamp(s[stat] + statChangePerMinute(c, stat, asleep));
+    s[stat] = clamp(s[stat] + statChangePerMinute(c, stat, asleep, owned));
   }
 }
 
