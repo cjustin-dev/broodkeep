@@ -1,6 +1,7 @@
 // The note Adult Mode shows over the room (ui/game.ts: say, clearNote, whyNot). It is screen state: it must never reach the save.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { feed, startNewEgg } from "../src/game/actions";
+import type { Request } from "../src/game/board";
 import { killCreature } from "../src/game/dev";
 import { feedButtonRefusal, lightsRefusal } from "../src/game/availability";
 import { feedReason, lightsReason } from "../src/game/reasons";
@@ -217,5 +218,71 @@ describe("whyNot", () => {
     ask();
     expect(JSON.stringify(game.save)).toBe(before);
     expect(feed(game.save, "pellet", game.now())).toBe("full"); // and the action is still refused the same way
+  });
+});
+
+// The note a paid request gets (adult track A2.3): said once for what was paid since the screens last looked, whoever paid it (the player's tap or time passing).
+describe("a paid request says so", () => {
+  const wanted = (o: Pick<Request, "type" | "target"> & Partial<Request>): Request => ({ id: 0, have: 0, item: null, drewAt: at(10), ...o });
+  const busy = (n: number) => Array.from({ length: n }, () => ({ doneAt: at(10), coins: 0, item: null }));
+
+  it("says it over the room when the player's meal finishes the request, and not again", () => {
+    start(true);
+    game.save.board.open = [wanted({ type: "feed", target: "pellet" })];
+    game.save.board.waits = busy(2);
+    game.act((s, now) => feed(s, "pellet", now));
+    expect(game.note).toBeNull(); // one meal of two
+    game.act((s, now) => feed(s, "pellet", now));
+    expect(game.save.coins).toBe(2);
+    expect(game.note).toBe("Request done: +2 coins");
+    vi.advanceTimersByTime(6000);
+    expect(game.note).toBeNull();
+    game.changed(); // nothing new was paid
+    expect(game.note).toBeNull();
+  });
+
+  it("says it when time passing finishes it, with the item it paid", () => {
+    start(true);
+    game.save.owned = ["feeding-mat"];
+    game.save.board.open = [wanted({ type: "buy", target: "feeding-mat", item: "stew" })];
+    game.save.board.waits = busy(2);
+    vi.setSystemTime(at(10) + 61_000);
+    game.tick();
+    expect(game.save.board.done).toBe(1);
+    expect(game.note).toBe("Request done: +5 coins and Stew");
+  });
+
+  it("states no amount when a long catch-up has already freed the slot that was paid (a wait lasts 15 minutes)", () => {
+    start(true);
+    game.save.owned = ["feeding-mat"];
+    game.save.board.open = [wanted({ type: "buy", target: "feeding-mat", item: "stew" })];
+    game.save.board.waits = busy(2);
+    vi.setSystemTime(at(10) + 40 * MINUTE);
+    game.tick();
+    expect(game.save.board.done).toBe(1);
+    expect(game.save.coins).toBe(5);
+    expect(game.save.board.waits).toEqual([]); // the wait that paid is gone
+    expect(game.note).toBe("Request done");
+  });
+
+  it("says nothing in Kid Mode, and nothing for a game put in with payments already in it", () => {
+    start(false);
+    game.save.board.open = [wanted({ type: "feed", target: "pellet" })];
+    game.save.board.waits = busy(2);
+    game.save.settings.adultMode = true; // the board runs in Adult Mode: a Kid Mode tap cannot pay it
+    game.save.settings.adultMode = false;
+    game.act((s, now) => feed(s, "pellet", now));
+    game.act((s, now) => feed(s, "pellet", now));
+    expect(game.save.board.done).toBe(0);
+    expect(game.note).toBeNull();
+
+    start(true);
+    const next = aliveSave("blip", at(10));
+    next.settings.adultMode = true;
+    next.board.done = 5;
+    game.replaceSave(next);
+    expect(game.note).toBeNull();
+    game.changed();
+    expect(game.note).toBeNull();
   });
 });

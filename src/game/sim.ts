@@ -11,6 +11,7 @@ import { stepCare } from "./care";
 import { maxHp } from "./combat/stats";
 import { stepRecovery } from "./combat/recovery";
 import { stepJob } from "./habitat/jobs";
+import { stepRequests } from "./requests";
 import { countFieldMinute, countNeglectMinute, nextForm } from "./growth";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
@@ -61,6 +62,7 @@ function stepMinute(save: Save, rng: Rng, t: number): void {
         countNeglectMinute(save.creature);
       }
       evolveIfReady(save, t);
+      stepRequests(save, rng, t); // the request board (Adult Mode only); it reads the generator and never advances it
     }
   }
 }

@@ -1,7 +1,7 @@
-# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a; the shop's foods, A2.2b)
+# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a; the shop's foods, A2.2b; the request board, A2.3)
 
 These scripts are not part of the game, the build or `npm test`. They check the Retire card in the Creature Book (A1.4) and the habitat's spot
-card, job card and call back (A2.1), the shop (A2.2a) and its foods in the Feed tray (A2.2b) on a real browser, and check the checks: a mutation run breaks the code on purpose and the named check must fail. What they found and how often they were run is
+card, job card and call back (A2.1), the shop (A2.2a), its foods in the Feed tray (A2.2b) and the request board (A2.3) on a real browser, and check the checks: a mutation run breaks the code on purpose and the named check must fail. What they found and how often they were run is
 in docs/progress.md (A1.4) and the reasons for them in docs/decisions.md.
 
 Everything they make (saved games, screenshots, builds, copies, logs) goes to `$VERIFY_OUT`, which is `<system temp>/broodkeep-verify`
@@ -12,7 +12,7 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 
 | File | What it is |
 |---|---|
-| `gen-saves.sh`, `gen-saves.ts` | Writes the 14 saved games the checks start from (adult at home, young, a Land kid that owns nothing, away, in a fight, egg, a list of lives, each in Kid and Adult Mode). The run scripts call it themselves each time, so the saves follow `src/game/state.ts`. |
+| `gen-saves.sh`, `gen-saves.ts` | Writes the 16 saved games the checks start from (8 scenarios: adult at home, young, a Land kid that owns nothing, a Land kid whose save holds a request board, away, in a fight, egg, a list of lives; each in Kid and Adult Mode). The run scripts call it themselves each time, so the saves follow `src/game/state.ts`. |
 | `run-browser.sh`, `retire-browser.mjs` | The checks (21 ids) against `dist/`, with real clicks and a frozen clock, at 320, 360 and 390 wide, pixel ratio 1 and 2, in both modes. Extra arguments go to the checker: `--only btn-look,face-slot`, `--sizes 360x640@2`, `--modes kid`. Exit 0 all passed, 1 a check failed, 2 the run could not start. |
 | `mutate-retire-unit.py` | Mutation run for the rules (`src/game/retire.ts`, `actions.ts`, `state.ts`): each mutant must fail its named test in `tests/retire.test.ts`. Works on a copy. |
 | `mutate-retire-ui.py` | Mutation run for the screen: each mutant is rebuilt and served, and only the check ids it must break are run. `--check-targets` proves every `old` text occurs exactly once without running anything. Works on a copy; needs ports 4180 to 4189 free. |
@@ -28,12 +28,18 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 | `mutate-shop-unit.py` | Mutation run for the shop rules and what they change (`src/game/shop.ts`, `perks.ts`, `care.ts`, `growth.ts`, `actions.ts`, `availability.ts`, `hud.ts`, `forecast.ts`, `state.ts`, `src/data/shop.ts`, `tuning.ts`, `src/sync/sync.ts`): 42 mutants, each must fail its named test in `tests/shop.test.ts`. `--list` proves every `old` text occurs exactly once. |
 | `mutate-shop-ui.py` | Mutation run for the shop screen: 34 mutants, each rebuilt and served on port 4180 and only its named check ids are run. `--check-targets` proves every `old` text occurs exactly once. Works on `$VERIFY_OUT/shop-ui-copy`. |
 | `run-sheet-shop.sh`, `sheet-shop.mjs`, `stitch-shop.py` | The shop contact sheet (every wallet and ownership state, the four looks of the room, Kid and Adult Mode) at three widths, as `$VERIFY_OUT/sheets-shop/sheet-<W>x<H>-<group>.png`. It has no assertions: look at it before trusting any layout check. |
-| `run-income.sh`, `income.ts` | Measures what a day of play earns (14 simulated days of an adult under six kinds of player, with the real rules) so the shop's prices come from numbers. Read-only: it prints coins and materials a day for each player. |
+| `run-income.sh`, `income.ts` | Measures what a day of play earns (14 simulated days of an adult under six kinds of player, and under three of them who also answer the request board (`-board` rows: requests a day and coins a day), with the real rules) so the shop's prices come from numbers. Read-only: it prints coins and materials a day for each player. |
 | `gen-saves-dishes.sh`, `gen-saves-dishes.ts` | Writes the 38 saved games of the dish checks (`saves/dishes-<scenario>-<mode>.json`: 19 scenarios, each in Kid and Adult Mode: a Land kid owning nothing, one dish or all five, hungry, full, about to grow up; a Water and a Sky kid; a young, an adult, the special and a baby that own all five; the shop's wallets). |
 | `run-dishes.sh`, `dishes-browser.mjs` | The dish checks (12 ids, 19 runs per window size) against `dist/`: the second Feed tray row and its corner marks, no row for a creature that is not a kid, a single dish's size, eating a dish and what it counts, a full creature, a stale tap after growing up (Adult and Kid), buying and undoing in the shop, the preview, a reload, the tray's fit (the row adds 76 px, the care row stays reachable, the food row's 4 px baseline at 320) and the five food cards in four shop states. Has a `trap` that stops the preview server. |
 | `mutate-dishes-unit.py` | Mutation run for the dish rules (30 mutants over `dishes.ts`, `availability.ts`, `actions.ts`, `growth.ts`, `forecast.ts`, `shop.ts` and `data/shop.ts`); each names the test, in `tests/dishes.test.ts` or `tests/shop.test.ts`, that must fail. `--list` checks every `old` text occurs once. |
 | `mutate-dishes-ui.py` | Mutation run for the dish screen: 30 mutants, each rebuilt and served on port 4180 and only its named check ids run (a mutant may name its own window size). `--check-targets` proves every `old` text occurs exactly once and prints the table. |
 | `run-sheet-dishes.sh`, `sheet-dishes.mjs`, `stitch-dishes.py` | The dish contact sheet (21 states: the tray with and without dishes, the Water and Sky trays in Adult Mode, a young and the special, a full creature, after a meal, the shop with the foods) at three widths. Look at it before trusting a layout check. |
+| `gen-saves-board.sh`, `gen-saves-board.ts` | Writes the saved games of the request board checks and sheet (`saves/board-<scenario>-<mode>.json`: three, types-b, stale, longest, done, empty, undo-pending, rich, live-feed, each in Kid and Adult Mode, the Kid file holding the same board). |
+| `run-sheet-board.sh`, `sheet-board.mjs`, `stitch-board.py` | The request board contact sheet (the Items tab as it opens, seven Requests states, the room with a saved board in both modes) at three widths, as `$VERIFY_OUT/sheets-board/sheet-<W>x<H>-<group>.png`. No assertions: look at it first. A console or page error in a state counts as an error. |
+| `run-board.sh`, `board-browser.mjs` | The board checks (7 ids) against `dist/`: the tab (default, keys, focus, undo on both tabs), every card as literal text, fit (Range, no sideways scroll), taps (44 px, no button in a card), a request finished by two real meals (coins 12 to 14, the card, one log line) and a slot drawn again 15 minutes after, the note over the room and its 6 seconds, and Kid Mode (nothing shown, nothing counted, nothing drawn). Six window configurations. |
+| `mutate-board-unit.py` | Mutation run for the board rules (70 mutants over `requests.ts`, `board.ts`, `actions.ts`, `jobs.ts`, `fight.ts`, `ui/game.ts`); each names the test, in `tests/requests.test.ts` or `tests/game-note.test.ts`, that must fail. `--list` proves every `old` text occurs once. |
+| `mutate-board-ui.py` | Mutation run for the board screen: 26 mutants, each rebuilt and served on port 4181 and only its named check ids run (a mutant may name its own window size; the clean build is then also run at that size first, so a 320-only mutant has a clean control at 320). `--check-targets` proves every `old` text occurs once. Same machinery as `mutate-shop-ui.py`. |
+| `nav-mock.mjs` | Measures the room each word has in a four- and a five-button nav row at 320, 360 and 390 wide (ratio 1 and 2) with the real `app.css`: the figure behind putting the board in the shop as a tab (Habitat has 0.8 px to spare in a fifth button at 320). No assertions. |
 | `lib.sh` | Shared by the run scripts: where output goes, and a server that refuses a port that already answers. |
 
 ## The usual order
@@ -63,6 +69,13 @@ tools/verify/run-sheet-dishes.sh
 tools/verify/run-dishes.sh
 python3 tools/verify/mutate-dishes-unit.py
 python3 tools/verify/mutate-dishes-ui.py
+tools/verify/run-kid.sh
+
+# the request board (A2.3), the same order; run-income.sh also prints the board players (the reward numbers)
+tools/verify/run-sheet-board.sh
+tools/verify/run-board.sh
+python3 tools/verify/mutate-board-unit.py
+python3 tools/verify/mutate-board-ui.py
 tools/verify/run-kid.sh
 ```
 
