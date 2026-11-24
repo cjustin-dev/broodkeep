@@ -5,6 +5,7 @@
 import { fields } from "../data/fields";
 import { getForm } from "../data/forms";
 import { foods } from "../data/foods";
+import { items } from "../data/shop";
 import { spots } from "../data/habitat";
 import type { SpotId } from "../data/habitat";
 import { tuning } from "../data/tuning";
@@ -13,6 +14,8 @@ import type { FightRefusal, FightResult } from "./combat/fight";
 import type { Battle } from "./combat/battle";
 import { cleanRefusal, feedRefusal, goRefusal, lightsRefusal, medicineRefusal } from "./availability";
 import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefusal } from "./availability";
+import { dishMeal } from "./dishes";
+import type { DishId } from "./dishes";
 import { countCareCells, countServing, noteCare } from "./growth";
 import { beginJob, endJobEarly, jobRefusal } from "./habitat/jobs";
 import { hungerGrace } from "./perks";
@@ -46,10 +49,11 @@ export type FeedResult = "ate" | "full" | "sleeping" | "unavailable";
 // alive() has already answered "unavailable" for an away creature.)
 const feedWord: Record<FeedRefusal, FeedResult> = { away: "unavailable", "off-menu": "unavailable", asleep: "sleeping", full: "full" };
 
-export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
+// `dish` is a shop food the player owns (game/dishes.ts): the meal is `foodId` (the food it is a meal of), counted the dish's way.
+export function feed(save: Save, foodId: FoodId, nowMs: number, dish?: DishId): FeedResult {
   const c = alive(save, nowMs);
   if (!c) return "unavailable";
-  const refusal = feedRefusal(c, foodId);
+  const refusal = feedRefusal(c, foodId, dish, save.owned);
   if (refusal) return feedWord[refusal];
 
   const food = foods[foodId];
@@ -71,12 +75,13 @@ export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
   c.stats.hunger = clamp(c.stats.hunger + food.hunger);
   c.stats.happiness = clamp(c.stats.happiness + food.happiness);
   c.stats.wellness = clamp(c.stats.wellness + food.wellness);
-  countServing(c, foodId);
+  const counts: Array<[FoodId, number]> = (dish !== undefined && dishMeal(c, dish)?.counts) || [[foodId, 1]]; // (a refused dish never gets here)
+  for (const [counted, servings] of counts) countServing(c, counted, servings);
   countCareCells(c, hungerBefore, happinessBefore, hungerGrace(save.owned));
   noteCare(c);
   c.digestQueue.push(rng.int(food.digestMinutes[0], food.digestMinutes[1]));
   save.rngState = rng.state();
-  logEvent(save, nowMs, `Ate ${food.name}`);
+  logEvent(save, nowMs, `Ate ${dish !== undefined ? items[dish].name : food.name}`);
   return "ate";
 }
 

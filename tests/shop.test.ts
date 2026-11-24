@@ -34,19 +34,38 @@ const PRICES = {
   "feeding-mat": { coins: 25, bag: { fiber: 3, herb: 2 } },
   "wall-meadow": { coins: 12, bag: { herb: 2 } },
   "wall-dusk": { coins: 12, bag: { stone: 2 } },
+  "hearty-bowl": { coins: 25, bag: { fish: 3 } },
+  "green-bowl": { coins: 25, bag: { herb: 3 } },
+  "sweet-bowl": { coins: 25, bag: { fiber: 3 } },
+  stew: { coins: 35, bag: { wood: 2, stone: 2 } },
+  "garden-mix": { coins: 35, bag: { fish: 2, stone: 2 } },
 } as const;
 
 describe("the catalogue", () => {
-  it("has four items at these prices and with these words", () => {
-    expect(itemIds).toEqual(["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk"]);
+  it("has nine items at these prices and with these words (the four of A2.2a, then the five foods of A2.2b)", () => {
+    expect(itemIds).toEqual([
+      "comfy-bed",
+      "feeding-mat",
+      "wall-meadow",
+      "wall-dusk",
+      "hearty-bowl",
+      "green-bowl",
+      "sweet-bowl",
+      "stew",
+      "garden-mix",
+    ]);
     for (const id of itemIds) expect(items[id].price, id).toEqual({ coins: PRICES[id].coins, materials: PRICES[id].bag });
     expect(items["comfy-bed"].effect).toBe("While it sleeps at home, happiness falls 50% as fast.");
     expect(items["feeding-mat"].effect).toBe("A meal that ends at 90 or more counts as a hunger cell (young stage).");
   });
 
-  it("A2.2a leaves Fish unspent (A2.2b adds its uses): Fiber and Herbs have two uses, Wood and Stone one", () => {
+  it("every price in coins is at most three times the measured day's 12.2 coins (the income figure of tools/verify/run-income.sh)", () => {
+    for (const id of itemIds) expect(items[id].price.coins, id).toBeLessThanOrEqual(3 * 12.2);
+  });
+
+  it("every material has at least two uses: Fiber 3, Herbs 3, Wood 2, Fish 2, Stone 3", () => {
     const uses = (material: string): number => itemIds.filter((id) => material in items[id].price.materials).length;
-    expect(["fiber", "herb", "wood", "fish", "stone"].map(uses)).toEqual([2, 2, 1, 0, 1]);
+    expect(["fiber", "herb", "wood", "fish", "stone"].map(uses)).toEqual([3, 3, 2, 2, 3]);
   });
 });
 
@@ -162,6 +181,28 @@ describe("the undo (edges 5 and 6)", () => {
       expect(save.owned).toEqual(["comfy-bed"]);
       expect(save.coins).toBe(5);
       expect(save.lastBuy).toBeNull();
+    }
+  });
+
+  it("edges 5 and 6 for every item: undone at 10.000 s with exactly the price back, late at 10.001 s with the item kept", () => {
+    for (const id of itemIds) {
+      const { coins, bag } = PRICES[id];
+      const fresh = (): Save => {
+        const save = wallet(coins, bag);
+        expect(buy(save, id, DAY), id).toBe("bought");
+        expect(save.coins, `${id} coins left`).toBe(0);
+        for (const material of Object.keys(bag)) expect((save.inventory as Record<string, number>)[material], `${id} ${material} left`).toBe(0);
+        return save;
+      };
+      const undone = fresh();
+      expect(undoBuy(undone, DAY + 10_000), `${id} at 10.000 s`).toBe("undone");
+      expect(undone.coins, id).toBe(coins);
+      expect(undone.inventory, id).toEqual(bag);
+      expect(undone.owned, id).toEqual([]);
+      const late = fresh();
+      expect(undoBuy(late, DAY + 10_001), `${id} at 10.001 s`).toBe("late");
+      expect(late.owned, id).toEqual([id]);
+      expect(late.coins, id).toBe(0);
     }
   });
 

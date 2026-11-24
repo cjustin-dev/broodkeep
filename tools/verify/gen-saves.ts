@@ -18,6 +18,7 @@ const MINUTE = 60_000;
 
 const ADULT = "gravelhorn"; // src/data/forms/land.ts: stage "adult", name "Gravelhorn"
 const YOUNG = "cragpup"; // src/data/forms/land.ts: stage "young"
+const KID = "pebblin"; // src/data/forms/land.ts: stage "kid", the Land field's kid
 
 // A new game at T in the chosen mode. Kid Mode has no settings.adultMode key at all (only `true` turns Adult Mode on).
 function base(mode: Mode): Save {
@@ -51,6 +52,13 @@ const LIVES: RetiredLife[] = [
 const scenarios: Record<string, (mode: Mode) => Save> = {
   "adult-home": (mode) => living(mode, ADULT),
   "young-home": (mode) => living(mode, YOUNG),
+  // A Land kid that owns nothing (A2.2b): the Feed tray of a profile with no dish must be as it was on main. The dish row itself, which exists only with a dish
+  // owned (main would drop the unknown id), is checked by gen-saves-dishes.ts and dishes-browser.mjs, not by this old-against-new comparison.
+  "kid-home": (mode) => {
+    const save = living(mode, KID);
+    save.creature!.stageStartedAt = T - 3 * 60 * MINUTE; // a kid's stage lasts 24 hours: this one is 3 hours in, so it does not grow up while the page is open
+    return save;
+  },
   "adult-away": (mode) => {
     const save = living(mode, ADULT);
     // out at the bug meadow; the job ends after T, so it is still running at T

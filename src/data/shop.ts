@@ -1,12 +1,26 @@
-// What the shop sells (adult track A2.2a). Four items: two for the room's care rules and two wallpapers. Prices were set from a measured day
-// of play (tools/verify/run-income.sh, docs/adult-a2-plan.md section 9): a day is the three-visit player's 12 coins. All of them are `[tune]`.
-// What an item does is in game/perks.ts (the care rules) and art/room.ts (the picture); this file is only the list, the prices and the words.
+// What the shop sells (adult track A2.2). Nine items: two for the room's care rules (A2.2a), two wallpapers (A2.2a) and five foods (A2.2b). Prices were
+// set from a measured day of play (tools/verify/run-income.sh, docs/adult-a2-plan.md sections 9 and 10): a day is the three-visit player's 12 coins.
+// All of them are `[tune]`. What an item does is in game/perks.ts (the care rules), game/dishes.ts (the foods) and art/room.ts (the picture); this
+// file is only the list, the prices and the words.
 
+import { fieldIds, fields } from "./fields";
+import { foods } from "./foods";
 import { tuning } from "./tuning";
 import type { MaterialId } from "./habitat";
 
-export type ItemId = "comfy-bed" | "feeding-mat" | "wall-meadow" | "wall-dusk";
-export type ItemKind = "furniture" | "wallpaper";
+export type ItemId = "comfy-bed" | "feeding-mat" | "wall-meadow" | "wall-dusk" | "hearty-bowl" | "green-bowl" | "sweet-bowl" | "stew" | "garden-mix";
+export type ItemKind = "furniture" | "wallpaper" | "food";
+
+// Which of a field's three foods (the order of `plan.foods` in data/fields.ts): the filling one, the light one, the sweet one.
+export type FoodKind = 0 | 1 | 2;
+export const foodKindNames = ["filling", "light", "sweet"] as const;
+
+// A shop food, a "dish" (game/dishes.ts): a meal of the creature's own `food` kind, fed from the tray. A dish with no `also` counts one whole food cell
+// (`servingsPerFoodCell` servings); one with `also` counts one serving of its own food and one of the `also` kind.
+export interface Dish {
+  food: FoodKind;
+  also?: FoodKind;
+}
 
 export interface Item {
   id: ItemId;
@@ -14,9 +28,23 @@ export interface Item {
   kind: ItemKind;
   effect: string; // one line for the card, worked out from the tuning numbers
   price: { coins: number; materials: Partial<Record<MaterialId, number>> };
+  dish?: Dish; // a food: what a meal of it counts (kind "food" only)
 }
 
 const bedHappiness = Math.round(tuning.shop.bedHappinessFactor * 100);
+const boostServings = tuning.growth.servingsPerFoodCell; // a booster counts one whole cell
+
+// "Meat, Seafood, Chicken": the foods of that kind in every field. (The food items' `effect` is a getter that calls these, so the list is read from the
+// fields data when a card is drawn, not when this file loads.)
+const foodsOfKind = (kind: FoodKind): string =>
+  fieldIds
+    .flatMap((id) => fields[id].plan?.foods[kind] ?? [])
+    .map((food) => foods[food].name)
+    .join(", ");
+const boosterEffect = (kind: FoodKind): string =>
+  `The ${foodKindNames[kind]} food (${foodsOfKind(kind)}) counts ${boostServings} servings (kid stage).`;
+const recipeEffect = (kind: FoodKind, also: FoodKind): string =>
+  `A ${foodKindNames[kind]} meal that also counts 1 serving of the ${foodKindNames[also]} food (kid stage).`;
 
 export const items: Record<ItemId, Item> = {
   "comfy-bed": {
@@ -46,6 +74,56 @@ export const items: Record<ItemId, Item> = {
     kind: "wallpaper",
     effect: "An evening blue wall for the room.",
     price: { coins: 12, materials: { stone: 2 } },
+  },
+  "hearty-bowl": {
+    id: "hearty-bowl",
+    name: "Hearty Bowl",
+    kind: "food",
+    get effect() {
+      return boosterEffect(0);
+    },
+    price: { coins: 25, materials: { fish: 3 } },
+    dish: { food: 0 },
+  },
+  "green-bowl": {
+    id: "green-bowl",
+    name: "Green Bowl",
+    kind: "food",
+    get effect() {
+      return boosterEffect(1);
+    },
+    price: { coins: 25, materials: { herb: 3 } },
+    dish: { food: 1 },
+  },
+  "sweet-bowl": {
+    id: "sweet-bowl",
+    name: "Sweet Bowl",
+    kind: "food",
+    get effect() {
+      return boosterEffect(2);
+    },
+    price: { coins: 25, materials: { fiber: 3 } },
+    dish: { food: 2 },
+  },
+  stew: {
+    id: "stew",
+    name: "Stew",
+    kind: "food",
+    get effect() {
+      return recipeEffect(0, 1);
+    },
+    price: { coins: 35, materials: { wood: 2, stone: 2 } },
+    dish: { food: 0, also: 1 },
+  },
+  "garden-mix": {
+    id: "garden-mix",
+    name: "Garden Mix",
+    kind: "food",
+    get effect() {
+      return recipeEffect(1, 2);
+    },
+    price: { coins: 35, materials: { fish: 2, stone: 2 } },
+    dish: { food: 1, also: 2 },
   },
 };
 export const itemIds = Object.keys(items) as ItemId[];

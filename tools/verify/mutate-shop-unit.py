@@ -77,7 +77,7 @@ MUTANTS = [
     dict(id="use-wall-takes-unowned", file=F_SHOP, old="if (id !== null && !(isWallId(id) && save.owned.includes(id))) return false;", new="if (id !== null && !isWallId(id)) return false;", expect="only an owned wallpaper or null can go on the wall"),
     dict(id="missing-key-in-check", file=F_SHOP, old="const short = need - (save.inventory[material] ?? 0);", new="const short = need - save.inventory[material]!;", expect=MISSING_KEY),
     dict(id="missing-key-in-refund", file=F_SHOP, old="save.inventory[material] = (save.inventory[material] ?? 0) + paid;", new="save.inventory[material] = save.inventory[material]! + paid;", expect=MISSING_KEY),
-    dict(id="price-changed", file=F_DATA, old="price: { coins: 35, materials: { fiber: 3, wood: 2 } }", new="price: { coins: 36, materials: { fiber: 3, wood: 2 } }", expect="has four items at these prices and with these words"),
+    dict(id="price-changed", file=F_DATA, old="price: { coins: 35, materials: { fiber: 3, wood: 2 } }", new="price: { coins: 36, materials: { fiber: 3, wood: 2 } }", expect="has nine items at these prices and with these words"),
     dict(id="migrate-keeps-unknown-ids", file=F_STATE, old="[...new Set(value.owned.filter(isItemId))]", new='[...new Set(value.owned.filter((id) => typeof id === "string"))]', expect=MIGRATE_DROP),
     dict(id="migrate-keeps-duplicates", file=F_STATE, old="[...new Set(value.owned.filter(isItemId))]", new="value.owned.filter(isItemId)", expect=MIGRATE_DROP),
     dict(id="migrate-wall-not-owned", file=F_STATE, old="value.wall = isWallId(value.wall) && value.owned.includes(value.wall) ? value.wall : null;", new="value.wall = isWallId(value.wall) ? value.wall : null;", expect=MIGRATE_DROP),

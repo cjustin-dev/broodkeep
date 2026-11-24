@@ -9,6 +9,8 @@ import { fieldIds, fields } from "../data/fields";
 import { foods } from "../data/foods";
 import { clean, feed, giveMedicine, goTo, toggleLights } from "../game/actions";
 import { cleanRefusal, feedButtonRefusal, feedRefusal, goButtonRefusal, goRefusal, lightsRefusal, medicineRefusal } from "../game/availability";
+import { dishesOf, dishLabel, dishMeal } from "../game/dishes";
+import type { DishId } from "../game/dishes";
 import { menuOf } from "../game/growth";
 import { isAdultMode } from "../game/hud";
 import { cleanReason, feedReason, goReason, lightsReason, medicineReason } from "../game/reasons";
@@ -33,17 +35,19 @@ export function ActionBar({ game }: { game: Game }) {
   }, [asleep, away, gone]);
 
   if (!c) return null;
+  const dishes = dishesOf(c, game.save.owned);
 
   const shake = (): void => triggerPose(game.view, "refuse");
 
-  const onFood = (id: FoodId): void => {
+  // A dish is a shop food the player owns (game/dishes.ts): a meal of `id`, counted the dish's way. Both kinds of button come here.
+  const onFood = (id: FoodId, dish?: DishId): void => {
     setTray(null);
     if (adult) {
-      const why = game.whyNot((live) => feedRefusal(live, id), feedReason);
+      const why = game.whyNot((live) => feedRefusal(live, id, dish, game.save.owned), feedReason);
       if (why === "full") shake();
       if (why !== null) return;
     }
-    const result = game.act((s, now) => feed(s, id, now));
+    const result = game.act((s, now) => feed(s, id, now, dish));
     if (result === "ate") startEating(game.view, id);
     else if (result === "full") triggerPose(game.view, "refuse");
   };
@@ -117,6 +121,28 @@ export function ActionBar({ game }: { game: Game }) {
               <Icon name={id} px={40} />
             </button>
           ))}
+        </div>
+      )}
+      {tray === "food" && dishes.length > 0 && (
+        <div class="tray dishes" role="group" aria-label="Choose a dish">
+          {dishes.map((id) => {
+            const meal = dishMeal(c, id)!;
+            const [[eats, servings], second] = meal.counts;
+            return (
+              <button class="btn food dish" aria-label={dishLabel(c, id)} onClick={() => onFood(meal.eats, id)}>
+                <Icon name={eats} px={40} />
+                {second ? (
+                  <span class="badge" aria-hidden="true">
+                    <Icon name={second[0]} px={20} />
+                  </span>
+                ) : (
+                  <span class="count" aria-hidden="true">
+                    ×{servings}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
       {tray === "places" && (
