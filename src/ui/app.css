@@ -283,6 +283,17 @@ input:focus-visible {
   background: var(--panel-hi);
 }
 
+/* A shop food in the tray's second row: the field food's picture with a mark in the corner (x2, or the second food of a recipe). The row keeps the food
+   row's five columns, so one dish is as wide as a food button and not the whole row. */
+.tray.dishes {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.btn.food.dish {
+  position: relative;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

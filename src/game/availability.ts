@@ -6,7 +6,10 @@
 
 import { fields } from "../data/fields";
 import { tuning } from "../data/tuning";
+import { dishesOf, dishMeal } from "./dishes";
+import type { DishId } from "./dishes";
 import { menuOf } from "./growth";
+import type { Owned } from "./perks";
 import type { Creature } from "./state";
 import type { FoodId, Place } from "./types";
 
@@ -14,9 +17,12 @@ import type { FoodId, Place } from "./types";
 
 export type FeedRefusal = "away" | "off-menu" | "asleep" | "full";
 
-export function feedRefusal(c: Creature, food: FoodId): FeedRefusal | null {
+// A dish (game/dishes.ts) is on the menu when the player owns it, the creature is offered it, and `food` is the food it is a meal of: the same
+// "off-menu" step, so a dish that is not offered is refused before sleep or fullness are asked. With `owned` left out nothing is owned.
+export function feedRefusal(c: Creature, food: FoodId, dish?: DishId, owned: Owned = []): FeedRefusal | null {
   if (c.job) return "away";
   if (!menuOf(c).includes(food)) return "off-menu"; // only what the menu offers (pellets, the treat, its own field's foods)
+  if (dish !== undefined && !(dishesOf(c, owned).includes(dish) && dishMeal(c, dish)?.eats === food)) return "off-menu";
   if (c.sleep) return "asleep";
   if (c.stats.hunger >= tuning.fullAtHunger) return "full";
   return null;

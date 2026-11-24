@@ -8,6 +8,7 @@ import { getForm } from "../data/forms";
 import { specialId } from "../data/special";
 import { tuning } from "../data/tuning";
 import { statChangePerMinute } from "./care";
+import { servingsPerMeal } from "./dishes";
 import { canBecomeSpecial, fieldCells, foodCells, leadingForm, nextForm, stageHours, tierOf } from "./growth";
 import type { Tier } from "./growth";
 import { callText, clockText, formatHm } from "./hud";
@@ -249,7 +250,7 @@ function bestTier(c: Creature): Tier {
 const mostHappyCells = (left: number): number => left + 1;
 
 // True only when nothing the player can still do changes the leader. Anything that is not proved is "still open".
-function isLocked(c: Creature, left: number): boolean {
+function isLocked(c: Creature, left: number, owned: Owned): boolean {
   if (canGoSpecial(c, left)) return false;
   switch (stageOf(c)) {
     case "baby": {
@@ -265,7 +266,10 @@ function isLocked(c: Creature, left: number): boolean {
       const meals = mostMeals(c, left);
       const plan = planOf(field);
       const now = plan.foods.map((food) => foodCells(c, food));
-      const most = plan.foods.map((food) => Math.floor(((c.counters.servings[food] ?? 0) + meals) / g.servingsPerFoodCell));
+      // A meal adds one serving, or a whole cell of a food whose booster dish is owned (game/dishes.ts): the bound must hold for the best meal.
+      const most = plan.foods.map((food) =>
+        Math.floor(((c.counters.servings[food] ?? 0) + meals * servingsPerMeal(owned, field, food)) / g.servingsPerFoodCell),
+      );
       if (most.every((cells, i) => cells === now[i])) return true;
       const top = Math.max(...now);
       return now.filter((cells) => cells === top).length === 1 && most.every((cells, i) => now[i] === top || cells < top);
@@ -440,7 +444,7 @@ export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs, owned:
   const growsNow = nextForm(c, nowMs) !== null;
   base.confidence = growsNow
     ? { kind: "now", text: "It grows up at the next minute." }
-    : isLocked(c, left)
+    : isLocked(c, left, owned)
       ? { kind: "locked", text: `Locked. Nothing it can still do in the ${formatHm(timer!.leftMinutes)} left changes this.` }
       : {
           kind: "open",
@@ -463,7 +467,7 @@ export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs, owned:
   }
   if (growsNow) return base;
 
-  if (stage === "baby" || stage === "kid") base.rivals = tieAndRivals(c, base, left);
+  if (stage === "baby" || stage === "kid") base.rivals = tieAndRivals(c, base, left, owned);
   else base.rivals = tierRivals(c, base, left);
   if (stage === "baby" || stage === "kid") {
     const most = Math.max(...base.rows.map((r) => r.value));
@@ -479,7 +483,7 @@ export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs, owned:
 }
 
 // Baby and kid: for each row that is not leading, how much it takes to change the leader.
-function tieAndRivals(c: Creature, f: Forecast, left: number): Rival[] {
+function tieAndRivals(c: Creature, f: Forecast, left: number, owned: Owned): Rival[] {
   const lead = f.leader;
   const baby = f.stage === "baby";
   const meals = baby ? 0 : mostMeals(c, left);
@@ -490,7 +494,10 @@ function tieAndRivals(c: Creature, f: Forecast, left: number): Rival[] {
       const cap = baby ? g.fieldCellsToKid * g.fieldCellMinutes : g.servingsPerFoodCell * (topCells + 1) + 1;
       const hit = firstChange(c, cap, (n) => { const add: Added = {}; addInput(add, r.input, n); return add; }, (l) => l !== lead);
       const own = baby && r.input.kind === "field" ? planOf(r.input.field).kid : r.input.kind === "food" && fieldOfForm(c.formId) ? planOf(fieldOfForm(c.formId)!).young[r.input.food] ?? null : null;
-      const enough = hit !== null && hit.n <= (baby ? left : meals);
+      // What the time left allows, in the row's own unit: minutes for a field, servings for a food (a booster dish makes a meal worth more than 1).
+      const field = fieldOfForm(c.formId);
+      const room = baby ? left : r.input.kind === "food" && field ? meals * servingsPerMeal(owned, field, r.input.food) : meals;
+      const enough = hit !== null && hit.n <= room;
       const unit = baby ? "awake minute" : `${r.label} serving`;
       let text: string;
       if (hit === null) text = `${r.label}: nothing it can add changes the leader.`;
@@ -501,7 +508,7 @@ function tieAndRivals(c: Creature, f: Forecast, left: number): Rival[] {
         if (tied) {
           // A tie gives the fourth young; the food leads on its own a little later.
           const take = firstChange(c, cap, (n) => { const add: Added = {}; addInput(add, r.input, n); return add; }, (l) => l === own);
-          if (take) text += take.n <= meals ? `, and ${take.n} more would give ${name(own)}` : `, and ${name(own)} would take ${take.n} more, more than the time left allows`;
+          if (take) text += take.n <= room ? `, and ${take.n} more would give ${name(own)}` : `, and ${name(own)} would take ${take.n} more, more than the time left allows`;
         }
         text += ".";
       }

@@ -387,12 +387,12 @@ const checks = {
     const { page } = await open("rich");
     const before = await savedGame(page);
     await openShop(page);
-    expectEq(trimAll(await page.locator(".shop-name").allTextContents()), ["Comfy Bed", "Feeding Mat", "Wallpaper: Meadow", "Wallpaper: Dusk"], "the four cards, in order");
+    expectEq(trimAll(await page.locator(".shop-name").allTextContents()), ["Comfy Bed", "Feeding Mat", "Wallpaper: Meadow", "Wallpaper: Dusk", "Hearty Bowl", "Green Bowl", "Sweet Bowl", "Stew", "Garden Mix"], "the nine cards, in order");
     expectEq(await page.locator(".shop-undo").count(), 0, "undo bars before any buy");
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await panel(page).waitFor({ state: "hidden", timeout: 5000 });
     expectEq(await savedGame(page), before, "the saved game after opening and closing the shop");
-    return "the shop opens with its four cards, Close shuts it, and the saved game is exactly as it was";
+    return "the shop opens with its nine cards, Close shuts it, and the saved game is exactly as it was";
   },
 
   "buy-exact": async (open) => {

@@ -480,3 +480,15 @@ Found while planning and reviewing A1.2, in the game as it is (none are new, non
 - **No Escape key closes the panel,** like every other panel in the game; the plan's first draft said it would.
 - **Two player types earn nothing useful from the habitat (measured, not changed):** looking in once a day in the morning loses the creature on day 3, once a day in the evening earns 0 coins because the energy has run down by 19:00. See the A2.2a section of decisions.md.
 - **Not checked:** a real phone, a screen reader reading the shop, browsers other than Chromium.
+
+## The shop's foods (A2.2b, 2026-11-23)
+
+- **A Kid Mode profile that owns a dish sees the dish row in its Feed tray.** What a player owns works in both modes (the A2.2a rule); only the shop that sells dishes is Adult Mode only. A profile that owns nothing sees no change.
+- **The dish row adds one button row (76 px) to the open Feed tray.** The Adult habitat page already scrolls at 320x568 and 360x640 on `main`, so a kid with dishes scrolls a little further there.
+- **A dish is offered only to a kid with a field.** A young, an adult, a baby, the special form and an egg show no dish row (their servings are not counted), so a dish bought for a creature that has already grown up waits for the next egg's kid stage.
+- **In Adult Mode a full creature cannot open the Feed tray at all** (the Feed button says "Not hungry: ..."), so a dish tap at full cannot be made there. Kid Mode opens the tray and the action refuses the tap.
+- **A recipe card names the two kinds ("the light food"), not the six foods;** the tray button's label names both foods of the creature's own field.
+- **An older device can take a dish back, and an older app version drops the five ids it does not know,** the same two limits as the A2.2a items (newest save wins; `migrateSave` keeps only the ids it has).
+- **No dish for the pellet or the treat, no craving, no stock or count of dishes:** a dish is bought once and is there at every meal (the spec's craving food is A3).
+- **Seven older run scripts that start a server have no `trap` for it** (`run-browser.sh`, `run-habitat.sh`, `run-kid.sh`, `run-shop.sh`, `run-sheet.sh`, `run-sheet-habitat.sh`, `run-sheet-shop.sh`: checked with `grep -L trap`); an interrupted run leaves its server on its port and the next run refuses to start until it is stopped. The two A2.2b scripts have the trap.
+- **Not checked:** a dead or retired creature closing the tray (unchanged behaviour, not touched by this slice), a real phone, a screen reader reading the dish buttons, browsers other than Chromium.

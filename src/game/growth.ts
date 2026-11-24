@@ -70,10 +70,11 @@ function pickSpecial(c: Creature): string | null {
   return canBecomeSpecial(c) && (c.counters.neglectMinutes ?? 0) >= g.neglectHours * 60 ? specialId : null;
 }
 
-// A meal eaten. Only the kid stage counts them.
-export function countServing(c: Creature, food: FoodId): void {
-  if (getForm(c.formId).stage !== "kid") return;
-  c.counters.servings[food] = (c.counters.servings[food] ?? 0) + 1;
+// A meal eaten. Only the kid stage counts them. `servings` is how many it counts: 1 for a plain meal, more for a shop dish (game/dishes.ts); anything
+// under 1 (or not a number) counts nothing, so a bad value can never take a serving away.
+export function countServing(c: Creature, food: FoodId, servings = 1): void {
+  if (getForm(c.formId).stage !== "kid" || !(servings >= 1)) return;
+  c.counters.servings[food] = (c.counters.servings[food] ?? 0) + servings;
 }
 
 // Call after anything that fills hunger or happiness, with the values from before. A hunger cell is a feeding that took

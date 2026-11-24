@@ -83,7 +83,7 @@ function ItemCard({ id, game, selected, onPick }: { id: ItemId; game: Game; sele
             {onWall ? "Stop using" : "Use"}
           </button>
         ) : (
-          <p class="shop-owned">Owned</p>
+          <p class="shop-owned">{item.kind === "food" ? "Owned: find it under Feed" : "Owned"}</p>
         )
       ) : (
         <button
