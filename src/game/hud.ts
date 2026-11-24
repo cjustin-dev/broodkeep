@@ -11,6 +11,7 @@ import { tuning } from "../data/tuning";
 import { statChangePerMinute } from "./care";
 import type { DrainStat } from "./care";
 import { sulkChance } from "./combat/battle";
+import type { Owned } from "./perks";
 import { rungOf } from "./combat/fight";
 import { stageHours } from "./growth";
 import { clamp } from "./state";
@@ -110,9 +111,9 @@ function minutesUntil(value: number, change: number, done: (v: number) => boolea
 
 // How long until a stat runs out (or, for energy while asleep, fills up) at the rate it has right now. It ignores that night is coming and
 // that a nap ends by itself. Null for wellness, which has no steady rate.
-export function timeToEmpty(c: Creature, stat: HudStat, asleep: boolean): Span | null {
+export function timeToEmpty(c: Creature, stat: HudStat, asleep: boolean, owned: Owned = []): Span | null {
   if (stat === "wellness") return null;
-  const change = statChangePerMinute(c, stat, asleep);
+  const change = statChangePerMinute(c, stat, asleep, owned);
   const value = c.stats[stat];
   if (change < 0) return { toward: "empty", minutes: minutesUntil(value, change, (v) => v <= 0) };
   if (change > 0) return { toward: "full", minutes: minutesUntil(value, change, (v) => v >= 100) };
@@ -120,8 +121,8 @@ export function timeToEmpty(c: Creature, stat: HudStat, asleep: boolean): Span |
 }
 
 // "9h left", "full in 2h", "empty", "full" (the narrow text under a cell), or null when there is none to give.
-export function cellSpan(c: Creature, stat: HudStat, asleep: boolean): string | null {
-  const span = timeToEmpty(c, stat, asleep);
+export function cellSpan(c: Creature, stat: HudStat, asleep: boolean, owned: Owned = []): string | null {
+  const span = timeToEmpty(c, stat, asleep, owned);
   if (!span) return null;
   const value = c.stats[stat];
   if (span.toward === "empty") return value <= 0 ? "empty" : `${formatSpanShort(span.minutes)} left`;
@@ -129,8 +130,8 @@ export function cellSpan(c: Creature, stat: HudStat, asleep: boolean): string | 
 }
 
 // Whole minutes until hunger is below the line where it refuses food (0 when it would eat now), at the rate it has right now.
-export function minutesUntilItEats(c: Creature, asleep: boolean): number {
-  return minutesUntil(c.stats.hunger, statChangePerMinute(c, "hunger", asleep), (v) => v < tuning.fullAtHunger);
+export function minutesUntilItEats(c: Creature, asleep: boolean, owned: Owned = []): number {
+  return minutesUntil(c.stats.hunger, statChangePerMinute(c, "hunger", asleep, owned), (v) => v < tuning.fullAtHunger);
 }
 
 // What wellness is doing this minute, from the same conditions updateWellness (care.ts) tests: sick, or an empty stat draining it, or
@@ -157,7 +158,7 @@ const callBelow: Record<DrainStat, number> = {
 const perHour = (change: number): string => String(Math.round(Math.abs(change) * 60 * 10) / 10);
 
 // The lines on a stat's detail card (a tap on its cell). Every number comes from the code that runs the game.
-export function detailLines(c: Creature, stat: HudStat, asleep: boolean): string[] {
+export function detailLines(c: Creature, stat: HudStat, asleep: boolean, owned: Owned = []): string[] {
   const lines: string[] = [];
   if (stat === "wellness") {
     const w = tuning.wellness;
@@ -169,8 +170,8 @@ export function detailLines(c: Creature, stat: HudStat, asleep: boolean): string
     else lines.push(`Holding. It recovers only while food and cleanliness are above ${w.healthyHungerAbove}.`);
     if (!c.sick) lines.push(`Below ${w.sickBelow} it gets sick.`);
   } else {
-    const awake = statChangePerMinute(c, stat, false);
-    const sleeping = statChangePerMinute(c, stat, true);
+    const awake = statChangePerMinute(c, stat, false, owned);
+    const sleeping = statChangePerMinute(c, stat, true, owned);
     lines.push(
       stat === "energy"
         ? `Falls ${perHour(awake)} an hour awake and rises ${perHour(sleeping)} an hour asleep.`
@@ -179,13 +180,13 @@ export function detailLines(c: Creature, stat: HudStat, asleep: boolean): string
     if (stat === "hygiene" && c.poop > 0) {
       lines.push(`Poop on the floor: ${c.poop}. Each one makes it fall ${perHour(tuning.poopHygieneDrainPerMinute)} an hour faster awake.`);
     }
-    const span = timeToEmpty(c, stat, asleep);
+    const span = timeToEmpty(c, stat, asleep, owned);
     if (span) {
       if (span.toward === "empty") lines.push(c.stats[stat] <= 0 ? "Empty now." : `Empty in ${formatSpan(span.minutes)} at this rate.`);
       else lines.push(c.stats[stat] >= 100 ? "Full." : `Full in ${formatSpan(span.minutes)} at this rate.`);
     }
     if (stat === "hunger") {
-      const eats = minutesUntilItEats(c, asleep);
+      const eats = minutesUntilItEats(c, asleep, owned);
       lines.push(
         eats > 0
           ? `It refuses food at ${tuning.fullAtHunger} or more, and eats again in about ${formatSpan(eats)}.`

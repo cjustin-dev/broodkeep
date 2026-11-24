@@ -135,7 +135,7 @@ function AdultStats({ game }: { game: Game }) {
           }
           const value = c.stats[stat];
           const shown = shownValue(value);
-          const span = stat === "wellness" ? wellnessState(c) : cellSpan(c, stat, asleep);
+          const span = stat === "wellness" ? wellnessState(c) : cellSpan(c, stat, asleep, save.owned);
           const calling = c.call !== null && callCell[c.call] === stat;
           const poop = stat === "hygiene" ? c.poop : 0;
           return (
@@ -173,7 +173,7 @@ function AdultStats({ game }: { game: Game }) {
       </div>
       {c && opened && (
         <section class="astat-card" aria-label={`${cellText[opened].name} details`}>
-          {detailLines(c, opened, asleep).map((line) => (
+          {detailLines(c, opened, asleep, save.owned).map((line) => (
             <p key={line}>{line}</p>
           ))}
         </section>

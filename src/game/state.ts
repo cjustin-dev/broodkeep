@@ -4,6 +4,7 @@
 import { lineageOf } from "../data/book";
 import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
+import { isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
 import { makeRng } from "./rng";
 import type { CombatStat, EggPattern, FieldId, FoodId, Place } from "./types";
@@ -92,6 +93,13 @@ export interface RetiredLife {
   retiredAt: number;
 }
 
+// The one purchase that can still be undone (game/shop.ts): what, when (game time), and the wall shown before it.
+export interface LastBuy {
+  item: string;
+  at: number;
+  wall: string | null;
+}
+
 export interface Save {
   version: 3;
   phase: Phase;
@@ -108,6 +116,9 @@ export interface Save {
   hauls: Haul[]; // finished jobs the player has not looked at yet, oldest first
   book: string[]; // the Creature Book: ids of the forms the player has raised, in the order they were first met (game/book.ts)
   retired: RetiredLife[]; // completed lives, oldest first (game/retire.ts); no cap, a record is 73 characters
+  owned: string[]; // what the player bought in the shop (data/shop.ts ids), in the order bought, no duplicates (game/shop.ts)
+  wall: string | null; // the wallpaper shown in the room: an owned wallpaper, or null for the plain wall
+  lastBuy: LastBuy | null; // the purchase that can still be undone, for `tuning.shop.undoSeconds`
 }
 
 export function freshCounters(): Counters {
@@ -147,6 +158,9 @@ export function newSave(nowMs: number, seed: number): Save {
     hauls: [],
     book: [],
     retired: [],
+    owned: [],
+    wall: null,
+    lastBuy: null,
   };
   logEvent(save, nowMs, "A new egg appeared");
   return save;
@@ -184,6 +198,12 @@ function isRetiredLife(value: unknown): value is RetiredLife {
   return typeof v.formId === "string" && typeof v.bornAt === "number" && Number.isFinite(v.bornAt) && typeof v.retiredAt === "number" && Number.isFinite(v.retiredAt);
 }
 
+function isLastBuy(value: unknown): value is LastBuy {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Partial<LastBuy>;
+  return isItemId(v.item) && typeof v.at === "number" && Number.isFinite(v.at) && (v.wall === null || isWallId(v.wall));
+}
+
 // Turn data read from storage into a current save, or null if it is not one. Only version 3 is read: the Paradise growth
 // rules replaced every old form, so an older save has no creature that could carry on (the owner chose a clean start, and the
 // loader keeps an unreadable save under another name, see sync/local.ts).
@@ -196,5 +216,17 @@ export function migrateSave(value: unknown): Save | null {
   // break the Book), a record never runs backwards (its end is moved up to its start, as the action does when a clock was set back), and this
   // runs for every profile at the picker, so it must never throw.
   value.retired = Array.isArray(value.retired) ? value.retired.filter(isRetiredLife).map(({ formId, bornAt, retiredAt }) => ({ formId, bornAt, retiredAt: Math.max(retiredAt, bornAt) })) : [];
+  // A save from before the shop has none of the three. Only ids the shop sells are kept (a bad one from storage or the cloud, or an item a newer
+  // version added, is dropped), none twice; the wall must be an owned wallpaper; the undo must name something owned.
+  value.owned = Array.isArray(value.owned) ? [...new Set(value.owned.filter(isItemId))] : [];
+  value.wall = isWallId(value.wall) && value.owned.includes(value.wall) ? value.wall : null;
+  value.lastBuy =
+    isLastBuy(value.lastBuy) && value.owned.includes(value.lastBuy.item)
+      ? {
+          item: value.lastBuy.item,
+          at: value.lastBuy.at,
+          wall: value.lastBuy.wall !== null && value.owned.includes(value.lastBuy.wall) ? value.lastBuy.wall : null,
+        }
+      : null;
   return value;
 }

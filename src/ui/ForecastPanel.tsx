@@ -81,9 +81,9 @@ export function ForecastPanel({ game, onClose }: { game: Game; onClose: () => vo
 
   const c = game.save.phase === "alive" ? game.save.creature : null;
   const now = game.now();
-  const f = c ? forecast(c, now, game.save.lastSimulatedAt) : null;
+  const f = c ? forecast(c, now, game.save.lastSimulatedAt, game.save.owned) : null;
   const tried = f !== null && f.rows.some((r) => (taps[r.id] ?? 0) > 0);
-  const out = c && tried ? whatIf(c, now, taps) : null;
+  const out = c && tried ? whatIf(c, now, taps, game.save.owned) : null;
 
   return (
     <section class="panel" role="dialog" aria-label="Growth Forecast">

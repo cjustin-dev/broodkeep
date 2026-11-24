@@ -11,6 +11,8 @@ import { statChangePerMinute } from "./care";
 import { canBecomeSpecial, fieldCells, foodCells, leadingForm, nextForm, stageHours, tierOf } from "./growth";
 import type { Tier } from "./growth";
 import { callText, clockText, formatHm } from "./hud";
+import { hungerGrace } from "./perks";
+import type { Owned } from "./perks";
 import type { CallKind, Creature } from "./state";
 import { HOUR, MINUTE } from "./time";
 import type { FieldId, FoodId } from "./types";
@@ -108,7 +110,7 @@ export interface Row {
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-function rowsOf(c: Creature, leader: string | null): Row[] {
+function rowsOf(c: Creature, leader: string | null, owned: Owned): Row[] {
   switch (stageOf(c)) {
     case "baby":
       return openFieldIds.map((id) => ({
@@ -148,7 +150,7 @@ function rowsOf(c: Creature, leader: string | null): Row[] {
           label: "Hunger cells",
           value: c.counters.hungerCells,
           pips: g.careCellsMax,
-          note: `A meal that takes hunger from under ${tuning.fullAtHunger} to ${tuning.fullAtHunger} or more`,
+          note: `A meal that takes hunger from under ${tuning.fullAtHunger} to ${tuning.fullAtHunger - hungerGrace(owned)} or more`,
           leads: false,
           unit: "cells",
           perTap: 1,
@@ -188,9 +190,9 @@ function rowsOf(c: Creature, leader: string | null): Row[] {
 
 // The outcome with taps of the stepper rows added (row id to taps; a tap adds the row's `perTap`). A wrong id or a count outside the row's
 // range is ignored or cut back, so the preview never goes past what the game could count.
-export function whatIf(c: Creature, nowMs: number, taps: Record<string, number>): Outcome {
+export function whatIf(c: Creature, nowMs: number, taps: Record<string, number>, owned: Owned = []): Outcome {
   const add: Added = {};
-  for (const row of rowsOf(c, leadingForm(c))) addInput(add, row.input, Math.min(row.maxTaps, whole(taps[row.id] ?? 0)) * row.perTap);
+  for (const row of rowsOf(c, leadingForm(c), owned)) addInput(add, row.input, Math.min(row.maxTaps, whole(taps[row.id] ?? 0)) * row.perTap);
   return outcomeOf(withAdded(c, add), nowMs);
 }
 
@@ -413,7 +415,7 @@ function ruleOf(c: Creature): string[] {
 
 // `simulatedMs` is how far the creature has been simulated (the save's `lastSimulatedAt`; the game catches up about once a second, so it can
 // lag `nowMs`). The bounds count from there, because the minutes in between have not happened to the creature yet.
-export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs): Forecast {
+export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs, owned: Owned = []): Forecast {
   const stage = stageOf(c);
   const leader = leadingForm(c);
   const timer = timerOf(c, nowMs);
@@ -425,7 +427,7 @@ export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs): Forec
     leader,
     tier: stage === "young" ? tierOf(c) : stage === "adult" ? adultTier(c.formId) : null,
     timer,
-    rows: rowsOf(c, leader),
+    rows: rowsOf(c, leader, owned),
     rivals: [],
     tie: null,
     careClock: null,

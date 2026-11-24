@@ -18,7 +18,7 @@
 - The repo started as the unmodified "cloudflare-pages-template" (plain static HTML, Bootstrap, no build step). Those files were removed on 2026-11-20, because nothing depended on that site.
 - The root is a Vite + TypeScript + Preact project: `package.json`, `wrangler.toml`, `src/`, `tests/`, `docs/`, plus `functions/` and `migrations/` that stay mostly empty until Phase 5.
 - There is no license file, so the code is all rights reserved. The template's MIT notice named its author, not this game, and was removed on 2026-11-21.
-- Cloudflare Pages builds from the `main` branch, so a merged pull request deploys. Work happens on feature branches and the owner merges.
+- Cloudflare Pages builds from the `main` branch, so a merged pull request deploys. Work happens on feature branches; Claude opens the pull request (`~/.local/bin/gh pr create -R cjustin-dev/broodkeep`) and the owner merges.
 
 ## 2. Hosting: one Pages project from the repo root
 

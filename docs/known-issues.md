@@ -470,3 +470,13 @@ Found while planning and reviewing A1.2, in the game as it is (none are new, non
 - **Prettier has no config file in this repo, and the code is written at `--print-width 150`.** `npx prettier --write` at its default width (80) reflows whole files into a huge diff (A2.1 hit it and had to redo it). Run `npx prettier --print-width 150 --check <files>` on the files you changed, never on the tree.
 - **A script that clicks a shut spot must use `click({ force: true })`.** The spots are `aria-disabled` buttons, not `disabled` ones (A1.3), so a Playwright click waits for them to become "enabled" and hangs. The real tap reaches the handler, which is what the card relies on.
 
+## The shop (A2.2a, 2026-11-23)
+
+- **The Shop opens from the nav, which shows only for a living creature.** During the egg and dead phases there is no way to open it (the buy rules themselves work in any phase). The owner may want it reachable from the Book or the egg screen.
+- **An older device can undo a purchase.** Cloud saves keep the newest save per profile, so a device left open on the old game (nothing bought) that saves after the device in use brings the old wallet back and the purchase is gone. Same newest-save-wins rule as Retire and the call back.
+- **An older app version drops item ids it does not know.** `migrateSave` keeps only the ids it has; a save written by a build with more items, opened by an older build, loses the extra items on its next save.
+- **Fish has no use until A2.2b** (it is earned and shown, but nothing costs it).
+- **The Close button's style is the old panel button;** the shop's `btn-look` check leaves it out on purpose (it is not one of the shop's own buttons).
+- **No Escape key closes the panel,** like every other panel in the game; the plan's first draft said it would.
+- **Two player types earn nothing useful from the habitat (measured, not changed):** looking in once a day in the morning loses the creature on day 3, once a day in the evening earns 0 coins because the energy has run down by 19:00. See the A2.2a section of decisions.md.
+- **Not checked:** a real phone, a screen reader reading the shop, browsers other than Chromium.

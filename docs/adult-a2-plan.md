@@ -11,7 +11,7 @@ A2 is too big for one pull request, and its parts do not need each other to be u
 | Slice | Ships | New saved state | Depends on |
 |---|---|---|---|
 | **A2.1 Spot cards, the job card, an honest call back** | A card for each spot (what it gives, how long, how much energy, why it is shut), a live card while the creature is away, a call back that keeps what the time earned and says so | none | no other slice; it can start once Q1, Q5 and Q6 (section 4) are answered |
-| **A2.2 The shop** | Coins and materials become spendable: the wallet rules, owned items, buy with a 10 second undo, the shop panel, items 1 to 9 of section 5 (nine items) | `owned`, `lastBuy` (the undo) | A2.1 only for the spot cards' "you have 4 / need 2" wording |
+| **A2.2 The shop**, in two pull requests: **A2.2a** the wallet, the shop panel and items 1 to 4 (Comfy Bed, Feeding Mat, two wallpapers); **A2.2b** the foods, items 5 to 9 (section 9 says why) | Coins and materials become spendable: the wallet rules, owned items, buy with a 10 second undo, the shop panel, previews | `owned`, `wall`, `lastBuy` (A2.2a) | A2.1 only for the spot cards' "you have 4 / need 2" wording |
 | **A2.3 The request board** | Exactly 3 requests of the types that exist in the game today, picture-first, coins on every one | `requests` | A2.2 (a request can ask for a purchase, and its reward can be an item) |
 | **A2.4 Hats** (may slip to A4) | Four hats drawn on the creature, added to the shop as items 10 to 13 (thirteen items in all) | `hat` (the one worn id; a hat bought is in `owned`) | A2.2 |
 
@@ -33,8 +33,8 @@ Each slice gets its own edge-case list and mutation targets before its code, as 
 
   A creature only sets off if it keeps at least 20 energy (`habitatTuning.energyFloor`). So one full bar (100 down to 20) is worth, on average, 16 meadow or herb jobs (24 coins, 24 materials, 48 minutes), 8 trees jobs (20 coins, 12 materials), 8 pond jobs (24 coins, 12 materials) or 5 rock jobs (20 coins, 10 materials). Energy returns at 0.25 per minute asleep (`tuning.sleepEnergyPerMinute`, 15 an hour; refilling 80 energy takes 5 h 20 min) and falls 100 to 0 over 16 awake hours. **Coins are the scarce thing (about 20 to 24 a bar) and materials are plentiful (10 to 24 a bar).**
 - **`refusal` order for a job** (`jobRefusal`): busy, asleep, sick, too-young, tired. In Adult Mode a refused spot is `aria-disabled` and a tap shows the reason as a short note over the picture (`game.whyNot` and `game.say` in `ui/game.ts`, shown by `ui/Stage.tsx`; the words are `game/reasons.ts` `spotReason`); in Kid Mode it is a small icon. Adult Mode already writes a short word under each spot and the stage on a locked one (A1.3).
-- **While away**, the adult context line already reads "Away at <Spot> · <back text>" (`game/hud.ts`). There is no card, no progress bar and no haul preview.
-- **Call back** (`actions.ts` `callBack`) ends the job, brings **nothing** back, and does not return the energy. The button is a house icon with no words (`HabitatBar.tsx`).
+- **While away**, the adult context line already reads "Away at <Spot> · <back text>" (`game/hud.ts`). (Written before A2.1: A2.1, built on branch `adult-a2` (merged as PR #31), has since added the job card with a progress bar and a haul preview in Adult Mode; A2.2 branches from it, as `adult-a2-2`.)
+- **Call back** (`actions.ts` `callBack`) ended the job and brought **nothing** back when this was written; A2.1 made it keep what the time earned (`callBackHaul`), energy still not returned. The Kid Mode button is still a house icon with no words (`HabitatBar.tsx`).
 - **The haul** is a modal "Welcome back" card (`ui/HaulCard.tsx`) that shows the oldest of `save.hauls` (at most 5, `habitatTuning.unseenHaulsMax`) and is dismissed by a tap (`dismissHaul`). So a finished job cannot sit unseen behind a badge: the card already stops the player until it is read. The spec's nav badge and "pile in the scene" are therefore not needed for honesty and are left out (section 3, item 7).
 - **There is no furniture, no cosmetics and no owned-items state.** The room is one fixed drawing (`art/room.ts`: wall, floor, window, rug, bowl, bed, in plain rectangles). `Save` has no `owned`, `requests` or `placed`.
 - **Saves:** version 3; a new field is added with a default in `migrateSave` (as `book` and `retired` were); `isSave` checks only a few fields; the server stops at 256,000 bytes and a request under 60,000 characters is sent with `keepalive` (`sync/cloud.ts`).
@@ -65,7 +65,7 @@ Each slice gets its own edge-case list and mutation targets before its code, as 
 
 | # | Item | What it does | Draft price | Materials used |
 |---|---|---|---|---|
-| 1 | Comfy Bed | happiness falls slower while it sleeps (a lower `asleepDecayFactor` for happiness only) | 60 coins | 3 Fiber, 2 Wood |
+| 1 | Comfy Bed | happiness falls slower while it sleeps at home (`bedHappinessFactor` times the asleep happiness drain; hunger and hygiene and the global `asleepDecayFactor` unchanged) | 60 coins | 3 Fiber, 2 Wood |
 | 2 | Feeding Mat | grace on the hunger-cell rule (what exactly is decided in the A2.2 plan from `countCareCells`) | 50 coins | 3 Fiber, 2 Herbs |
 | 3 | Wallpaper: Meadow | recolours the wall | 30 coins | 2 Herbs |
 | 4 | Wallpaper: Dusk | recolours the wall | 30 coins | 2 Stone |
@@ -127,3 +127,70 @@ Contact sheet first (every state of the card at the three widths, looked at befo
 ## 8. Not in A2
 
 Bond, the favourite toy, initiatives, minigames, field pickups, the garden (A3); the perfect-run badge, inheritance, Book recipes, timed combat (A4); sharing (A5); free furniture placement and a room editor; selling items back; a second job slot; a storage cap; real money.
+
+## 9. A2.2a in detail: the shop, four items (written 2026-11-23, before any code)
+
+**Why two pull requests.** Items 1 to 4 are things the room shows and the care rules read; items 5 to 9 are foods, which touch the feed tray, the menu, `countServing` and the growth counts, a different set of edge cases. A2.2a ships the whole spend loop (wallet, owned, undo, panel, previews) with the four items that need no food rules; A2.2b adds the five foods to a shop that already works. Until A2.2b lands, Fish has no use in the shop (section 3, decision 6 is met by the whole catalogue, not by A2.2a alone).
+
+**Foods correction (settled here, for A2.2b).** The table in section 5 says items 5 to 7 are "a new food id each". decisions.md, answer 1 (the owner's, closed) says shop foods are boosters of the existing food types and none is a new type. decisions.md wins: A2.2b adds no `FoodId`.
+
+**Prices come from the measurement** (`tools/verify/run-income.sh`, 14 simulated days of an adult, jobs only, days 2 to 14; fights pay a little more): a careful player (looks in every 5 minutes) earns 18.9 coins and 13.9 materials a day going round the five spots (20.4 coins at the best spot alone); three 15-minute visits a day earn 12.2 coins and 8.2 materials; two visits (08:00 and 19:00) earn 7.7 coins and 5.4 materials. A player who visits only at 08:00 loses the creature on day 3; one who visits only at 19:00 keeps it alive but earns nothing, because the energy has run down by then (the creature wakes at 100 and falls 6.25 an hour awake, so every job is refused as tired). Both rows are printed by the script. Materials: the three-visit player gets 1.5 to 1.9 of each material a day, so Comfy Bed (3 Fiber, 2 Wood) is about 2 days of Fiber and 1.3 days of Wood, and the mat (3 Fiber, 2 Herbs) about 2 and 1.3: the material side stays inside the coin side's 2 to 3 days. **A "day" in the spec's tiers is the three-visit player's 12 coins.** The prices, all `[tune]`: Wallpaper: Meadow 12 coins + 2 Herbs; Wallpaper: Dusk 12 coins + 2 Stone; Feeding Mat 25 coins + 3 Fiber + 2 Herbs; Comfy Bed 35 coins + 3 Fiber + 2 Wood. The section 5 drafts (60, 50, 30, 30) were about 5, 4 and 2.5 days for that player.
+
+**What each item does** (`data/shop.ts` holds the numbers; `game/shop.ts` the rules):
+- **Comfy Bed:** while the creature sleeps at home (night or nap, and not away on a job: `updateSleep` sets `sleep` to `night` even for a creature out working, and that one is not in its bed), happiness falls half as fast as it does now (`tuning.shop.bedHappinessFactor` 0.5, times the asleep rate that `asleepDecayFactor` gives). Nothing else changes. It is drawn in the room (a bigger quilt and a second pillow on the bed).
+- **Feeding Mat:** a meal counts as a hunger cell (young stage) when hunger was under 95 before it, rose, and ended at **90 or more** (`tuning.shop.matHungerGrace` 5) instead of 95 or more. It never counts less than without the mat. A meal that did not raise hunger counts nothing (a pet at hunger 92 must not count: `touch` calls `countCareCells` with an unchanged hunger, so the rule gets a "rose" check). The refusal line (95) is unchanged. The Growth Forecast's hunger-cell note says 90 when the mat is owned. It is drawn in the room under the bowl.
+- **Wallpaper: Meadow / Dusk:** recolour the wall. `wall` names the one shown (null: the original). Buying a wallpaper shows it; "Use" and "Stop using" on an owned wallpaper switch.
+
+**New saved state** (all with a default in `migrateSave`, as `retired` was): `owned: string[]` (known ids, no duplicates, in the order bought), `wall: string | null` (an owned wallpaper or null), `lastBuy: { item: string; at: number; wall: string | null } | null` (the one purchase that can still be undone; `wall` is what was shown before it). About 100 bytes. The save stays version 3.
+
+**Rules** (`game/shop.ts`):
+- `buy(save, id, nowMs)`: catches the save up first (a job that ends before now pays first), then refuses in this order: `unknown`, `owned`, `poor` (coins or any material short); otherwise spends coins and each material in one step, adds the id to `owned`, sets `wall` if it is a wallpaper, sets `lastBuy`, logs `Bought <name>`. A refusal changes nothing except what the catch-up itself did (the buy catches up first, so a test copies the save after `simulateTo` at the same moment, or uses `nowMs` equal to `lastSimulatedAt`, and compares against that copy).
+- `undoBuy(save, nowMs)`: catches up, then if `lastBuy` exists and `0 <= nowMs - lastBuy.at <= 10000` it gives back exactly the price, removes the item, restores `wall` if the item was the wall shown, clears `lastBuy` and logs `Undid <name>`; otherwise it returns `late` (and clears `lastBuy`) or `none`. A clock set back (negative time since) is `late`, so the window is never longer than 10 seconds.
+- `useWall(save, id | null)`: only an owned wallpaper or null; returns whether it changed.
+- Everything works in any phase (a retired adult has coins and an egg).
+- The shop is the fourth button of the nav in Adult Mode ("Built differently" below) and nowhere in Kid Mode. What a player owns works in Kid Mode too (decision 1).
+
+**Where the new inputs go (every caller, from a grep; review finding list in progress.md).** The owned list is `save.owned`; a helper `game/perks.ts` turns it into the two numbers (`bedFactor(owned)`, `hungerGrace(owned)`), so no screen or rule reads item ids itself.
+- **The simulation:** `statChangePerMinute(c, stat, asleep, owned = none)` (care.ts:60) is called by `decayStats` (care.ts:74), which `stepCare(save, ...)` calls (care.ts:20, from sim.ts:55): `stepCare` passes `save.owned` into `decayStats`. Without this the bed would show in the HUD and never act in play.
+- **The HUD** (`hud.ts`: `timeToEmpty`:113, `cellSpan`:123, `minutesUntilItEats`:132, `detailLines`:160) each take `owned` and pass it on; their callers in `ui/AdultHud.tsx` (:138, :176) pass `save.owned`. `mostMeals` in forecast.ts uses the awake hunger rate, which no item changes, and stays as it is.
+- **The Growth Forecast:** `forecast`, `rowsOf` and `whatIf` (forecast.ts:416, :111, :191) take `owned` for the hunger-cell note (95 or 90); callers `ui/ForecastPanel.tsx` (:84, :86).
+- **Hunger cells:** `countCareCells(c, hungerBefore, happinessBefore, grace = 0)` (growth.ts:81); the callers `feed` (actions.ts:74) and `touch` (actions.ts:194) pass `hungerGrace(save.owned)`. The three-argument calls in tests/growth.test.ts keep working (grace defaults to 0).
+- **The room:** `drawRoom(ctx, hour, look)` (room.ts:20) with `look = { wall, bed, mat }` read from the save by `scene.ts:67`, its only caller. The bed's quilt and second pillow are drawn inside the bed's footprint (`BED_WIDTH` 56 from `bedLeft` 68, layout.ts:5 and :14), so a creature on the bed is not covered; the mat sits on the floor under the bowl (x 9 to 28), where nothing else is drawn.
+- **The panel:** `App.tsx`'s `panel` union (:53) gets `"shop"`; `Nav` gets an `onShop` prop (the first plan put the button in the Adult strip beside `onBook`).
+- **The undo countdown reads game time** (`game.now()`), the clock the rule uses, so a dev time skip cannot split them.
+
+### Edge cases (a test for each; "(b)" is a browser check)
+
+1. Exactly the price in coins and in every material: buys and leaves 0. One coin short, and one short in each of the five materials: `poor`, save deep-equal to the caught-up save (see Rules). A bag with a missing material key (`inventory` is a partial record): reads as 0 for the check, and a refund creates the key.
+2. Unknown id, owned id: refused with the right word, nothing charged or changed. Poor on a material with the coins fine: nothing spent.
+3. Two quick buys of the same item: one charge. Two different items: both, and `lastBuy` is the second; undo takes back only the second.
+4. A job ends during the catch-up and makes the item affordable: the buy succeeds.
+5. Undo at 0 s, at exactly 10.000 s (allowed), at 10.001 s (`late`, `lastBuy` cleared); a clock set back (negative); a clock a day ahead; undo twice (`none`); undo after a JSON round trip; undo then buy again; refund is exactly the price (equal to the save before the buy, apart from the log).
+6. Undo of a wallpaper restores the wall that was shown; undo of another item does not touch `wall`.
+7. `useWall`: owned wallpaper, null (original), a wallpaper not owned (refused), a non-wallpaper id (refused).
+8. `migrateSave`: no `owned`, `wall` or `lastBuy` (defaults); unknown ids, duplicates, numbers and nested junk dropped; `wall` not owned becomes null; `lastBuy` with a bad shape, an unknown or unowned item, or `at` NaN/Infinity becomes null; never throws; the older app dropping an id it does not know is a known issue.
+9. `isUntouched` is false for an otherwise untouched egg save that owns an item or has a `lastBuy`.
+10. Comfy Bed: asleep happiness falls at half the rate (night and nap), awake happiness, hunger, hygiene and energy do not change; the effect is tested through `stepCare` / `simulateTo` (the simulation, not only `statChangePerMinute`); `cellSpan` and `detailLines` equal the minutes the simulation takes; it applies with Adult Mode off; a creature asleep at night but away on a job gets no bonus, and the same creature at home does.
+11. Feeding Mat (cells): a meal ending at exactly 90 counts, at 89.99 does not (with the mat); without the mat the line stays 95; a meal that did not rise counts nothing (pet at 92, with and without the mat); every meal that counts without the mat counts with it (a sweep of starts and foods); the cell cap holds; no effect outside the young stage; the forecast note reads 90 and 95.
+12. No creature (egg, dead): buying and undoing work and nothing reads a missing creature.
+13. Kid Mode with nothing owned looks and plays as before (the Kid comparison, 0 differences against `origin/main`); a Kid save that owns the bed shows the bed (a check).
+14. (b) The panel opens at 320, 360 and 390 wide (ratio 1 and 2), no sideways scroll, no clipped text (Range), every button 44 px or more, the nav's four buttons fit inside the window with their words (the header is unchanged: the Shop button is in the nav); Buy spends exactly; poor shows the reason in words and is `aria-disabled`; two quick taps charge once; Undo shows a countdown, works at 9 s and is gone at 11 s (fake clock); the preview changes with the card chosen and the room shows the wall bought (a canvas pixel read against a literal colour); a reload keeps `owned` and the wall.
+15. The panel is a view: closing it by the Close button leaves the save as it was (no panel in the game handles Escape); nothing is bought by opening it.
+16. Feeding Mat (refusal): with the mat, a feed at hunger 94 is accepted and at 95 refused (the grace never reaches the refusal line, `availability.ts:21`); the pet at hunger 92 with the mat counts nothing.
+17. The room: `drawRoom` draws the wall, bed and mat from `look` (pixel reads against literals at fixed points); the quilt stays inside the bed's 56 wide footprint; a save with no `look` items draws the room exactly as `main` does (a pixel-for-pixel comparison with the unchanged drawing).
+
+### Mutation targets (each must fail its named check)
+
+Unit: `>=` to `>` on a coin price; the material check removed; one material not taken; refund without materials; refund of the wrong item; window `<=` to `<`; negative elapsed allowed; the catch-up before a buy removed; wall not restored on undo; unknown ids kept by `migrateSave`; `wall` not checked against `owned`; `isUntouched` ignoring `owned`; the bed factor applied awake; the bed factor applied to hunger; the mat's "rose" check removed; the mat grace 5 to 0; `statChangePerMinute` called without `owned` in `hud.ts`; `decayStats` ignoring `owned`; the bed bonus given to a creature away on a job; `undoBuy` without its catch-up; the inventory read without a default for a missing key; the mat's grace reaching the refusal line (fails edge 16); the forecast note ignoring the mat. Screen: Buy enabled when poor; the Undo bar never expiring; a Shop button in Kid Mode; the preview ignoring the chosen card; the room ignoring `wall`; the room ignoring the bed; a second tap buying twice.
+
+### Verification plan
+
+The same as A2.1, with the Kid comparison on the Kid room, the Kid header, the habitat and the arena (the Shop button is in the nav, which those four pages show): the contact sheet first (every panel state and every look of the room at three widths), then typecheck, tests, build (warnings compared with `origin/main`, the bundle against 600 kB), the browser checks, both mutation runs, the Kid comparison; a cheap-model reviewer reads this plan, then the code, then the scripts, before each run.
+
+### Built differently (2026-11-23, found on the contact sheet and in review; the sections above are the plan as first written, corrected where it was a fact)
+
+- **The Shop button is the fourth nav button, not in the header.** A text button in the bag row grew the header at 360 and 390 and squeezed the chips beside a Switch button; an icon in the first row squeezed the name block at 320 (the stage line wrapped, "Hollowbloom" was cut). The nav has room (about 66 px a button at 320), so edge 14's header check became a nav check (every button inside the window, 44 px high, each word inside its button). The nav is shown only for a living creature, so the shop does not open during the egg and dead phases (the rules work in any phase).
+- **Escape:** no panel in the game handles it, so edge 15 says the Close button only.
+- **The wallpaper on the wall is `save.wall`; the undo remembers the wall that was shown before** (`lastBuy.wall`) and puts it back only if the wall still shows the item.
+- **Prices** are the ones in `data/shop.ts` (`[tune]`), set from the measured day (decision 5): Comfy Bed 35 coins, 3 Fiber, 2 Wood; Feeding Mat 25 coins, 3 Fiber, 2 Herbs; each wallpaper 12 coins and 2 Herbs (Meadow) or 2 Stone (Dusk).
+- **A2.2a leaves Fish unspent;** A2.2b gives it its uses.

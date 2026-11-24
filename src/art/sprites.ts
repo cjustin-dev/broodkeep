@@ -34,6 +34,7 @@ export type IconName =
   | "medicine"
   | "settings"
   | "book"
+  | "shop"
   | "pellet"
   | "treat"
   | "meat"
@@ -180,6 +181,17 @@ export const icons: Record<IconName, Sprite> = {
     "DRCCCCR.",
     "DRRRRRR.",
     ".DDDDDD.",
+  ]),
+  // A market stall: a striped awning over a counter with a gold coin on it.
+  shop: icon([
+    "RWRWRWRW",
+    "RWRWRWRW",
+    ".RWRWRW.",
+    ".N....N.",
+    ".N.YY.N.",
+    ".N.YY.N.",
+    ".NNNNNN.",
+    "........",
   ]),
   pellet: icon([
     "........",

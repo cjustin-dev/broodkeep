@@ -2,6 +2,8 @@
 // a bed, a food bowl and a rug. PLACEHOLDER ART made from simple rectangles.
 // Phase 4 replaces this with a room you can decorate.
 
+import { plainWall, walls } from "../data/shop";
+import type { Save } from "../game/state";
 import { BED_WIDTH, ROOM } from "./layout";
 
 function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number): void {
@@ -17,11 +19,23 @@ export function sky(hour: number): { color: string; body: "sun" | "moon"; stars:
   return { color: "#1d2b53", body: "moon", stars: true };
 }
 
-export function drawRoom(ctx: CanvasRenderingContext2D, hour: number): void {
-  // Wall with soft stripes.
-  rect(ctx, "#efe3f7", 0, 0, ROOM.w, ROOM.floorTop);
-  for (let x = 0; x < ROOM.w; x += 10) rect(ctx, "#e4d3f0", x, 0, 5, ROOM.floorTop);
-  rect(ctx, "#8a6bd1", 0, ROOM.floorTop - 4, ROOM.w, 4); // baseboard
+// What the shop changed in the room (data/shop.ts): the wallpaper on the wall (null: the plain wall), and whether the Comfy Bed and the Feeding Mat are in.
+export interface Look {
+  wall: string | null;
+  bed: boolean;
+  mat: boolean;
+}
+
+export const plainLook: Look = { wall: null, bed: false, mat: false };
+
+export const lookOf = (save: Save): Look => ({ wall: save.wall, bed: save.owned.includes("comfy-bed"), mat: save.owned.includes("feeding-mat") });
+
+export function drawRoom(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
+  // Wall with soft stripes (a wallpaper changes the three colours).
+  const wall = look.wall !== null && Object.hasOwn(walls, look.wall) ? walls[look.wall as keyof typeof walls] : plainWall;
+  rect(ctx, wall.base, 0, 0, ROOM.w, ROOM.floorTop);
+  for (let x = 0; x < ROOM.w; x += 10) rect(ctx, wall.stripe, x, 0, 5, ROOM.floorTop);
+  rect(ctx, wall.board, 0, ROOM.floorTop - 4, ROOM.w, 4); // baseboard
 
   // Wooden floor.
   rect(ctx, "#d9a066", 0, ROOM.floorTop, ROOM.w, ROOM.h - ROOM.floorTop);
@@ -47,6 +61,12 @@ export function drawRoom(ctx: CanvasRenderingContext2D, hour: number): void {
   rect(ctx, "#e58aa5", 30, 104, 58, 20);
   rect(ctx, "#c85a7c", 33, 107, 52, 14);
 
+  // Feeding Mat, under the bowl (drawn first, so the bowl sits on it).
+  if (look.mat) {
+    rect(ctx, "#b98a2c", 5, 116, 28, 6);
+    rect(ctx, "#f2d27a", 6, 117, 26, 4);
+  }
+
   // Food bowl.
   rect(ctx, "#6a7fd1", 9, 108, 19, 8);
   rect(ctx, "#8aa0f0", 11, 108, 15, 3);
@@ -57,6 +77,12 @@ export function drawRoom(ctx: CanvasRenderingContext2D, hour: number): void {
   rect(ctx, "#8a5a3a", bed, ROOM.bedY + 10, BED_WIDTH, 14); // frame
   rect(ctx, "#6d86e0", bed + 1, ROOM.bedY + 8, BED_WIDTH - 2, 10); // mattress
   rect(ctx, "#ffffff", bed + 2, ROOM.bedY + 6, 10, 6); // pillow
+  if (look.bed) {
+    // Comfy Bed: a second pillow and a quilt, all inside the bed's own width.
+    rect(ctx, "#ffe9f0", bed + 13, ROOM.bedY + 7, 8, 5);
+    rect(ctx, "#e0708f", bed + 22, ROOM.bedY + 6, BED_WIDTH - 24, 11);
+    rect(ctx, "#f7b3c6", bed + 22, ROOM.bedY + 9, BED_WIDTH - 24, 2);
+  }
   rect(ctx, "#8a5a3a", bed, ROOM.bedY + 22, 3, 3);
   rect(ctx, "#8a5a3a", bed + BED_WIDTH - 3, ROOM.bedY + 22, 3, 3);
 }

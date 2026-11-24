@@ -78,9 +78,11 @@ export function countServing(c: Creature, food: FoodId): void {
 
 // Call after anything that fills hunger or happiness, with the values from before. A hunger cell is a feeding that took
 // hunger from below the full line to the line or above. A happy cell is happiness reaching 100 from below. Young stage only.
-export function countCareCells(c: Creature, hungerBefore: number, happinessBefore: number): void {
+// `grace` (the Feeding Mat, game/perks.ts) lets a meal count when it ends that far under the line; the meal must still have raised hunger, so a pet
+// at hunger 92 (which calls this with hunger unchanged) counts nothing.
+export function countCareCells(c: Creature, hungerBefore: number, happinessBefore: number, grace = 0): void {
   if (getForm(c.formId).stage !== "young") return;
-  if (hungerBefore < tuning.fullAtHunger && c.stats.hunger >= tuning.fullAtHunger) {
+  if (hungerBefore < tuning.fullAtHunger && c.stats.hunger > hungerBefore && c.stats.hunger + grace >= tuning.fullAtHunger) {
     c.counters.hungerCells = Math.min(g.careCellsMax, c.counters.hungerCells + 1);
   }
   if (happinessBefore < 100 && c.stats.happiness >= 100) {

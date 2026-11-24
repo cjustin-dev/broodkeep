@@ -15,7 +15,7 @@ import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
 import { drawField } from "./field";
 import { drawMomentOver, drawMomentUnder } from "./moment";
-import { drawRoom } from "./room";
+import { drawRoom, lookOf } from "./room";
 
 // What the creature is looking like it feels, from the save. Used to steer the idle movement.
 export function moodOf(save: Save): Mood {
@@ -64,7 +64,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
   const c = save.creature;
   const alive = save.phase === "alive" && c;
   // A living creature that is out in a field (and not away on a job) is drawn in the field. Anything else is the room.
-  if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hourOf(gameNowMs));
+  if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hourOf(gameNowMs), lookOf(save));
 
   // Poop on the floor.
   if (alive) {

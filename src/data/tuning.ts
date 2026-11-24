@@ -105,6 +105,16 @@ export const tuning = {
     neglectHours: 4,
   },
 
+  // The shop (adult track A2.2a, docs/adult-a2-plan.md section 9). Every number is `[tune]`.
+  shop: {
+    // How long after a purchase it can be undone for a full refund (game time, in seconds).
+    undoSeconds: 10,
+    // Comfy Bed: while the creature sleeps at home, happiness falls this much of its asleep rate (the rate asleepDecayFactor gives).
+    bedHappinessFactor: 0.5,
+    // Feeding Mat: a meal counts as a hunger cell when hunger ends this far under the full line or higher (it must still have risen).
+    matHungerGrace: 5,
+  },
+
   // The dev log keeps this many lines.
   logMax: 300,
 };

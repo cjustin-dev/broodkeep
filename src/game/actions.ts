@@ -15,6 +15,7 @@ import { cleanRefusal, feedRefusal, goRefusal, lightsRefusal, medicineRefusal } 
 import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefusal } from "./availability";
 import { countCareCells, countServing, noteCare } from "./growth";
 import { beginJob, endJobEarly, jobRefusal } from "./habitat/jobs";
+import { hungerGrace } from "./perks";
 import type { JobRefusal } from "./habitat/jobs";
 import { retireRefusal } from "./retire";
 import type { RetireRefusal } from "./retire";
@@ -71,7 +72,7 @@ export function feed(save: Save, foodId: FoodId, nowMs: number): FeedResult {
   c.stats.happiness = clamp(c.stats.happiness + food.happiness);
   c.stats.wellness = clamp(c.stats.wellness + food.wellness);
   countServing(c, foodId);
-  countCareCells(c, hungerBefore, happinessBefore);
+  countCareCells(c, hungerBefore, happinessBefore, hungerGrace(save.owned));
   noteCare(c);
   c.digestQueue.push(rng.int(food.digestMinutes[0], food.digestMinutes[1]));
   save.rngState = rng.state();
@@ -191,7 +192,7 @@ export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   a.gained += gained;
   const happinessBefore = c.stats.happiness;
   c.stats.happiness = clamp(c.stats.happiness + gained);
-  countCareCells(c, c.stats.hunger, happinessBefore); // (hunger did not change, so it cannot count)
+  countCareCells(c, c.stats.hunger, happinessBefore, hungerGrace(save.owned)); // (hunger did not change, so it cannot count, mat or no mat)
   return { gained, asleep: false };
 }
 
