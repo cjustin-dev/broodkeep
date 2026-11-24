@@ -4,6 +4,7 @@
 
 import { habitatTuning, spots } from "../../data/habitat";
 import type { SpotId } from "../../data/habitat";
+import { noteRequest } from "../requests";
 import type { Rng } from "../rng";
 import { logEvent } from "../state";
 import type { Creature, Save } from "../state";
@@ -52,6 +53,7 @@ export function stepJob(save: Save, rng: Rng, t: number): void {
   c.job = null;
   bringHome(save, job.spot, t, coins, amount);
   logEvent(save, t, `Came back from the ${spot.name} with ${coins} coins and ${amount} ${spot.material}`);
+  noteRequest(save, { kind: "job", spot: job.spot }, t); // a finished job only: a call back does not come through here
 }
 
 // Put a haul into the bag and into the "welcome back" list (the oldest card is forgotten past the limit; its coins are already in the bag).

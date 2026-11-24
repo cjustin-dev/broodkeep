@@ -6,6 +6,8 @@ import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
 import { isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
+import { freshBoard, migrateBoard } from "./board";
+import type { Board } from "./board";
 import { makeRng } from "./rng";
 import type { CombatStat, EggPattern, FieldId, FoodId, Place } from "./types";
 
@@ -119,6 +121,7 @@ export interface Save {
   owned: string[]; // what the player bought in the shop (data/shop.ts ids), in the order bought, no duplicates (game/shop.ts)
   wall: string | null; // the wallpaper shown in the room: an owned wallpaper, or null for the plain wall
   lastBuy: LastBuy | null; // the purchase that can still be undone, for `tuning.shop.undoSeconds`
+  board: Board; // the request board (game/requests.ts): up to 3 requests and the slots of the finished ones; empty until Adult Mode has dealt it
 }
 
 export function freshCounters(): Counters {
@@ -161,6 +164,7 @@ export function newSave(nowMs: number, seed: number): Save {
     owned: [],
     wall: null,
     lastBuy: null,
+    board: freshBoard(),
   };
   logEvent(save, nowMs, "A new egg appeared");
   return save;
@@ -228,5 +232,7 @@ export function migrateSave(value: unknown): Save | null {
           wall: value.lastBuy.wall !== null && value.owned.includes(value.lastBuy.wall) ? value.lastBuy.wall : null,
         }
       : null;
+  // A save from before the request board has none. A bad entry is dropped and the slots are capped (game/board.ts); it must never throw.
+  value.board = migrateBoard(value.board);
   return value;
 }

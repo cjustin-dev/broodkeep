@@ -6,6 +6,7 @@ import { forms, getForm } from "../../data/forms";
 import { specialId } from "../../data/special";
 import { spotIds, spots } from "../../data/habitat";
 import type { MaterialId } from "../../data/habitat";
+import { noteRequest } from "../requests";
 import { makeRng } from "../rng";
 import { logEvent } from "../state";
 import type { Creature, Save } from "../state";
@@ -111,5 +112,6 @@ export function finishFight(save: Save, c: Creature, battle: Battle, nowMs: numb
   }
   c.rung = boss ? 1 : rungOf(c) + 1;
   logEvent(save, nowMs, `Beat the wild ${getForm(battle.foe.formId).name}${boss ? " (the boss)" : ""}: ${result.coins} coins`);
+  noteRequest(save, { kind: "fight" }, nowMs);
   return result;
 }

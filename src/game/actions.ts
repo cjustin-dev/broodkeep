@@ -20,6 +20,7 @@ import { countCareCells, countServing, noteCare } from "./growth";
 import { beginJob, endJobEarly, jobRefusal } from "./habitat/jobs";
 import { hungerGrace } from "./perks";
 import type { JobRefusal } from "./habitat/jobs";
+import { noteRequest } from "./requests";
 import { retireRefusal } from "./retire";
 import type { RetireRefusal } from "./retire";
 import { hatchIfReady, simulateTo } from "./sim";
@@ -82,6 +83,7 @@ export function feed(save: Save, foodId: FoodId, nowMs: number, dish?: DishId): 
   c.digestQueue.push(rng.int(food.digestMinutes[0], food.digestMinutes[1]));
   save.rngState = rng.state();
   logEvent(save, nowMs, `Ate ${dish !== undefined ? items[dish].name : food.name}`);
+  noteRequest(save, { kind: "feed", food: foodId }, nowMs); // a dish meal is a meal of its food
   return "ate";
 }
 

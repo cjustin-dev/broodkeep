@@ -13,6 +13,7 @@ import type { Battle, BattleAction } from "../game/combat/battle";
 import type { FightResult } from "../game/combat/fight";
 import { advanceClock } from "../game/dev";
 import { isAdultMode } from "../game/hud";
+import { paidNote } from "../game/requests";
 import { simulateTo } from "../game/sim";
 import type { Creature, Save } from "../game/state";
 import { gameNow } from "../game/time";
@@ -43,6 +44,7 @@ export class Game {
   private saveTimer: number | undefined;
   private noteTimer: number | undefined;
   private playerChanged = false; // something the player did since the last save (not just the clock moving on)
+  private seenDone: number; // how many requests had been paid when the screens last looked (board.done): a new payment gets a note
 
   // saveKey: where this game is kept on the device ("save" is the first profile's, see sync/roster.ts).
   constructor(
@@ -50,6 +52,7 @@ export class Game {
     private readonly saveKey = "save",
   ) {
     this.save = save;
+    this.seenDone = save.board.done;
     this.view.shown = shownOf(save); // so a hatch or evolution that happens during the catch-up still plays
     this.tick(); // catch up on any time the app was closed
   }
@@ -167,6 +170,7 @@ export class Game {
     if (byPlayer) this.playerChanged = true;
     if (this.screen !== "room" && this.save.phase !== "alive") this.screen = "room"; // an egg or a death goes back to the room, and stays there when the next creature hatches
     if (this.save.phase !== "alive" || !isAdultMode(this.save)) this.dropNote(); // a note is about the creature that was there, and Adult Mode's
+    this.announceRequests();
     const c = this.save.creature;
     if (this.arena && (this.save.phase !== "alive" || c?.formId !== this.arena.battle.me.formId)) this.arena = null; // the creature is gone or has evolved: that fight is over
     this.listeners.forEach((listener) => listener());
@@ -190,6 +194,7 @@ export class Game {
 
   replaceSave(save: Save): void {
     this.save = save;
+    this.seenDone = save.board.done; // a game put in from the account is not announced
     this.screen = "room";
     this.arena = null;
     this.view.moment = null; // a scene belongs to the old game
@@ -198,6 +203,14 @@ export class Game {
     this.lastReal = Date.now();
     this.devSpeed = 1;
     this.changed(false);
+  }
+
+  // Adult Mode: one note over the room for the requests paid since the last look, whether the player did it or time passing did (the catch-up
+  // after the app was closed too). Only the count is compared: the note itself is said like any other (say() never goes through changed()).
+  private announceRequests(): void {
+    const { done, waits } = this.save.board;
+    if (done > this.seenDone) this.say(paidNote(waits, done - this.seenDone));
+    this.seenDone = done;
   }
 
   private scheduleSave(): void {

@@ -1,5 +1,5 @@
 // The Shop (Adult Mode): what the coins and materials buy. A preview of the room with the chosen item, the wallet, a 10 second undo after a buy, and
-// a card for each item. The rules are in game/shop.ts; the list and the prices in data/shop.ts. The plan is docs/adult-a2-plan.md, section 9.
+// a card for each item. A second tab, Requests, is the request board (ui/RequestsTab.tsx), beside the shop (the nav row has no room for a fifth button). The rules are in game/shop.ts; the list and the prices in data/shop.ts. The plan is docs/adult-a2-plan.md, section 9.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { drawRoom, lookOf } from "../art/room";
 import type { Look } from "../art/room";
@@ -13,6 +13,7 @@ import type { Save } from "../game/state";
 import { useSecond } from "./AdultHud";
 import type { Game } from "./game";
 import { Icon } from "./Icon";
+import { RequestsTab } from "./RequestsTab";
 
 // The room as it would look with one item added to what the player has (an owned item shows as it is).
 function lookWith(save: Save, id: ItemId): Look {
@@ -104,11 +105,21 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);
   const [picked, setPicked] = useState<ItemId>(itemIds[0]!);
+  const [tab, setTab] = useState<"items" | "requests">("items");
   const { save } = game;
   const now = game.now();
   const left = undoLeftMs(save, now);
   const last = save.lastBuy && left !== null ? items[save.lastBuy.item as ItemId] : null;
   const seconds = left === null ? 0 : Math.ceil(left / 1000);
+  // The undo is on both tabs: a purchase that counts toward a request can be undone from either one while its 10 seconds last.
+  const undoBar = last && (
+    <div class="shop-undo" role="status">
+      <span>Bought {last.name}.</span>
+      <button class="btn card-btn" aria-label={`Undo ${last.name}, ${seconds} seconds left`} onClick={() => game.act((s, at) => undoBuy(s, at))}>
+        Undo ({seconds}s)
+      </button>
+    </div>
+  );
 
   return (
     <section class="panel" role="dialog" aria-label="Shop">
@@ -131,25 +142,31 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
             </span>
           ))}
         </div>
-        <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />
-        <p class="shop-hint">Tap an item to see it in the room.</p>
-        {last && (
-          <div class="shop-undo" role="status">
-            <span>Bought {last.name}.</span>
-            <button
-              class="btn card-btn"
-              aria-label={`Undo ${last.name}, ${seconds} seconds left`}
-              onClick={() => game.act((s, at) => undoBuy(s, at))}
-            >
-              Undo ({seconds}s)
-            </button>
-          </div>
+        <div class="shop-tabs" role="group" aria-label="Show">
+          <button class="btn small" aria-pressed={tab === "items"} onClick={() => setTab("items")}>
+            Items
+          </button>
+          <button class="btn small" aria-pressed={tab === "requests"} onClick={() => setTab("requests")}>
+            Requests
+          </button>
+        </div>
+        {tab === "requests" ? (
+          <>
+            {undoBar}
+            <RequestsTab game={game} />
+          </>
+        ) : (
+          <>
+            <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />
+            <p class="shop-hint">Tap an item to see it in the room.</p>
+            {undoBar}
+            <ul class="shop-list">
+              {itemIds.map((id) => (
+                <ItemCard key={id} id={id} game={game} selected={picked === id} onPick={() => setPicked(id)} />
+              ))}
+            </ul>
+          </>
         )}
-        <ul class="shop-list">
-          {itemIds.map((id) => (
-            <ItemCard key={id} id={id} game={game} selected={picked === id} onPick={() => setPicked(id)} />
-          ))}
-        </ul>
       </div>
     </section>
   );

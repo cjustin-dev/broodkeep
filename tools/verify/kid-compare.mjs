@@ -39,7 +39,7 @@ const SETTLE_MS = 300;
 const PAGE_TIMEOUT_MS = 90_000;
 const MAX_DIFF_LINES = 5;
 
-const SAVE_NAMES = ["adult-home", "young-home", "kid-home", "adult-away", "egg"];
+const SAVE_NAMES = ["adult-home", "young-home", "kid-home", "kid-board", "adult-away", "egg"];
 const SIZES = [
   [320, 568],
   [360, 640],
@@ -86,7 +86,7 @@ function parseArgs(argv) {
   return out;
 }
 
-// The five Kid saves. Read here only to decide which screens exist for each save (the page is never asked).
+// The six Kid saves. Read here only to decide which screens exist for each save (the page is never asked).
 function loadSave(name) {
   const save = JSON.parse(readFileSync(join(SAVES, `${name}-kid.json`), "utf8"));
   if (save.settings && save.settings.adultMode === true) throw new Error(`${name}-kid.json has adultMode on`);

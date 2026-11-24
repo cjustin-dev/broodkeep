@@ -4,6 +4,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { migrateBoard } from "../../src/game/board";
 import { discover } from "../../src/game/book";
 import { makeCreature } from "../../src/game/sim";
 import { newSave } from "../../src/game/state";
@@ -57,6 +58,25 @@ const scenarios: Record<string, (mode: Mode) => Save> = {
   "kid-home": (mode) => {
     const save = living(mode, KID);
     save.creature!.stageStartedAt = T - 3 * 60 * MINUTE; // a kid's stage lasts 24 hours: this one is 3 hours in, so it does not grow up while the page is open
+    return save;
+  },
+  // A Land kid whose save holds a request board (a profile that was once in Adult Mode, A2.3): a Kid Mode page must look exactly as on main, and show nothing of it.
+  "kid-board": (mode) => {
+    const save = living(mode, KID);
+    save.creature!.stageStartedAt = T - 3 * 60 * MINUTE;
+    // Ids rise with the draws (the 8th draw, number 7, carries an item) and the oldest request is first, as the game writes them.
+    save.board = {
+      open: [
+        { id: 7, type: "feed", target: "meat", have: 1, item: "stew", drewAt: T - 2 * 60 * MINUTE },
+        { id: 8, type: "field", target: "land", have: 7, item: null, drewAt: T - 60 * MINUTE },
+        { id: 9, type: "job", target: "meadow", have: 0, item: null, drewAt: T - 30 * MINUTE },
+      ],
+      waits: [],
+      drawn: 10,
+      done: 5,
+    };
+    // The page drops a board entry it cannot read, and then the Kid pages would compare equal without the board in the save: the board must survive as written.
+    if (JSON.stringify(migrateBoard(JSON.parse(JSON.stringify(save.board)))) !== JSON.stringify(save.board)) throw new Error("kid-board: the board does not survive migrateBoard");
     return save;
   },
   "adult-away": (mode) => {
