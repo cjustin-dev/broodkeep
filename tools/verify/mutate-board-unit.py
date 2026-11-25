@@ -107,8 +107,8 @@ MUTANTS = [
     dict(id="duplicate-type-target-allowed", file=F_REQ, old="  return pool.filter((target) => !named.has(target));", new="  return pool;", expect=NODUP),
     dict(id="buy-names-owned-item", file=F_REQ, old="!save.owned.includes(id) && !carried.has(id) && payable(save, c, id));", new="!carried.has(id) && payable(save, c, id));", expect=NODUP),
     dict(id="buy-names-reward-item", file=F_REQ, old="!save.owned.includes(id) && !carried.has(id) && payable(save, c, id));", new="!save.owned.includes(id) && payable(save, c, id));", expect=TWO_LEFT),
-    dict(id="reward-item-may-be-owned", file=F_REQ, old="const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id));", new="const pool = itemIds.filter((id) => !named.has(id));", expect=NODUP),
-    dict(id="reward-item-may-be-a-buy-target", file=F_REQ, old="const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id));", new="const pool = itemIds.filter((id) => !save.owned.includes(id));", expect=TWO_LEFT),
+    dict(id="reward-item-may-be-owned", file=F_REQ, old="const pool = itemIds.filter((id) => items[id].kind !== \"room\" && !save.owned.includes(id) && !named.has(id));", new="const pool = itemIds.filter((id) => items[id].kind !== \"room\" && !named.has(id));", expect=NODUP),
+    dict(id="reward-item-may-be-a-buy-target", file=F_REQ, old="const pool = itemIds.filter((id) => items[id].kind !== \"room\" && !save.owned.includes(id) && !named.has(id));", new="const pool = itemIds.filter((id) => items[id].kind !== \"room\" && !save.owned.includes(id));", expect=TWO_LEFT),
     dict(id="rhythm-off-by-one", file=F_REQ, old="board.drawn % requestTuning.itemEvery === requestTuning.itemEvery - 1", new="board.drawn % requestTuning.itemEvery === requestTuning.itemEvery - 2", expect=RHYTHM),
     dict(id="item-never-drawn", file=F_REQ, old="if (pool.length > 0) item = rng.pick(pool);", new="if (pool.length > 0) item = null;", expect=RHYTHM),
     # the refill (edge 6)

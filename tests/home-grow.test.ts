@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BASE_ROOMS, COLS, PARTITIONS, ROOMS, STARTER, coerceHome, colsOf, isBuilt, roomsBuilt, wallRoomOf, withoutRoom } from "../src/data/home";
 import type { HomeSave, Layout } from "../src/data/home";
-import { HOME, bedFront, findPath, isFloor, layoutInForce, reachableFrom, roomsInForce, startAnchor, useLayout, withLayout } from "../src/art/home";
+import { HOME, bedFront, findPath, isFloor, layoutInForce, reachableFrom, roomOf, roomsInForce, startAnchor, useLayout, withLayout } from "../src/art/home";
 import { drop, follow, nearestSpot } from "../src/art/homeEdit";
 import { layoutOf, layoutOfSave, problemWith } from "../src/art/homeLayout";
 import { createView, reseat } from "../src/art/idle";
@@ -50,6 +50,7 @@ describe("how many rooms are built", () => {
     ]);
     expect(PARTITIONS).toEqual([10, 21, 32]);
     expect([items["room-play"].kind, items["room-play"].name, isRoomItemId("room-play"), isRoomItemId("hat-knit"), isRoomItemId("constructor")]).toEqual(["room", "Playroom", true, false, false]);
+    expect(items["room-play"].effect).toBe("A fourth room, to the right of the kitchen. It starts empty.");
   });
 });
 
@@ -91,6 +92,16 @@ describe("the floor and the width of the home in force (edges G2, G3, G19)", () 
       ),
     ).toThrow("x");
     expect([HOME.w, roomsInForce(), layoutInForce() === STARTER]).toEqual([768, 3, true]);
+    // a trial on fewer rooms than are in force puts the larger home back
+    useLayout(STARTER, 4);
+    expect(withLayout(STARTER, () => [HOME.w, roomsInForce()], 3)).toEqual([768, 3]);
+    expect([HOME.w, roomsInForce()]).toEqual([1032, 4]);
+  });
+
+  it("`roomOf` names the Playroom's columns once it is built, and with three rooms a position past the home is the kitchen's", () => {
+    expect([800, 1031, 5000].map(roomOf)).toEqual(["kitchen", "kitchen", "kitchen"]); // (columns 33, 42 and the clamp: the last column of three rooms is 31)
+    useLayout(STARTER, 4);
+    expect([767, 768, 791, 792, 1031, 5000, -5].map(roomOf)).toEqual(["kitchen", "kitchen", "kitchen", "playroom", "playroom", "playroom", "bedroom"]); // (column 32 is the partition: the kitchen's)
   });
 });
 
@@ -189,6 +200,17 @@ describe("a layout the new room breaks is mended, not thrown away (edge G5)", ()
     const saved = home({ bed: { col: 29, row: 4 } }); // columns 29 to 31, rows 4 and 5
     expect(layoutOf(saved, 3)).toEqual({ ...STARTER, bed: { col: 29, row: 4 } });
     expect(layoutOf(saved, 4)).toBe(STARTER);
+  });
+
+  it("breaks a tie between two pieces the same distance from the doorway by the pieces' own order, not by where they stand: the dresser goes before the table either way", () => {
+    // the dresser and the table are 2 x 2 at (30, 3) and (30, 5): their middles (31, 4) and (31, 6) are both 1.8 tiles from the doorway's middle (32.5, 5), and each leaves the other an approach tile
+    expect(layoutOf({ pieces: { dresser: { col: 30, row: 3 }, table: { col: 30, row: 5 } } }, 4)).toEqual({ ...STARTER, dresser: null, table: { col: 30, row: 5 } });
+    expect(layoutOf({ pieces: { table: { col: 30, row: 3 }, dresser: { col: 30, row: 5 } } }, 4)).toEqual({ ...STARTER, table: { col: 30, row: 3 }, dresser: null });
+  });
+
+  it("never puts the bed away even when it is the nearest piece to the doorway: the pieces that cut the room off go instead", () => {
+    // the bed at (28, 5) has its middle 3.2 tiles from the doorway's middle, nearer than the fridge (3.4) and the counter at (25, 3) (4.6), which are what is left to put away
+    expect(layoutOf({ pieces: { bed: { col: 28, row: 5 }, counter: { col: 25, row: 3 } } }, 4)).toEqual({ ...STARTER, bed: { col: 28, row: 5 }, counter: null, fridge: null });
   });
 
   it("is the same layout object each time for the same home and rooms, and a different one for different rooms", () => {
@@ -320,6 +342,10 @@ describe("what is saved about a room (edges G7, G12)", () => {
     save.owned = ["wall-dusk", "room-play"];
     save.home = { pieces: {}, walls: { playroom: null } };
     expect([lookOf(save).rooms, lookOf(save).walls.playroom, lookOf(save).walls.living]).toEqual([4, null, "wall-dusk"]);
+    save.home = { pieces: { table: { col: 30, row: 4 } } };
+    expect(lookOf(save).layout.table).toBeNull(); // (the table closes the Playroom's doorway: it is drawn put away, as the walking reads it)
+    save.owned = ["wall-dusk"];
+    expect(lookOf(save).layout.table).toEqual({ col: 30, row: 4 });
   });
 });
 
@@ -382,6 +408,18 @@ describe("Decorate mode and the rooms built (edges G7, G8)", () => {
     expect(game.nudge(-1, 0)).toBe(false); // columns 32 and 33: the partition
     expect(game.nudge(1, 0)).toBe(true);
     expect(game.save.home?.pieces.dresser).toEqual({ col: 34, row: 3 });
+  });
+
+  it("a piece is put away, and nudged, while another stands in the Playroom (the rules are read with the rooms built)", () => {
+    start(["room-play"]);
+    game.save.home = { pieces: { dresser: { col: 36, row: 3 } } };
+    game.startDecor();
+    game.select("sofa");
+    expect(game.putAway()).toBe(true);
+    expect([game.save.home?.pieces.sofa, game.save.home?.pieces.dresser]).toEqual([null, { col: 36, row: 3 }]);
+    game.select("dresser");
+    expect(game.nudge(1, 0)).toBe(true);
+    expect(game.save.home?.pieces.dresser).toEqual({ col: 37, row: 3 });
   });
 
   it("with the room not built the same tray piece lands in the kitchen or earlier, never past column 31", () => {

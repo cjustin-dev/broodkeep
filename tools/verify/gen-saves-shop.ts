@@ -21,7 +21,7 @@ const ADULT = "gravelhorn";
 type Bag = Partial<Record<"fiber" | "herb" | "wood" | "fish" | "stone", number>>;
 
 // A living adult at home at T, well fed and rested, with the given wallet and shop state.
-function living(mode: Mode, wallet: { coins: number; bag: Bag }, shop: Partial<Pick<Save, "owned" | "wall" | "lastBuy" | "hat">> = {}, formId = ADULT): Save {
+function living(mode: Mode, wallet: { coins: number; bag: Bag }, shop: Partial<Pick<Save, "owned" | "wall" | "lastBuy" | "hat" | "home">> = {}, formId = ADULT): Save {
   const save = newSave(T, 1234);
   if (mode === "adult") save.settings.adultMode = true;
   const creature = makeCreature(formId, BORN, save.egg!.pattern);
@@ -80,6 +80,16 @@ Object.assign(scenarios, {
     return save;
   },
   "hat-exact": (mode: Mode) => living(mode, { coins: 12, bag: { fiber: 2 } }),
+  // The Playroom (H3, 36 coins + 4 Wood + 4 Stone): a wallet that pays exactly; one that bought it 3 seconds ago with a dresser put in it and Dusk on its wall (the undo has to put the
+  // dresser away and drop the wall entry); and one that owns it, with nothing to undo.
+  "room-exact": (mode: Mode) => living(mode, { coins: 36, bag: { wood: 4, stone: 4 } }),
+  "room-just-bought": (mode: Mode) =>
+    living(mode, { coins: 0, bag: {} }, {
+      owned: ["wall-dusk", "room-play"],
+      lastBuy: { item: "room-play", at: T - 3 * SECOND, wall: null },
+      home: { pieces: { dresser: { col: 36, row: 3 } }, walls: { playroom: "wall-dusk" } },
+    }),
+  "room-owned": (mode: Mode) => living(mode, { coins: 5, bag: {} }, { owned: ["room-play"] }),
   // A young Scorchlet asleep at night, with the Knit Cap on and without: it walks to the bed and lies down, and its picture lying is the one whose blanket box a hat moves (the
   // top of the box is row 26 bare and row 24 in the Knit Cap, tests/hats.test.ts), so the two saves show whether the blanket is fitted to the hatless picture ("hat-bed").
   "hat-asleep": (mode: Mode) => asleep(living(mode, { coins: 5, bag: {} }, { owned: [...HATS], hat: "hat-knit" }, "scorchlet")),

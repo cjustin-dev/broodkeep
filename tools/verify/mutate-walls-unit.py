@@ -83,8 +83,8 @@ MUTANTS = [
     mut("room-of-partition-goes-right", F_DATA, "(ROOMS.filter((r) => r.to < col).pop() as RoomSpan).id", "(ROOMS.find((r) => r.from > col) as RoomSpan).id", ROOM_COLS),
     mut("room-of-wall-is-three-rows", F_DATA, "row >= WALL_ROWS ||", "row > WALL_ROWS ||", ROOM_NULL),
     mut("room-of-row-above-the-home", F_DATA, "if (row < 0 || row >= WALL_ROWS", "if (row >= WALL_ROWS", ROOM_NULL),
-    mut("room-of-column-before-the-home", F_DATA, "|| col < 0 || col >= COLS)", "|| col >= COLS)", ROOM_NULL),
-    mut("room-of-column-past-the-home", F_DATA, "|| col < 0 || col >= COLS)", "|| col < 0)", ROOM_NULL),
+    mut("room-of-column-before-the-home", F_DATA, "|| col < 0 || col >= colsOf(rooms))", "|| col >= colsOf(rooms))", ROOM_NULL),
+    mut("room-of-column-past-the-home", F_DATA, "|| col < 0 || col >= colsOf(rooms))", "|| col < 0)", ROOM_NULL),
     # what the Shop's undo takes off
     mut("without-wall-copies-always", F_DATA, "if (!home?.walls || !Object.values(home.walls).includes(id)) return home;", "if (!home?.walls) return home;", WO_SAME),
     mut("without-wall-takes-every-room", F_DATA, ".filter(([, v]) => v !== id)", ".filter(() => false)", WO_TAKES),
@@ -106,30 +106,30 @@ MUTANTS = [
     mut("coerce-walls-keeps-an-empty-object", F_DATA, "return Object.keys(walls).length > 0 ? walls : undefined;", "return walls;", DROPS_BAD),
     mut("migrate-keeps-the-unowned", F_STATE, "if (home) value.home = ownedWalls(home, value.owned);", "if (home) value.home = home;", MIG_DROPS),
     # the Shop's undo
-    mut("undo-keeps-the-room-walls", F_SHOP, "const home = withoutWall(save.home, item.id);", "const home = save.home;", UNDO_TAKES),
+    mut("undo-keeps-the-room-walls", F_SHOP, "let home = withoutWall(save.home, item.id);", "let home = save.home;", UNDO_TAKES),
     mut("undo-makes-a-home", F_SHOP, "if (home) save.home = home;", "save.home = home;", UNDO_NOHOME),
     # the look of each room
     mut("look-of-bedroom-ignores-its-entry", F_ROOM, 'bedroom: wallOfRoom(save.wall, save.home, "bedroom")', "bedroom: save.wall", LOOK),
     mut("look-of-living-ignores-its-entry", F_ROOM, 'living: wallOfRoom(save.wall, save.home, "living")', "living: save.wall", LOOK),
     mut("look-of-kitchen-ignores-its-entry", F_ROOM, 'kitchen: wallOfRoom(save.wall, save.home, "kitchen")', "kitchen: save.wall", LOOK),
-    mut("plain-look-has-a-wallpaper", F_ROOM, "walls: { bedroom: null, living: null, kitchen: null }, bed: false", 'walls: { bedroom: null, living: "wall-dusk", kitchen: null }, bed: false', LOOK),
+    mut("plain-look-has-a-wallpaper", F_ROOM, "walls: { bedroom: null, living: null, kitchen: null, playroom: null }, bed: false", 'walls: { bedroom: null, living: "wall-dusk", kitchen: null, playroom: null }, bed: false', LOOK),
     # Decorate mode: selecting a wall
     mut("select-keeps-the-wall", F_GAME, "    this.decor.selected = kind;\n    this.decor.wall = null;\n", "    this.decor.selected = kind;\n", EXCL, T_WALLS),
     mut("select-nothing-with-a-wall-does-nothing", F_GAME, "(this.decor.selected === kind && this.decor.wall === null)", "this.decor.selected === kind", SEL),
     mut("select-wall-keeps-the-piece", F_GAME, "    this.decor.wall = room;\n    this.decor.selected = null;\n", "    this.decor.wall = room;\n", EXCL),
     mut("start-without-the-wall-field", F_GAME, "this.decor = { selected: null, wall: null };", "this.decor = { selected: null };", "selects nothing when Decorate mode is off, and ending the mode lets go of the wall (edge 12)"),
-    mut("select-wall-with-the-mode-off", F_GAME, "if (!this.decor || (this.decor.wall === room && this.decor.selected === null)) return;", "if (this.decor && this.decor.wall === room && this.decor.selected === null) return;", "selects nothing when Decorate mode is off, and ending the mode lets go of the wall (edge 12)"),
-    mut("select-wall-wakes-for-the-same-wall", F_GAME, "if (!this.decor || (this.decor.wall === room && this.decor.selected === null)) return;", "if (!this.decor) return;", SEL),
+    mut("select-wall-with-the-mode-off", F_GAME, "if (!this.decor || !isBuilt(room, this.save.owned) || (this.decor.wall === room && this.decor.selected === null)) return;", "if (this.decor && isBuilt(room, this.save.owned) && this.decor.wall === room && this.decor.selected === null) return;", "selects nothing when Decorate mode is off, and ending the mode lets go of the wall (edge 12)"),
+    mut("select-wall-wakes-for-the-same-wall", F_GAME, "if (!this.decor || !isBuilt(room, this.save.owned) || (this.decor.wall === room && this.decor.selected === null)) return;", "if (!this.decor) return;", SEL),
     # Decorate mode: giving a room a wallpaper
-    mut("set-wall-with-the-mode-off", F_GAME, "if (!this.decor || (id !== null && !(isWallId(id)", "if ((id !== null && !(isWallId(id)", MODE_OFF),
+    mut("set-wall-with-the-mode-off", F_GAME, "if (!this.decor || !isBuilt(room, this.save.owned) || (id !== null && !(isWallId(id)", "if (!isBuilt(room, this.save.owned) || (id !== null && !(isWallId(id)", MODE_OFF),
     mut("set-wall-takes-the-unowned", F_GAME, "(id !== null && !(isWallId(id) && this.save.owned.includes(id)))", "(id !== null && !isWallId(id))", REFUSES),
     mut("set-wall-takes-what-is-no-wallpaper", F_GAME, "(id !== null && !(isWallId(id) && this.save.owned.includes(id)))", "(id !== null && !this.save.owned.includes(id))", REFUSES),
     mut("set-wall-writes-what-is-shown", F_GAME, "|| wallOfRoom(this.save.wall, this.save.home, room) === id) return false;", ") return false;", REFUSES),
     mut("set-wall-compares-only-its-own-entry", F_GAME, "wallOfRoom(this.save.wall, this.save.home, room) === id) return false;", "this.save.home?.walls?.[room] === id) return false;", FOLLOWS),
     mut("set-wall-forgets-the-other-rooms", F_GAME, "{ ...save.home?.walls, [room]: id }", "{ [room]: id }", KEEPS),
-    mut("set-wall-forgets-the-pieces", F_GAME, "homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id })", "homeOf(layoutOf(undefined), { ...save.home?.walls, [room]: id })", KEEPS),
+    mut("set-wall-forgets-the-pieces", F_GAME, "homeOf(layoutOfSave(save), { ...save.home?.walls, [room]: id })", "homeOf(layoutOfSave({ owned: save.owned }), { ...save.home?.walls, [room]: id })", KEEPS),
     mut("set-layout-forgets-the-walls", F_GAME, "save.home = homeOf(layout, save.home?.walls);", "save.home = homeOf(layout);", KEEPS),
-    mut("set-wall-is-not-saved", F_GAME, "      save.home = homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });\n", "      void homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });\n", GIVES),
+    mut("set-wall-is-not-saved", F_GAME, "      save.home = homeOf(layoutOfSave(save), { ...save.home?.walls, [room]: id });\n", "      void homeOf(layoutOfSave(save), { ...save.home?.walls, [room]: id });\n", GIVES),
 ]
 
 

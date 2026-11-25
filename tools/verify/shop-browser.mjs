@@ -45,6 +45,9 @@ const CHECK_MODES = {
   "hat-reload": ["adult"],
   "hat-bed": ["adult"],
   "hat-kid": ["kid"],
+  "room-buy": ["adult"],
+  "room-undo": ["adult"],
+  "room-kid": ["kid"],
 };
 const ALL_IDS = Object.keys(CHECK_MODES);
 const ALL_MODES = ["kid", "adult"];
@@ -68,11 +71,21 @@ const MAT = [242, 210, 122]; // #f2d27a
 // Where each is read. The Shop's picture is a 128 x 128 window on the room an item belongs to (previewCrop in src/art/room.ts: the corner of each window is below), and the live
 // room is the home, 768 x 192 game pixels, seen through a camera. So a probe is a point of the home (a world pixel). In the picture it is read at the point minus the window's
 // corner; in the live room (liveRoom below) the camera is panned to an end of the home and the point is read where the page draws it.
-const CROP = { bedroom: [24, 8], living: [336, 0], kitchen: [560, 64] };
+const CROP = { bedroom: [24, 8], living: [336, 0], kitchen: [560, 64], playroom: [848, 0] };
 const WORLD_WALL_BEDROOM = [37, 10]; // the wall of the bedroom between two stripes (a wall pixel whose x ends in 5 to 9 is the base colour)
 const WORLD_WALL_LIVING = [347, 2]; // the same in the living room
 const WORLD_BED = [70, 58]; // the bed's quilt (the mattress where the bed has none)
 const WORLD_MAT = [610, 137]; // the Feeding Mat's middle, clear of the bowl (the floor where there is none); it is on the screen at the home's right end whenever the view is 158 game pixels wide or more (768 - 610; the view is always 192 or more at the default zoom)
+
+// The Playroom (H3): its carpet's two tones and the kitchen's floor's two tones (src/art/room.ts carpetFloor and tileFloor), as [r, g, b]; the home is 1032 game pixels wide with it built
+// (43 columns of 24) and 768 without.
+const CARPET = [[169, 212, 154], [151, 196, 136]]; // #a9d49a, #97c488
+const KITCHEN_FLOOR = [[232, 224, 208], [207, 197, 174]]; // #e8e0d0, #cfc5ae
+const WIDE = 1032;
+const NARROW = 768;
+const WORLD_CARPET = [900, 110]; // inside the Playroom's picture (848 to 975 across, 0 to 127 down), on the carpet (floor starts at y 48)
+const WORLD_CARPET_END = [1031, 150]; // the last column of the four room home
+const WORLD_KITCHEN_END = [767, 150]; // the last column of the three room home
 
 // The hats' body colours (src/art/hat.ts; no form and no room piece draws these exactly, which the checks themselves prove with a count of 0 where no hat is on).
 const KNIT = [216, 80, 79]; // #d8504f, the Knit Cap
@@ -85,11 +98,13 @@ const POOR_REASONS = {
     "Feeding Mat": "Needs 15 more coins, 2 more Fiber and 2 more Herbs.",
     "Wallpaper: Meadow": "Needs 2 more coins and 2 more Herbs.",
     "Wallpaper: Dusk": "Needs 2 more coins and 2 more Stone.",
+    Playroom: "Needs 26 more coins, 4 more Wood and 4 more Stone.",
   },
   mixed: {
     "Comfy Bed": "Needs 5 more coins, 1 more Fiber and 2 more Wood.",
     "Feeding Mat": "Needs 1 more Fiber.",
     "Wallpaper: Dusk": "Needs 1 more Stone.",
+    Playroom: "Needs 6 more coins, 4 more Wood and 3 more Stone.",
   },
 };
 
@@ -101,6 +116,11 @@ function expectEq(actual, expected, what) {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
   if (a !== e) throw new Error(`${what}: expected ${e}, got ${a}`);
+}
+
+// A pixel is one of the tones of a floor (a tile pattern has two, and which one lies at a point depends on the tile).
+function expectTone(actual, tones, what) {
+  if (!tones.some((t) => JSON.stringify(t) === JSON.stringify(actual))) throw new Error(`${what}: expected one of ${JSON.stringify(tones)}, got ${JSON.stringify(actual)}`);
 }
 
 const oneLine = (text) => String(text).replace(/\s+/g, " ").slice(0, 500);
@@ -187,12 +207,12 @@ function firstRowOfColour([selector, rgb, slack]) {
 // Runs in the page: where the live room draws a world point once the camera is at the left end (the bedroom) or the right end (the kitchen) of the home: the default zoom (the
 // largest whole number of device pixels per game pixel that fits the home's 192 pixel height in the square picture, at most 2.5 x the pixel ratio), the picture's middle on the
 // camera's centre, a pixel in the middle of the point's block.
-function worldPixelOf([selector, end, wx, wy]) {
+function worldPixelOf([selector, end, wx, wy, width = 768]) {
   const canvas = document.querySelector(selector);
   if (!canvas) return null;
   const vp = canvas.width;
   const z = Math.min(Math.max(1, Math.round(2.5 * window.devicePixelRatio)), Math.max(1, Math.floor(vp / 192)));
-  const camX = end === "left" ? vp / z / 2 : 768 - vp / z / 2;
+  const camX = end === "left" ? vp / z / 2 : width - vp / z / 2;
   const sx = Math.floor(vp / 2 + (wx - camX) * z + z / 2);
   const sy = Math.floor(vp / 2 + (wy - 96) * z + z / 2);
   if (sx < 0 || sy < 0 || sx >= vp || sy >= vp) throw new Error(`the point ${wx},${wy} is not on the screen at the ${end} end (device pixel ${sx},${sy} of ${vp}, zoom ${z})`);
@@ -377,16 +397,16 @@ const pick = async (page, name) => {
 
 // The live room at a world point. The camera starts framed on the creature, so it is panned to the home's left or right end with the arrow keys (20 presses cover the home at
 // every zoom), the frames are drawn, and the pixel is read.
-async function liveRoom(page, end, world) {
+async function liveRoom(page, end, world, width = NARROW) {
   // (The creature wanders in real time in these suites, so it is made to stay and look around. The pin lands inside its first idle pose, which lasts 2 seconds from the first frame
   // and ends the check's wait for the page well before that, so no walk has begun; the probes are also 150 pixels or more from where it starts.)
   await page.evaluate(() => { Math.random = () => 0.99; });
   await page.locator("canvas.room").focus();
   if (!(await page.evaluate(() => document.activeElement === document.querySelector("canvas.room")))) throw new Error("the home's picture did not take the keyboard focus, so the arrow keys cannot pan it");
-  for (let i = 0; i < 20; i++) await page.keyboard.press(end === "left" ? "ArrowLeft" : "ArrowRight");
+  for (let i = 0; i < Math.ceil((20 * width) / NARROW); i++) await page.keyboard.press(end === "left" ? "ArrowLeft" : "ArrowRight"); // (the keys stop at the home's end: more are harmless)
   await page.clock.runFor(300);
   await page.waitForTimeout(100);
-  return page.evaluate(worldPixelOf, ["canvas.room", end, ...world]);
+  return page.evaluate(worldPixelOf, ["canvas.room", end, ...world, width]);
 }
 
 // How many pixels of the live room (whatever it shows: the home, a field, the habitat) are this colour. The creature is made to stay still first (see liveRoom), then a few frames are drawn.
@@ -490,12 +510,12 @@ const checks = {
     const { page } = await open("rich");
     const before = await savedGame(page);
     await openShop(page);
-    expectEq(trimAll(await page.locator(".shop-name").allTextContents()), ["Comfy Bed", "Feeding Mat", "Wallpaper: Meadow", "Wallpaper: Dusk", "Hearty Bowl", "Green Bowl", "Sweet Bowl", "Stew", "Garden Mix", "Knit Cap", "Acorn Cap", "Fisher Hat", "Stone Crown"], "the thirteen cards, in order");
+    expectEq(trimAll(await page.locator(".shop-name").allTextContents()), ["Comfy Bed", "Feeding Mat", "Wallpaper: Meadow", "Wallpaper: Dusk", "Hearty Bowl", "Green Bowl", "Sweet Bowl", "Stew", "Garden Mix", "Knit Cap", "Acorn Cap", "Fisher Hat", "Stone Crown", "Playroom"], "the fourteen cards, in order");
     expectEq(await page.locator(".shop-undo").count(), 0, "undo bars before any buy");
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await panel(page).waitFor({ state: "hidden", timeout: 5000 });
     expectEq(await savedGame(page), before, "the saved game after opening and closing the shop");
-    return "the shop opens with its thirteen cards, Close shuts it, and the saved game is exactly as it was";
+    return "the shop opens with its fourteen cards, Close shuts it, and the saved game is exactly as it was";
   },
 
   "buy-exact": async (open) => {
@@ -782,6 +802,68 @@ const checks = {
     return `a hat worn in Adult Mode (the saved game has it on) still shows in Kid Mode (${n} pixels) and Kid Mode still has no Shop`;
   },
 
+  // The Playroom (H3): the last of the fourteen cards, its price, the picture of the room itself, an exact buy, "Built", and the home it makes.
+  "room-buy": async (open) => {
+    const { page } = await open("room-exact");
+    expectTone(await liveRoom(page, "right", WORLD_KITCHEN_END), KITCHEN_FLOOR, "the live home's last column before the buy (the kitchen's floor)");
+    await openShop(page);
+    expectEq(await page.locator(".shop-card").count(), 14, "the number of cards");
+    const card = page.locator(".shop-card").last();
+    expectEq(trimAll(await card.locator(".shop-name").allTextContents()), ["Playroom"], "the last card's name");
+    expectEq(trimAll(await card.locator(".shop-effect").allTextContents()), ["A fourth room, to the right of the kitchen. It starts empty."], "the Playroom's effect line");
+    expectEq(await card.locator(".shop-cost [role=img]").evaluateAll((chips) => chips.map((c) => c.getAttribute("aria-label"))), ["36 coins, you have 36", "4 Wood, you have 4", "4 Stone, you have 4"], "the Playroom's price chips");
+    expectEq(await buyButton(page, "Playroom").getAttribute("aria-disabled"), null, "the Buy button of a wallet that pays exactly");
+    // The picture is the room itself, whether or not it is built: nothing of its carpet shows while the bed is the card chosen.
+    expectEq((await previewCount(page, CARPET[0])) + (await previewCount(page, CARPET[1])), 0, "carpet pixels in the picture of the bed");
+    await pick(page, "Playroom");
+    expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your room with Playroom", "the picture's label");
+    const shown = mustBe((await previewCount(page, CARPET[0])) + (await previewCount(page, CARPET[1])), "carpet pixels in the picture of the Playroom");
+    expectTone(await preview(page, "playroom", WORLD_CARPET), CARPET, "the Playroom's picture at its carpet");
+    expectEq((await savedGame(page)).owned, [], "owned after looking at the Playroom");
+    await buyButton(page, "Playroom").click({ timeout: 5000 });
+    await undoBar(page).waitFor({ state: "visible", timeout: 5000 });
+    const saved = await savedGame(page);
+    expectEq([saved.coins, saved.inventory.wood, saved.inventory.stone], [0, 0, 0], "coins, Wood and Stone after buying at exactly the price");
+    expectEq(saved.owned, ["room-play"], "owned");
+    expectEq(saved.lastBuy, { item: "room-play", at: T, wall: null }, "the undo record");
+    expectEq(saved.home, undefined, "the saved home (buying a room writes none: an empty room has nothing to save)");
+    expectEq(trimAll(await undoBar(page).locator("button").allTextContents()), ["Undo (10s)"], "the undo button");
+    expectEq(await buyButton(page, "Playroom").count(), 0, "Buy buttons for the room just bought");
+    expectEq(trimAll(await card.locator(".shop-owned").allTextContents()), ["Built"], "the owned card's words");
+    expectEq(await card.locator(".shop-cost").count(), 0, "price chips on the owned card");
+    expectEq(await card.locator("button.card-btn").count(), 0, "buttons on the owned card");
+    expectEq(await page.locator('.shop-wallet [aria-label="0 coins"]').count(), 1, "the wallet's coins");
+    mustBe((await previewCount(page, CARPET[0])) + (await previewCount(page, CARPET[1])), "carpet pixels in the picture once built");
+    await closeShop(page);
+    expectTone(await liveRoom(page, "right", WORLD_CARPET_END, WIDE), CARPET, "the live home's last column after the buy (the Playroom's carpet, the home 1032 wide)");
+    return `the Playroom is the 14th card with its three price chips, its picture is the empty room (${shown} carpet pixels, none in the bed's), buying at exactly 36 coins + 4 Wood + 4 Stone leaves 0, 0, 0, says "Built", saves no home and the live home grows to the Playroom's carpet`;
+  },
+
+  "room-undo": async (open) => {
+    const { page } = await open("room-just-bought");
+    expectTone(await liveRoom(page, "right", WORLD_CARPET_END, WIDE), CARPET, "the live home's last column with the Playroom built");
+    await openShop(page);
+    expectEq(trimAll(await undoBar(page).locator("button").allTextContents()), ["Undo (7s)"], "the undo button 3 seconds after the buy");
+    await undoBar(page).locator("button").click({ timeout: 5000 });
+    await undoBar(page).waitFor({ state: "hidden", timeout: 5000 });
+    const saved = await savedGame(page);
+    expectEq([saved.coins, saved.inventory.wood, saved.inventory.stone], [36, 4, 4], "the refund");
+    expectEq(saved.owned, ["wall-dusk"], "owned after the undo (the wallpaper stays)");
+    expectEq(saved.lastBuy, null, "the undo record after the undo");
+    expectEq(saved.home, { pieces: { dresser: null } }, "the saved home after the undo (the dresser in the Playroom put away, its wall entry gone)");
+    expectEq(await buyButton(page, "Playroom").count(), 1, "the Buy button for the room given back");
+    await closeShop(page);
+    expectTone(await liveRoom(page, "right", WORLD_KITCHEN_END, NARROW), KITCHEN_FLOOR, "the live home's last column after the undo (the kitchen's floor, the home 768 wide)");
+    return "the undo 3 seconds after buying the Playroom refunds 36 coins, 4 Wood and 4 Stone, keeps the wallpaper, puts the dresser that stood in the room away, drops the room's wall entry and the live home is three rooms again";
+  },
+
+  "room-kid": async (open) => {
+    const { page } = await open("room-owned");
+    expectTone(await liveRoom(page, "right", WORLD_CARPET_END, WIDE), CARPET, "the Kid Mode home's last column with the Playroom owned");
+    expectEq(await page.getByRole("button", { name: /shop/i }).count(), 0, "buttons with Shop in their name in Kid Mode");
+    return "a Playroom bought in Adult Mode (the saved game owns it) is built in Kid Mode too, and Kid Mode still has no Shop";
+  },
+
   "fit-scroll": async (open) => {
     let panels = 0;
     for (const scenario of SHOP_STATES) {
@@ -836,7 +918,7 @@ const checks = {
 };
 
 // The panels the layout checks look at: every wallet and ownership state the sheet shows.
-const SHOP_STATES = ["rich", "poor", "mixed", "owned-walls", "owned-all", "just-bought", "exact-meadow", "hats-owned", "hat-worn"];
+const SHOP_STATES = ["rich", "poor", "mixed", "owned-walls", "owned-all", "just-bought", "exact-meadow", "hats-owned", "hat-worn", "room-exact", "room-owned"];
 
 // ---------- the runner ----------
 

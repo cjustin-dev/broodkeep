@@ -50,7 +50,7 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-mouse", "decorate-walls"]
+ALL_IDS = ["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-mouse", "decorate-walls", "decorate-grow"]
 
 STAGE = "src/ui/Stage.tsx"
 BAR = "src/ui/DecorateBar.tsx"
@@ -60,6 +60,8 @@ IDLE = "src/art/idle.ts"
 ROOM = "src/art/room.ts"
 CSS = "src/ui/app.css"
 DATA = "src/data/home.ts"
+ART_HOME = "src/art/home.ts"
+LAYOUT = "src/art/homeLayout.ts"
 
 
 # edits: (file, old, new), applied in order. `old` must occur exactly once in that file of the copy.
@@ -109,7 +111,7 @@ MUTANTS = [
       [(BAR, '    if (selected === "bed") {\n      game.say("The bed has to stay: your creature sleeps in it.");\n      return;\n    }\n', "")]),
     # carrying
     M("refused-drop-is-written", ["decorate-move"], "a piece put down on a spot the rules refuse stays there",
-      [(EDIT, "return moved(layout, held.kind, held.at);\n}", "return { ...layout, [held.kind]: held.at };\n}")]),
+      [(EDIT, "return moved(layout, held.kind, held.at, rooms);\n}", "return { ...layout, [held.kind]: held.at };\n}")]),
     M("jitter-moves-the-piece", ["decorate-move"], "a finger that stays within the slop still carries the piece, one tile, as soon as it crosses a tile line",
       [(STAGE, 'const tile = tracker.current.mode === "tap" ? null : tileUnder(e);', "const tile = tileUnder(e);")]),
     M("tap-puts-the-piece-down", ["decorate-move"], "a finger that never left the slop puts the piece down on the tile it lifted on (the piece moved by the last jitter)",
@@ -150,10 +152,10 @@ MUTANTS = [
     M("arrows-pan-with-a-piece-selected", ["decorate-tray", "decorate-mouse"], "the arrow keys pan the picture even with a piece selected",
       [(STAGE, "if (step && game.selectedPiece) {", "if (false && step && game.selectedPiece) {")]),
     M("arrow-steps-ignore-the-rules", ["decorate-tray"], "an arrow key moves a piece into the wall's top row",
-      [(GAME, "const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }) : null;", "const next = kind && from ? { ...layout, [kind]: { col: from.col + dcol, row: from.row + drow } } : null;")]),
+      [(GAME, "const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }, roomsBuilt(this.save.owned)) : null;", "const next = kind && from ? { ...layout, [kind]: { col: from.col + dcol, row: from.row + drow } } : null;")]),
     # the Feeding Mat
     M("mat-taken-when-not-owned", ["decorate-mat"], "a touch takes the Feeding Mat although it is not owned",
-      [(STAGE, 'lift(layoutOf(game.save.home), game.save.owned.includes("feeding-mat"), tile.col, tile.row)', "lift(layoutOf(game.save.home), true, tile.col, tile.row)")]),
+      [(STAGE, 'lift(layoutOfSave(game.save), game.save.owned.includes("feeding-mat"), tile.col, tile.row)', "lift(layoutOfSave(game.save), true, tile.col, tile.row)")]),
     M("tray-offers-the-unowned-mat", ["decorate-mat"], "the tray offers the Feeding Mat although it is not owned",
       [(EDIT, '(kind !== "mat" || matOwned));', "true);")]),
     M("mat-over-the-bowl", ["decorate-mat"], "a finger on the bowl takes the mat under it",
@@ -226,9 +228,9 @@ MUTANTS = [
     M("wall-paint-not-clipped", ["decorate-walls"], "each room's wall is painted across the whole home, so the last room covers the others",
       [(ROOM, "    ctx.clip();\n", "")]),
     M("partition-in-the-room-on-the-right", ["decorate-walls"], "a partition is drawn in the wallpaper of the room on its right",
-      [(ROOM, "look.walls[wallRoomOf(col, 0) as RoomId]", "look.walls[wallRoomOf(col + 1, 0) as RoomId]")]),
+      [(ROOM, "look.walls[wallRoomOf(col, 0, ROOMS.length) as RoomId]", "look.walls[wallRoomOf(col + 1, 0, ROOMS.length) as RoomId]")]),
     M("wall-is-never-written", ["decorate-walls"], "a swatch changes nothing in the save",
-      [(GAME, "      save.home = homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });\n", "      void homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });\n")]),
+      [(GAME, "      save.home = homeOf(layoutOfSave(save), { ...save.home?.walls, [room]: id });\n", "      void homeOf(layoutOfSave(save), { ...save.home?.walls, [room]: id });\n")]),
     M("wall-forgets-the-other-rooms", ["decorate-walls"], "a new wall replaces the walls of the other rooms",
       [(GAME, "{ ...save.home?.walls, [room]: id }", "{ [room]: id }")]),
     M("moving-a-piece-forgets-the-walls", ["decorate-walls"], "a piece put away takes the rooms' walls out of the save",
@@ -245,6 +247,37 @@ MUTANTS = [
       [(DATA, "? (home.walls[room] ?? null) : whole);", "? (home.walls[room] ?? null) : null);")]),
     M("reload-forgets-the-plain-wall", ["decorate-walls"], "a saved game read back has lost the rooms with the plain wall (they follow the whole home)",
       [(DATA, "id === null || owned.includes(id)", "id !== null && owned.includes(id)")]),
+    # The Playroom (H3, docs/home-plan.md section 16): decorate-grow
+    M("grow-home-always-wide", ["decorate-grow"], "the home is 1032 pixels wide with three rooms too (the camera's end and the picture's last column move)",
+      [(ART_HOME, "HOME.w = colsOf(rooms) * TILE;", "HOME.w = COLS * TILE;")]),
+    M("grow-stage-sizes-for-three-rooms", ["decorate-grow"], "the Stage walks and sizes the home for three rooms whatever is owned",
+      [(STAGE, "useLayout(layout, rooms);", "useLayout(layout);")]),
+    M("grow-stage-looks-at-the-layout-only", ["decorate-grow"], "the Stage rebuilds the floor when the layout changes, not when a room is built",
+      [(STAGE, "if (layout !== layoutInForce() || rooms !== roomsInForce()) {", "if (layout !== layoutInForce()) {")]),
+    M("grow-kid-home-stays-three-rooms", ["decorate-grow"], "Kid Mode walks and sizes the home for three rooms, whatever the saved game owns",
+      [(STAGE, "const rooms = roomsBuilt(game.save.owned);\n      if (layout !== layoutInForce() || rooms !== roomsInForce()) {", "const rooms = game.save.settings.adultMode ? roomsBuilt(game.save.owned) : 3;\n      if (layout !== layoutInForce() || rooms !== roomsInForce()) {")], kid_only=True),
+    M("grow-carpet-is-wood", ["decorate-grow"], "the Playroom's floor is a plain brown, not the carpet",
+      [(ROOM, 'else if (r.id === "playroom") carpetFloor(ctx, x, floorTop, width, ROWS * TILE - floorTop);', 'else if (r.id === "playroom") rect(ctx, "#a05030", x, floorTop, width, ROWS * TILE - floorTop);')]),
+    M("grow-window-missing", ["decorate-grow"], "the Playroom has no window",
+      [(ROOM, "if (look.rooms > BASE_ROOMS) drawWindow(ctx, 893, 5, hour);", "if (false) drawWindow(ctx, 893, 5, hour);")]),
+    M("grow-partition-missing", ["decorate-grow"], "the partition between the kitchen and the Playroom is not drawn",
+      [(ROOM, "for (const col of PARTITIONS.filter((c) => c < w / TILE)) {", "for (const col of PARTITIONS.filter((c) => c < 32)) {")]),
+    M("grow-doorway-may-be-closed", ["decorate-grow"], "rule 5 walks the floor of three rooms only, so a piece on the new doorway's approach is allowed",
+      [(LAYOUT, "for (let col = 0; col < colsOf(rooms); col++) {", "for (let col = 0; col < colsOf(BASE_ROOMS); col++) {")]),
+    M("grow-pieces-may-cross-the-partition", ["decorate-grow"], "rule 1 asks only that a piece is inside the home, so a piece may lie over the partition",
+      [(LAYOUT, "ROOMS.slice(0, rooms).some((r) => p.col >= r.from && p.col + p.cols - 1 <= r.to)", "(p.col >= 0 && p.col + p.cols - 1 < colsOf(rooms))")]),
+    M("grow-carried-piece-asks-three-rooms", ["decorate-grow"], "a piece carried into the Playroom is judged with three rooms (red there)",
+      [(STAGE, "carrying.held = follow(layoutOfSave(game.save), carrying.held, tile.col, tile.row, roomsBuilt(game.save.owned));", "carrying.held = follow(layoutOfSave(game.save), carrying.held, tile.col, tile.row);")]),
+    M("grow-tray-piece-lands-in-the-kitchen", ["decorate-grow"], "a piece out of the tray is put on the nearest spot of a three room home",
+      [(GAME, "nearestSpot(layout, kind, near, roomsBuilt(this.save.owned))", "nearestSpot(layout, kind, near)")]),
+    M("grow-wall-tap-ignores-the-playroom", ["decorate-grow"], "a tap on the Playroom's wall selects no wall (the tap is read with three rooms)",
+      [(STAGE, "wallRoomOf(tile.col, tile.row, roomsBuilt(game.save.owned))", "wallRoomOf(tile.col, tile.row)")]),
+    M("grow-playroom-wall-is-the-kitchens", ["decorate-grow"], "the Playroom is drawn with the kitchen's wallpaper",
+      [(ROOM, 'playroom: wallOfRoom(save.wall, save.home, "playroom"),', 'playroom: wallOfRoom(save.wall, save.home, "kitchen"),')]),
+    M("grow-mended-layout-thrown-away", ["decorate-grow"], "a layout the new room breaks is replaced by the whole starter layout, not mended",
+      [(LAYOUT, "(mended(layout, rooms) ?? STARTER)", "STARTER")]),
+    M("grow-reading-writes-the-mended-layout", ["decorate-grow"], "the mended layout is written to the save as soon as the home is shown with the room",
+      [(STAGE, "        useLayout(layout, rooms);\n        reseat(game.view);", "        useLayout(layout, rooms);\n        game.act((s) => { s.home = { pieces: { table: null } }; });\n        reseat(game.view);")]),
 ]
 
 class Infra(Exception):
