@@ -1153,7 +1153,7 @@ const checks = {
       await pan(page, "ArrowLeft", 24);
       const half = g.vp / (2 * g.z);
       await wallAt(page, g, [half, 96], 0, WALLS.plain, "the bedroom's wall after Dusk on the Playroom");
-      const toLiving = Math.max(0, Math.ceil((309 - 2 * half) / stepWorld)); // (the living room's probe points, x 302 to 309, must be inside the view)
+      const toLiving = Math.max(0, Math.ceil((309 - 2 * half) / stepWorld)); // (the living room's probe points, x 302 and 307, and the bound 309 beyond them, must be inside the view)
       if (toLiving * stepWorld > 302) throw new Error(`${toLiving} key presses of ${stepWorld} world pixels pass the living room's wall at x 302`);
       await pan(page, "ArrowRight", toLiving);
       await wallAt(page, g, [half + toLiving * stepWorld, 96], 300, WALLS.plain, "the living room's wall after Dusk on the Playroom");

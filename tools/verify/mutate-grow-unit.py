@@ -15,6 +15,7 @@
 #   python3 mutate-grow-unit.py --equivalents    runs the EQUIVALENT list (the mutants argued to change nothing) instead: exit 0 only when every one of them leaves every test passing
 #
 # Exit: 0 every mutant CAUGHT; 1 some mutant not CAUGHT (or an occurrence count is not 1); 2 baseline failed, the copy differs at the end, or an unknown or empty --only id.
+# With --equivalents the codes are reversed for the mutants: 0 when every one of them SURVIVED (changed nothing), 1 when one is caught or fails any test; 2 as above.
 import argparse
 import json
 import os
@@ -271,12 +272,13 @@ def occurrences(m):
 def do_list():
     bad = 0
     print("%-32s %5s  %-22s %-22s %s" % ("id", "count", "file", "expect_file", "expect (title substring)"))
-    for m in MUTANTS:
+    rows = MUTANTS if EQUIV_MODE else MUTANTS + EQUIVALENT  # (the default list checks the five EQUIVALENT texts too: they must occur once as well)
+    for m in rows:
         n = occurrences(m)
         if n != 1:
             bad += 1
         print("%-32s %5d  %-22s %-22s %s" % (m["id"], n, m["file"], m.get("expect_file", TEST_FILE).split("/")[-1], m["expect"]))
-    print("LIST total=%d bad=%d" % (len(MUTANTS), bad))
+    print("LIST total=%d bad=%d" % (len(rows), bad))
     return 0 if bad == 0 else 1
 
 
