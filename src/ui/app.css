@@ -1736,9 +1736,10 @@ button.astat[aria-expanded="true"] {
   margin: 0; /* (the line under the room picture pulls up; this one starts the list and must not poke out of it) */
 }
 
-/* The page behind the open Shop does not scroll: a finger dragged on the title, tabs or room picture (nothing there scrolls) would otherwise move the
-   home page under the panel, and a phone's toolbar would hide and show and resize the panel as it went. */
-body:has(.shop-panel) {
+/* The page behind an open panel (Shop, Settings, Book, Forecast, Developer) does not scroll: a finger dragged on the Shop's title, tabs or room picture (nothing
+   there scrolls), or on any panel at its top or its end, would otherwise move the home page under the panel, and a phone's toolbar would hide and show and resize
+   the panel as it went. */
+body:has(.panel) {
   overflow: hidden;
 }
 
