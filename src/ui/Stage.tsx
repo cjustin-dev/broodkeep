@@ -5,7 +5,7 @@
 //   drag               -> moves the camera over the home (docs/home-plan.md section 3.2); two fingers pinch it bigger or smaller
 // While Decorate mode is on (docs/home-plan.md section 12) the creature is not touched at all: a finger on a piece of furniture carries it on the tile grid (a tap selects it),
 // a finger anywhere else pans, and a tap there lets go of the selection. The arrow keys move the selected piece; Escape lets go of it.
-// The habitat, the arena and a field keep the old 128 x 128 picture (no camera); the home is 768 x 192 and the camera shows a square part of it.
+// The habitat, the arena and a field keep the old 128 x 128 picture (no camera); the home is 768 x 192 (1032 x 192 once the Playroom is built) and the camera shows a square part of it.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { drawArena } from "../art/arena";
 import { clampCamera, clampZoom, defaultZoom, frameOn, inView, panBy, snapZoom, stepCamera, toGame, zoomAbout } from "../art/camera";

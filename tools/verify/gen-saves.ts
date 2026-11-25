@@ -9,6 +9,7 @@ import { discover } from "../../src/game/book";
 import { makeCreature } from "../../src/game/sim";
 import { newSave } from "../../src/game/state";
 import { layoutOf, problemWith } from "../../src/art/homeLayout";
+import { roomsBuilt } from "../../src/data/home";
 import type { HomeSave } from "../../src/data/home";
 import type { RetiredLife, Save } from "../../src/game/state";
 
@@ -55,6 +56,23 @@ function withHome(mode: Mode, pieces: HomeSave["pieces"], moved: Record<string, 
   for (const [kind, at] of Object.entries(moved)) {
     const got = layout[kind as keyof typeof layout];
     if (!got || got.col !== at.col || got.row !== at.row) throw new Error(`withHome: ${kind} is not at (${at.col}, ${at.row}) after layoutOf, the page would not show the layout`);
+  }
+  return save;
+}
+
+// A living adult that owns `owned` (a room among them) with a saved home. The saved layout is checked against the rules for the rooms its items build, so the page is not shown a
+// layout it would throw away; `mendedAway` names the pieces the page must read as put away (the new room breaks a rule for them: docs/home-plan.md section 16, pick 6).
+function withHomeRooms(mode: Mode, pieces: HomeSave["pieces"], owned: string[], mendedAway: string[]): Save {
+  const save = living(mode, ADULT);
+  save.owned = owned;
+  save.home = { pieces };
+  const rooms = roomsBuilt(owned);
+  const layout = layoutOf(save.home, rooms);
+  const problem = problemWith(layout, rooms);
+  if (problem !== null) throw new Error(`withHomeRooms: the layout breaks a rule: ${problem}`);
+  for (const kind of Object.keys(layout) as Array<keyof typeof layout>) {
+    const away = layout[kind] === null;
+    if (away !== (mendedAway.includes(kind) || pieces[kind] === null)) throw new Error(`withHomeRooms: ${kind} is ${away ? "away" : "out"}, which is not what the scenario says`);
   }
   return save;
 }
@@ -138,6 +156,11 @@ const scenarios: Record<string, (mode: Mode) => Save> = {
     save.home = { pieces: {}, walls: { bedroom: "wall-meadow", kitchen: null } };
     return save;
   },
+  // The house grows (H3, decorate-browser.mjs `decorate-grow`): the Playroom owned (and both wallpapers), the dresser put away so the tray has a piece to put in it...
+  "adult-home-room": (mode) => withHomeRooms(mode, { dresser: null }, ["room-play", "wall-meadow", "wall-dusk"], []),
+  // ...a table at (30, 4), which closes the new doorway: with the room it is read as put away, without it, it stands where it was put...
+  "adult-home-blocked": (mode) => withHomeRooms(mode, { table: { col: 30, row: 4 } }, ["wall-meadow"], []),
+  "adult-home-blocked-room": (mode) => withHomeRooms(mode, { table: { col: 30, row: 4 } }, ["room-play", "wall-meadow"], ["table"]),
   "adult-fight": (mode) => living(mode, ADULT), // the browser check starts the fight through the Arena screen
   egg: (mode) => base(mode), // a new game: phase egg, no creature
   "adult-home-lives": (mode) => {

@@ -160,7 +160,7 @@ export function wanderPath(from: Anchor, f: number, rand: () => number): Anchor[
 }
 
 export function roomOf(x: number): RoomId {
-  const col = Math.max(0, Math.min(COLS - 1, Math.floor(x / TILE)));
+  const col = Math.max(0, Math.min(colsOf(ROOMS_BUILT) - 1, Math.floor(x / TILE))); // (the last column of the rooms built: with three rooms a position past the home is the kitchen's)
   const room = ROOMS.find((r) => col >= r.from && col <= r.to);
   if (room) return room.id;
   return col < (ROOMS[1] as { from: number }).from ? "bedroom" : "kitchen"; // (a partition column: the first belongs to the bedroom, the second to the kitchen)

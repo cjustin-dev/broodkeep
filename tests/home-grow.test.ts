@@ -143,8 +143,15 @@ describe("the six rules with four rooms (edges G3, G5, G6)", () => {
     expect(problemWith(piece("dresser", 32, 3), 4)).toBe("dresser is not inside one room"); // the partition and the Playroom's first column
   });
 
-  it("the bed may be moved into the Playroom: its front is floor and it can be walked to through the three doorways", () => {
-    expect(problemWith(piece("bed", 36, 1), 4)).toBeNull();
+  it("the bed may be moved into the Playroom: its front is floor, and a creature walks to it from the bedroom through the three doorways (rows 4 or 5 of columns 10, 21 and 32)", () => {
+    const layout = piece("bed", 36, 1);
+    expect(problemWith(layout, 4)).toBeNull();
+    const path = withLayout(layout, () => findPath({ col: 2, row: 5 }, bedFront(48), 2), 4);
+    expect(path).not.toBeNull();
+    for (const partition of PARTITIONS) {
+      expect(path!.some((a) => (a.row === 4 || a.row === 5) && a.col <= partition && a.col + 1 >= partition), `column ${partition}`).toBe(true);
+    }
+    expect(path![path!.length - 1]).toEqual({ col: 37, row: 3 }); // the bed's front: (col + 1, row + 2), a 2-wide creature at columns 37 and 38
   });
 
   it("rule 5: a solid piece that closes the new doorway is refused with four rooms (and allowed with three)", () => {
@@ -272,6 +279,14 @@ describe("what is saved about a room (edges G7, G12)", () => {
     buy(bare, "room-play", at(10));
     undoBuy(bare, at(10) + 5000);
     expect(bare.home).toBeUndefined();
+  });
+
+  it("the bed cannot be put away: a bed saved inside the room goes back to its starter place, and the player's other moves stay (a layout without a bed is thrown away whole)", () => {
+    const home: HomeSave = { pieces: { bed: { col: 36, row: 1 }, sofa: { col: 13, row: 2 }, dresser: { col: 40, row: 1 } } };
+    const out = withoutRoom(home, "playroom") as HomeSave;
+    expect(out).toEqual({ pieces: { sofa: { col: 13, row: 2 }, dresser: null } });
+    expect("bed" in out.pieces).toBe(false);
+    expect(layoutOf(out, 3)).toEqual({ ...STARTER, sofa: { col: 13, row: 2 }, dresser: null }); // (the layout the page reads: valid, not the starter layout)
   });
 
   it("undoing something that is not a room leaves the home as it is", () => {

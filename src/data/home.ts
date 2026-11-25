@@ -1,5 +1,5 @@
 // The home (docs/home-plan.md, slice H1): three rooms in a row on a grid of 24 pixel tiles, a bedroom, a living room and a kitchen, and what stands in them
-// from the start. Rooms are 10 tiles wide, with a one-tile partition (a wall with a doorway two tiles high) between them: 32 x 8 tiles, 768 x 192 game pixels.
+// from the start. Rooms are 10 tiles wide, with a one-tile partition (a wall with a doorway two tiles high) between them: 32 x 8 tiles, 768 x 192 game pixels with the three base rooms.
 // Slice H3 (section 16) lets the house grow: a fourth room, the Playroom, is built to the right of the kitchen when the Shop's item for it is owned, which makes the home 43 tiles wide.
 // `COLS` is the width of the widest home and the stride of every grid array; `colsOf(rooms)` is the width of the home with that many rooms built.
 // The top two rows of every room are its wall, the other six its floor. Furniture that is `solid` takes the floor tiles it covers; a rug or a mat does not.
@@ -148,17 +148,21 @@ export function withoutWall(home: HomeSave | undefined, id: string): HomeSave | 
 }
 
 // The home without a room that is no longer owned (the Shop's undo): every piece the save has inside it is put away (`null`: a missing key would put it back on its starter place) and its
-// wallpaper entry is dropped. Gives the very same object when there is nothing to change.
+// wallpaper entry is dropped. The bed cannot be put away (rule 6 of art/homeLayout.ts, and a layout without it is thrown away whole), so a bed saved inside the room goes back to its starter
+// place (its key is dropped). Gives the very same object when there is nothing to change.
 export function withoutRoom(home: HomeSave | undefined, id: RoomId): HomeSave | undefined {
   const room = ROOMS.find((r) => r.id === id);
   if (!home || !room) return home;
-  const inside = KINDS.filter((kind) => {
+  const inRoom = (kind: PieceKind): boolean => {
     const at = home.pieces[kind];
     return at !== undefined && at !== null && at.col >= room.from;
-  });
+  };
+  const inside = KINDS.filter((kind) => kind !== "bed" && inRoom(kind));
+  const bedInside = inRoom("bed");
   const hasWall = home.walls !== undefined && Object.hasOwn(home.walls, id);
-  if (inside.length === 0 && !hasWall) return home;
+  if (inside.length === 0 && !bedInside && !hasWall) return home;
   const pieces = { ...home.pieces, ...Object.fromEntries(inside.map((kind) => [kind, null])) };
+  if (bedInside) delete pieces.bed;
   const walls = Object.fromEntries(Object.entries(home.walls ?? {}).filter(([key]) => key !== id)) as NonNullable<HomeSave["walls"]>;
   return Object.keys(walls).length > 0 ? { pieces, walls } : { pieces };
 }

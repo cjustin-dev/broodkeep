@@ -362,6 +362,9 @@ SAVE_OF.trayed = (mode) => load("adult-home-trayed", mode);
 SAVE_OF.allTrayed = (mode) => load("adult-home-alltrayed", mode);
 SAVE_OF.walls = (mode) => load("adult-home-walls", mode);
 SAVE_OF.wallsSet = (mode) => load("adult-home-walls-set", mode);
+SAVE_OF.room = (mode) => load("adult-home-room", mode); // the Playroom owned, the dresser put away (H3)
+SAVE_OF.blocked = (mode) => load("adult-home-blocked", mode); // a table at (30, 4), no Playroom
+SAVE_OF.blockedRoom = (mode) => load("adult-home-blocked-room", mode); // the same table, the Playroom owned: it is read as put away
 
 const CHECK_MODES = {
   "decorate-open": ["adult", "kid"],
@@ -374,6 +377,7 @@ const CHECK_MODES = {
   "decorate-gestures": ["adult", "kid"],
   "decorate-mouse": ["adult", "kid"],
   "decorate-walls": ["adult", "kid"],
+  "decorate-grow": ["adult", "kid"],
 };
 const ALL_IDS = Object.keys(CHECK_MODES);
 const ALL_MODES = ["kid", "adult"];
@@ -388,8 +392,9 @@ const CHECK_SIZES = {
   "decorate-gestures": PHONES,
   "decorate-mouse": DESKTOPS,
   "decorate-walls": PHONES,
+  "decorate-grow": PHONES,
 };
-const TOUCH_CHECKS = new Set(["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-walls"]);
+const TOUCH_CHECKS = new Set(["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-walls", "decorate-grow"]);
 
 // The nine pieces at the start, in the order the game saves them (src/data/home.ts KINDS): a saved `home` lists every piece, a put-away one as null.
 const START = {
@@ -411,6 +416,10 @@ const RED = 0xe0455b; // a spot the rules refuse
 const SEAT = 0x6a8ae0; // the sofa's seat (x + 8 to x + w - 8, y + 26 to y + 44 of a sofa at (x, y))
 const WOOD = [0xd9a066, 0xc78d52];
 const WALL = [0xefe3f7, 0xe4d3f0];
+const TILE_FLOOR = [0xe8e0d0, 0xcfc5ae]; // the kitchen's floor (src/art/room.ts tileFloor)
+const CARPET = [0xa9d49a, 0x97c488]; // the Playroom's floor (src/art/room.ts carpetFloor)
+const FRAME = 0x6d4a2a; // the doorway's frame and lintel
+const TABLE_TOP = 0xc4894f; // the table's top (src/art/room.ts drawSolid)
 const hex = (v) => v.toString(16).padStart(6, "0");
 const OPEN_CAMERA = [384, 96]; // the camera opens on the adult's middle (home-browser.mjs, home-open)
 const SEAT_OLD = [340, 59]; // the starter sofa (13, 1): seat x 320 to 400, y 50 to 68
@@ -1043,6 +1052,124 @@ const checks = {
   },
 
   // Everything put away: eight pieces in the tray, two rows, all inside the window, every button at least 44 pixels.
+  // The house grows (H3, docs/home-plan.md section 16). Without the Playroom the home ends at column 31 (world x 768); with it, a partition at column 32 (x 768 to 791) with a doorway in rows 4
+  // and 5 (y 96 to 143), then the Playroom, columns 33 to 42 (x 792 to 1031): a carpet, a window at x 893, the plain wall. A piece out of the tray lands in it; a drop that straddles the
+  // partition or closes the doorway is red and goes back; a tap on its wall selects it. A table at (30, 4) that closes the doorway is read as put away once the room is built.
+  "decorate-grow": async (open, env) => {
+    const openGrow = async (save) => {
+      const { page, cdp } = await open(save);
+      const g = await geometry(env, page);
+      return { page, cdp, g, stepWorld: Math.round(g.vp / 5) / g.z };
+    };
+    const eastOf = (g, world) => [world - g.vp / (2 * g.z), 96]; // (the arrow keys stop the camera at the home's edge: the picture's right edge is the home's last column)
+    const savedHome = async (page) => (await savedGame(page)).home;
+
+    // 1. three rooms: with the camera at its right limit the picture's last column is the kitchen's floor, not a carpet; and the fridge may close the east end (no doorway there yet)
+    {
+      const { page, cdp, g } = await openGrow(SAVE_OF.awake(env.mode));
+      await pan(page, "ArrowRight", 24);
+      const east = eastOf(g, 768);
+      await probe(page, g, east, [767, 150], TILE_FLOOR, "the last column of a three room home (the kitchen's floor)");
+      await probe(page, g, east, [767, 10], WALL, "the last column of the wall of a three room home");
+      await enter(env, page);
+      const from = await worldPoint(page, g, env, east, [732, 36]); // the fridge's top left tile (30, 1)
+      const drag = await carry(page, cdp, from, await worldPoint(page, g, env, east, [732, 108])); // to tile (30, 4): columns 30 and 31, rows 4 and 5
+      await ring(page, g, east, [30, 4, 2], WHITE, "the fridge carried to (30, 4) in a three room home (nothing to close)");
+      await drag.lift();
+      expectEq((await savedHome(page)).pieces.fridge, { col: 30, row: 4 }, "the fridge put down at (30, 4) in a three room home");
+    }
+
+    // 2. four rooms: the camera's limit is the Playroom's carpet, and the Playroom, its window, the partition and its doorway are where the plan says
+    {
+      const { page, cdp, g, stepWorld } = await openGrow(SAVE_OF.room(env.mode));
+      await pan(page, "ArrowRight", 24);
+      const east = eastOf(g, 1032);
+      await probe(page, g, east, [1031, 150], CARPET, "the last column of a four room home (the Playroom's carpet)");
+      await probe(page, g, east, [1031, 10], WALL, "the last column of the Playroom's wall");
+      await wallAt(page, g, east, 940, WALLS.plain, "the Playroom's wall");
+      await probe(page, g, east, [893, 20], WHITE, "the Playroom's window frame");
+      await probe(page, g, east, [895, 20], [0x8fd3ff, 0xffb27a, 0xc9a6e8, 0x1d2b53], "the Playroom's window (the sky)");
+
+      // 3. Decorate mode with the view on the Playroom: the dresser out of the tray lands in it, on the whole tile nearest the middle of the view
+      await enter(env, page);
+      expectEq(await trayNames(page), ["Put out the dresser"], "the tray of a home with the Playroom and the dresser put away");
+      const col = Math.round(east[0] / 24) - 1; // (its middle, col + 1, is the whole tile nearest the view's middle; its row is 3: the middle row of the view is 4)
+      await press(env, page.getByRole("button", { name: "Put out the dresser" }));
+      await frame(page);
+      expectEq((await savedHome(page)).pieces.dresser, { col, row: 3 }, "the dresser out of the tray, with the view on the Playroom");
+      expectEq(await pictureLabel(page), SELECTED_LABEL("dresser"), "the picture's label with the dresser out and selected");
+      await ring(page, g, east, [col, 3, 2], WHITE, "the dresser in the Playroom");
+      await press(env, binButton(page));
+      await frame(page);
+      expectEq(await trayNames(page), ["Put out the dresser"], "the tray after the dresser was put away again");
+
+      // 4. the partition and its doorway, with the camera back from the end by whole key presses until it is at 800 or less (nothing is selected: the arrow keys pan)
+      const back = Math.ceil((east[0] - 800) / stepWorld);
+      await pan(page, "ArrowLeft", back);
+      const mid = [east[0] - back * stepWorld, 96];
+      await probe(page, g, mid, [769, 80], 0x8a6bd1, "the partition's edge in the wall rows (the baseboard colour)");
+      await probe(page, g, mid, [780, 80], WALL[0], "the partition's wall");
+      await probe(page, g, mid, [780, 94], FRAME, "the lintel over the doorway");
+      await probe(page, g, mid, [780, 96], FRAME, "the doorway's top frame");
+      await probe(page, g, mid, [780, 110], WOOD, "the doorway's floor");
+      await probe(page, g, mid, [780, 143], FRAME, "the doorway's bottom frame");
+      await probe(page, g, mid, [780, 150], WALL[0], "the partition's wall below the doorway");
+      await probe(page, g, mid, [760, 110], TILE_FLOOR, "the kitchen's floor beside the doorway");
+      await probe(page, g, mid, [800, 110], CARPET, "the Playroom's carpet beside the doorway");
+
+      // 5. the fridge (30, 1) carried: over the partition (31, 1) is red, onto the doorway's approach (30, 4) is red (it would close it), into the Playroom (33, 1) is white and stays
+      const at = (world) => worldPoint(page, g, env, mid, world);
+      const fridge = await at([732, 36]);
+      const over = await carry(page, cdp, fridge, await at([756, 36]));
+      await ring(page, g, mid, [31, 1, 2], RED, "the fridge carried over the partition (columns 31 to 32)");
+      await over.lift();
+      expectEq((await savedHome(page)).pieces.fridge, { col: 30, row: 1 }, "the saved fridge after a drop over the partition");
+      const closing = await carry(page, cdp, fridge, await at([732, 108]));
+      await ring(page, g, mid, [30, 4, 2], RED, "the fridge carried onto the doorway's approach (it would close the doorway)");
+      await closing.lift();
+      expectEq((await savedHome(page)).pieces.fridge, { col: 30, row: 1 }, "the saved fridge after a drop that would close the doorway");
+      const into = await carry(page, cdp, fridge, await at([804, 36]));
+      await ring(page, g, mid, [33, 1, 2], WHITE, "the fridge carried into the Playroom (columns 33 and 34)");
+      await into.lift();
+      expectEq((await savedHome(page)).pieces.fridge, { col: 33, row: 1 }, "the fridge put down in the Playroom");
+      await ring(page, g, mid, [33, 1, 2], WHITE, "the fridge in the Playroom, still selected");
+
+      // 6. the Playroom's wall: a tap on its bare wall selects it, Dusk goes on it and on no other room (the partition is the kitchen's: still plain)
+      await page.keyboard.press("Escape"); // (the fridge is selected: Escape lets go of it)
+      await frame(page);
+      await pan(page, "ArrowRight", 24);
+      await touchTap(page, cdp, await worldPoint(page, g, env, east, [1000, 12]));
+      expectEq(await pictureLabel(page), "Decorating the home. The playroom wall is selected. Pick a wallpaper below.", "the picture's label after a tap on the Playroom's bare wall");
+      const swatchWords = ["plain", "meadow", "dusk"].map((k) => `Put the ${k} wallpaper on the playroom wall`);
+      expectEq(await swatchNames(page), swatchWords, "the swatches for the Playroom's wall");
+      await press(env, page.getByRole("button", { name: swatchWords[2] }));
+      await frame(page);
+      await wallAt(page, g, east, 940, WALLS.dusk, "the Playroom's wall after Dusk");
+      expectEq((await savedHome(page)).walls, { playroom: "wall-dusk" }, "the saved walls after Dusk on the Playroom (the one room)");
+      await pan(page, "ArrowLeft", back);
+      await probe(page, g, mid, [780, 80], WALL[0], "the partition's wall after Dusk on the Playroom (it is the kitchen's, still plain)");
+    }
+
+    // 7. a table at (30, 4) closes the doorway: with the Playroom it is read as put away (and nothing is saved by opening the game); without it, it stands where it was put
+    for (const [what, save, standing] of [
+      ["without the Playroom", SAVE_OF.blocked(env.mode), true],
+      ["with the Playroom", SAVE_OF.blockedRoom(env.mode), false],
+    ]) {
+      const { page, g, stepWorld } = await openGrow(save);
+      await pan(page, "ArrowRight", 24);
+      const limit = eastOf(g, standing ? 768 : 1032);
+      const back = Math.max(0, Math.ceil((limit[0] - 780) / stepWorld));
+      await pan(page, "ArrowLeft", back);
+      const cam = [limit[0] - back * stepWorld, 96];
+      const colour = await page.evaluate(pixelAt, dev(g, cam, [740, 115])); // (inside the table's top, x 724 to 764, y 105 to 122: the table, or the kitchen's tiles where it was)
+      if (standing ? colour !== TABLE_TOP : !TILE_FLOOR.includes(colour)) throw new Error(`world (740, 115) ${what} is ${hex(colour)}, expected ${standing ? `the table's top ${hex(TABLE_TOP)}` : "the kitchen's bare floor"}`);
+      await enter(env, page);
+      if (standing) expectEq(await page.locator(".tray.pieces").count(), 0, `the tray ${what} (nothing put away)`);
+      else expectEq(await trayNames(page), ["Put out the table"], `the tray ${what} (the table is read as put away)`);
+      expectEq((await savedGame(page)).home, save.home, `the saved home ${what} after opening it and entering Decorate mode (nothing was written)`);
+    }
+  },
+
   "decorate-fit": async (open, env) => {
     // The picture's place on the page (whatever the page has scrolled to) and the dock's height. The stage takes the spare height of a tall window and centres the picture in it, so a taller
     // dock moves the picture up by half of the growth; a page with no spare height scrolls instead and the picture's place on the page stays.
