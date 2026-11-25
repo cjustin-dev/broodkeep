@@ -1147,9 +1147,10 @@ const checks = {
       await wallAt(page, g, east, 940, WALLS.dusk, "the Playroom's wall after Dusk");
       expectEq((await savedHome(page)).walls, { playroom: "wall-dusk" }, "the saved walls after Dusk on the Playroom (the one room)");
       await pan(page, "ArrowLeft", back);
-      await probe(page, g, mid, [780, 80], WALL[0], "the partition's wall after Dusk on the Playroom (it is the kitchen's, still plain)");
-      // ...and on no other room: the kitchen's wall is in view at `mid`; the bedroom's and the living room's are brought into view from the home's left end by whole key presses
+      // ...and on no other room: the kitchen's wall and the partition are in view at `mid` (the kitchen first, so that a mutant that paints the kitchen is read by its own probe and not by the partition's);
+      // the bedroom's and the living room's are brought into view from the home's left end by whole key presses
       await wallAt(page, g, mid, 700, WALLS.plain, "the kitchen's wall after Dusk on the Playroom");
+      await probe(page, g, mid, [780, 80], WALL[0], "the partition's wall after Dusk on the Playroom (it is the kitchen's, still plain)");
       await pan(page, "ArrowLeft", 24);
       const half = g.vp / (2 * g.z);
       await wallAt(page, g, [half, 96], 0, WALLS.plain, "the bedroom's wall after Dusk on the Playroom");
