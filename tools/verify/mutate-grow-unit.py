@@ -2,7 +2,8 @@
 # Mutation runner for the pure side of the house that grows (Broodkeep, home slice H3, docs/home-plan.md section 16): how many rooms a save has built (data/home.ts roomsBuilt, colsOf,
 # isBuilt, wallRoomOf, withoutRoom), the floor, width and walking of the home in force (art/home.ts), the six rules and the mended layout with four rooms (art/homeLayout.ts, art/homeEdit.ts),
 # what the Shop's undo of the Playroom does (game/shop.ts), what a request or reward may name (game/requests.ts), what Decorate mode may select (ui/game.ts) and the look of a save (art/room.ts).
-# The drawing (carpet, window, partition), the Stage's comparison of the rooms and the Shop's card and picture are the UI runner's (mutate-grow-ui.py).
+# The drawing (carpet, window, partition), the Stage's comparison of the rooms and the Shop's card and picture are the UI runners': mutate-decorate-ui.py (the grow-* mutants, check decorate-grow) and
+# mutate-shop-ui.py (the room-*, stage-* and kid-home-* mutants, checks room-buy, room-undo, room-kid).
 #
 # It works on a COPY of the repo (grow-unit-copy/), never on the real tree. Each mutant is one exact text replace whose `old` must occur exactly once in its file. Only the test files below run
 # per mutant: a mutant counts only when ITS named test fails, so the rest of the suite cannot change the verdict. A mutant is CAUGHT only when the test named in `expect` (a substring of its full
@@ -11,6 +12,7 @@
 #   python3 mutate-grow-unit.py --list   checks each `old` occurs once in the real files, prints the table, runs no tests
 #   python3 mutate-grow-unit.py          makes a fresh copy, runs the baseline, then every mutant, then checks the copy
 #   python3 mutate-grow-unit.py --only id1,id2   the same, for these mutants only
+#   python3 mutate-grow-unit.py --equivalents    runs the EQUIVALENT list (the mutants argued to change nothing) instead: exit 0 only when every one of them leaves every test passing
 #
 # Exit: 0 every mutant CAUGHT; 1 some mutant not CAUGHT (or an occurrence count is not 1); 2 baseline failed, the copy differs at the end, or an unknown or empty --only id.
 import argparse
@@ -40,6 +42,7 @@ T_REQ = "tests/requests.test.ts"
 VITEST = ["npx", "vitest", "run", T_GROW, T_HOME, T_WALLS, T_EDIT, T_LAYOUT, T_DECOR, T_SHOP, T_REQ, "--cache=false", "--fsModuleCache=false", "--reporter=json"]
 TEST_FILE = T_GROW
 TIMEOUT_S = 600
+EQUIV_MODE = False
 
 F_DATA_HOME = "src/data/home.ts"
 F_DATA_SHOP = "src/data/shop.ts"
@@ -96,9 +99,9 @@ LET_GO = "a selected wall whose room is given back is let go"
 TRAY_LANDS = "a piece brought out of the tray lands in the Playroom when the view is there, and the arrow keys do not take it across the partition or off the end"
 TRAY_KITCHEN = "with the room not built the same tray piece lands in the kitchen or earlier, never past column 31"
 FOURTEEN = "has fourteen items at these prices, in this order, with the care items' words"
-REQUEST = "a buy request may name the Playroom, and a reward is never the Playroom"
+REQUEST = "with only the Playroom left to own, a buy request may name it and no reward is ever drawn"
 
-# Not mutated (each argued from the code, and each to be applied by hand once with the test files passing):
+# Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every test still passes, which is the proof that the argument holds):
 #  - withoutRoom with the bed let into `inside` (the filter's `kind !== "bed"` removed): the bed is nulled there, and the very next line deletes its key (`if (bedInside) delete pieces.bed;`), so
 #    the result is the same; the mutant that leaves the bed put away is "room-undo-puts-the-bed-away", and the one that keeps it where it was is "room-undo-keeps-the-bed".
 #  - dropping `n < ROOMS.length &&` in roomsBuilt: `owned.includes(ROOMS[4]?.item as string)` is `includes(undefined)`, which is false for a list of strings, so the loop stops at 4 either way.
@@ -106,6 +109,14 @@ REQUEST = "a buy request may name the Playroom, and a reward is never the Playro
 #  - `col < colsOf(rooms)` written as `col < COLS` in the rule 5 loop of problemWith: `fits` is false on every tile past the rooms built, so the loop reads nothing more.
 #  - the clamp of nearestFree to `colsOf(ROOMS_BUILT) - 1` written as `COLS - 1`: the search walks the void until it reaches the same last column of the rooms built.
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
+EQUIVALENT = [
+    mut("built-needs-no-bound", F_DATA_HOME, "while (n < ROOMS.length && owned.includes(ROOMS[n]?.item as string)) n++;", "while (owned.includes(ROOMS[n]?.item as string)) n++;", "(none)"),
+    mut("nearest-spot-ends-at-the-widest-home", F_EDIT, "col + cols <= colsOf(rooms)", "col + cols <= COLS", "(none)"),
+    mut("rule5-walks-the-widest-home", F_LAYOUT, "for (let col = 0; col < colsOf(rooms); col++) {", "for (let col = 0; col < COLS; col++) {", "(none)"),
+    mut("nearest-free-clamps-to-the-widest-home", F_HOME, "Math.min(colsOf(ROOMS_BUILT) - 1, col)", "Math.min(COLS - 1, col)", "(none)"),
+    mut("room-undo-nulls-then-deletes-the-bed", F_DATA_HOME, 'const inside = KINDS.filter((kind) => kind !== "bed" && inRoom(kind));', "const inside = KINDS.filter((kind) => inRoom(kind));", "(none)"),
+]
+
 MUTANTS = [
     # how many rooms, how wide
     mut("built-needs-no-item", F_DATA_HOME, "while (n < ROOMS.length && owned.includes(ROOMS[n]?.item as string)) n++;", "while (n < ROOMS.length) n++;", BUILT),
@@ -340,14 +351,21 @@ def do_run():
     print("SUMMARY caught=%d other=%d survived=%d error=%d of %d" % (counts["CAUGHT"], counts["CAUGHT-BY-OTHER"], counts["SURVIVED"], counts["ERROR"], len(MUTANTS)))
     if not same:
         return 2
+    if EQUIV_MODE:
+        return 0 if counts["SURVIVED"] == len(MUTANTS) else 1
     return 0 if counts["CAUGHT"] == len(MUTANTS) else 1
 
 
 def main():
+    global EQUIV_MODE
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--list", action="store_true", help="check the occurrences and print the mutants; run no tests")
+    ap.add_argument("--equivalents", action="store_true", help="run the EQUIVALENT mutants instead: each must leave every test passing (SURVIVED), else the argument for leaving it out is wrong")
     ap.add_argument("--only", help="run only these mutants (comma separated ids), after the same baseline; the summary counts only them (an unknown or empty id stops the run, exit 2)")
     args = ap.parse_args()
+    if args.equivalents:
+        EQUIV_MODE = True
+        MUTANTS[:] = EQUIVALENT
     if args.only is not None:
         ids = [i.strip() for i in args.only.split(",")]
         known = {m["id"] for m in MUTANTS}

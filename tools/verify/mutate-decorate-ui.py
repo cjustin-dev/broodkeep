@@ -252,8 +252,8 @@ MUTANTS = [
       [(ART_HOME, "HOME.w = colsOf(rooms) * TILE;", "HOME.w = COLS * TILE;")]),
     M("grow-stage-sizes-for-three-rooms", ["decorate-grow"], "the Stage walks and sizes the home for three rooms whatever is owned",
       [(STAGE, "useLayout(layout, rooms);", "useLayout(layout);")]),
-    M("grow-stage-looks-at-the-layout-only", ["decorate-grow"], "the Stage rebuilds the floor when the layout changes, not when a room is built",
-      [(STAGE, "if (layout !== layoutInForce() || rooms !== roomsInForce()) {", "if (layout !== layoutInForce()) {")]),
+    # (A Stage that rebuilds the floor on a changed layout only, not on a changed number of rooms, is the shop runner's "stage-looks-at-the-layout-only": every decorate-grow save has a saved home, so its layout
+    # object changes anyway; only a profile with no saved home, as in room-buy, has the same starter object at three rooms and four.)
     M("grow-kid-home-stays-three-rooms", ["decorate-grow"], "Kid Mode walks and sizes the home for three rooms, whatever the saved game owns",
       [(STAGE, "const rooms = roomsBuilt(game.save.owned);\n      if (layout !== layoutInForce() || rooms !== roomsInForce()) {", "const rooms = game.save.settings.adultMode ? roomsBuilt(game.save.owned) : 3;\n      if (layout !== layoutInForce() || rooms !== roomsInForce()) {")], kid_only=True),
     M("grow-carpet-is-wood", ["decorate-grow"], "the Playroom's floor is a plain brown, not the carpet",

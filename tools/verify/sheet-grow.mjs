@@ -3,7 +3,7 @@
 // and the exit code is 2; a console error or an uncaught exception on the page counts the same way.
 // Run: node sheet-grow.mjs --base http://127.0.0.1:4173
 // States: the three room home with a table at (30, 4) (it stands: no doorway there yet), the same save with the Playroom built (the table is read as put away: the tray offers it), the
-// Playroom with Decorate mode on and the dresser in the tray, and the same panned back to show the doorway. Adult Mode, frozen clock 2026-11-22T15:00:00Z, UTC, en-US, touch.
+// Playroom with Decorate mode on and the dresser in the tray, the same panned back to show the doorway, and the Playroom with Decorate mode off (playroom-plain). Adult Mode, frozen clock 2026-11-22T15:00:00Z, UTC, en-US, touch.
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";

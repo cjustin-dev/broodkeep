@@ -395,8 +395,8 @@ const pick = async (page, name) => {
   await page.waitForTimeout(250);
 };
 
-// The live room at a world point. The camera starts framed on the creature, so it is panned to the home's left or right end with the arrow keys (20 presses cover the home at
-// every zoom), the frames are drawn, and the pixel is read.
+// The live room at a world point. The camera starts framed on the creature, so it is panned to the home's left or right end with the arrow keys (20 presses cover the three room home at
+// every zoom, 27 the four room one: see `width`), the frames are drawn, and the pixel is read.
 async function liveRoom(page, end, world, width = NARROW) {
   // (The creature wanders in real time in these suites, so it is made to stay and look around. The pin lands inside its first idle pose, which lasts 2 seconds from the first frame
   // and ends the check's wait for the page well before that, so no walk has begun; the probes are also 150 pixels or more from where it starts.)

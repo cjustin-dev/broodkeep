@@ -1107,7 +1107,7 @@ const checks = {
       const back = Math.ceil((east[0] - 800) / stepWorld);
       await pan(page, "ArrowLeft", back);
       const mid = [east[0] - back * stepWorld, 96];
-      await probe(page, g, mid, [769, 80], 0x8a6bd1, "the partition's edge in the wall rows (the baseboard colour)");
+      await probe(page, g, mid, [769, 80], 0x8a6bd1, "the partition's edge on a floor row (the baseboard colour edges every partition row except the doorway's)");
       await probe(page, g, mid, [780, 80], WALL[0], "the partition's wall");
       await probe(page, g, mid, [780, 94], FRAME, "the lintel over the doorway");
       await probe(page, g, mid, [780, 96], FRAME, "the doorway's top frame");
@@ -1148,6 +1148,15 @@ const checks = {
       expectEq((await savedHome(page)).walls, { playroom: "wall-dusk" }, "the saved walls after Dusk on the Playroom (the one room)");
       await pan(page, "ArrowLeft", back);
       await probe(page, g, mid, [780, 80], WALL[0], "the partition's wall after Dusk on the Playroom (it is the kitchen's, still plain)");
+      // ...and on no other room: the kitchen's wall is in view at `mid`; the bedroom's and the living room's are brought into view from the home's left end by whole key presses
+      await wallAt(page, g, mid, 700, WALLS.plain, "the kitchen's wall after Dusk on the Playroom");
+      await pan(page, "ArrowLeft", 24);
+      const half = g.vp / (2 * g.z);
+      await wallAt(page, g, [half, 96], 0, WALLS.plain, "the bedroom's wall after Dusk on the Playroom");
+      const toLiving = Math.max(0, Math.ceil((309 - 2 * half) / stepWorld)); // (the living room's probe points, x 302 to 309, must be inside the view)
+      if (toLiving * stepWorld > 302) throw new Error(`${toLiving} key presses of ${stepWorld} world pixels pass the living room's wall at x 302`);
+      await pan(page, "ArrowRight", toLiving);
+      await wallAt(page, g, [half + toLiving * stepWorld, 96], 300, WALLS.plain, "the living room's wall after Dusk on the Playroom");
     }
 
     // 7. a table at (30, 4) closes the doorway: with the Playroom it is read as put away (and nothing is saved by opening the game); without it, it stands where it was put
@@ -1168,6 +1177,7 @@ const checks = {
       else expectEq(await trayNames(page), ["Put out the table"], `the tray ${what} (the table is read as put away)`);
       expectEq((await savedGame(page)).home, save.home, `the saved home ${what} after opening it and entering Decorate mode (nothing was written)`);
     }
+    return "three rooms end at the kitchen's floor and four in the Playroom's carpet (window, partition, doorway where the plan says); the dresser out of the tray lands in it; pieces over the partition or on the doorway's approach are red, one inside it white; a tap on its wall selects it and Dusk goes on it alone; a table that closes the doorway is read as put away with the room and stands without it, and nothing was written by reading it";
   },
 
   "decorate-fit": async (open, env) => {

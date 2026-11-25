@@ -305,6 +305,15 @@ describe("drawing (edges 1 to 6)", () => {
     expect(new Set(rewards).size).toBeGreaterThan(3); // (the other items still come)
   });
 
+  it("with only the Playroom left to own, a buy request may name it and no reward is ever drawn (the pool is empty: a room is never a gift)", () => {
+    const save = adultSave("gravelhorn");
+    save.owned = itemIds.filter((id) => id !== "room-play");
+    expect(targetsFor(save, save.creature!, "buy")).toEqual(["room-play"]);
+    const drawn = drawMany(save, 40).flat();
+    expect(drawn.filter((r) => r.type === "buy").length).toBeGreaterThan(5); // a run with no buy request would pass for nothing
+    expect(drawn.filter((r) => r.item !== null)).toEqual([]);
+  });
+
   it("a field request can always be drawn: three fields and at most two other open requests (edge 3)", () => {
     const save = adultSave("pebblin");
     const c = save.creature!;
