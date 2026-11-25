@@ -435,7 +435,7 @@ Four hats join the Shop as items 10 to 13 (thirteen in all). A bought hat is in 
 | young (12) | 36 x 36 | 30 to 36 | 0 to 4 | 0 to 10 |
 | adult (48) | 48 x 48 | 30 to 48 | 0 to 14 | 0 to 15 |
 
-"Crown row" is the rule below; the last column is how far down it falls from the first filled row (ears, horns, antennae and crests stand above it). A mock of the rule with the four hats drawn on all 65 forms in the standing, drooping and lying pictures (a Python mock, scratch only) put the hat on the head of every form, centred, with ears and horns beside it. Looked at: the knit cap in the standing, drooping and lying pictures, the crown and the fisher hat standing; the acorn cap was not looked at (the real contact sheet, step 1 below, covers all four in all three). The hats look small on the adults' wide heads (a hat 13 pixels wide on a head 20 to 40 across), which reads as a small hat, not as a mistake (Q3).
+"Crown row" is the rule below; the last column is how far down it falls from the first filled row (ears, horns, antennae and crests stand above it). A mock of the rule with the four hats drawn on all 65 forms in the standing, drooping and lying pictures (a Python mock, scratch only) put the hat on the head of every form, centred, with ears and horns beside it. Looked at: the knit cap in the standing, drooping and lying pictures, the crown and the fisher hat standing; the acorn cap was not looked at (the real contact sheet, step 1 below, covers all four in all three). The hats look small on the adults' wide heads (a hat 13 pixels wide on a crown row 15 to 43 cells wide for the adults and 14 to 22 for the young, measured on the hat sheet's pictures), which reads as a small hat, not as a mistake (Q3).
 
 ### The rule (one rule, no per-form data)
 
