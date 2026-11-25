@@ -404,3 +404,135 @@ Screen (`mutate-board-ui.py`): the tab default changed (`board-tab`), the Reques
 - **Q4.** Rewards 2, 3, 3, 4 and 5 coins, an item with every fourth request, +25% for a request open 3 days (`[tune]`, from the measured day). *Pick: as written, adjusted by the measurement.*
 - **Q5.** Paid when done, no Collect button. *Pick: paid when done.*
 - **Q6.** A request the creature cannot do (a new baby after a retire, the special) is dropped at the next minute and its progress is lost. *Pick: drop; the other choice leaves a baby with a board it cannot touch for days.*
+
+## 12. A2.4 in detail: four hats (written 2026-11-25, before any code; branch `adult-a2-4` off `origin/main` a5058b0)
+
+Everything below is "will", not "is", except "Checked in the code" and "Measured". Under the owner's blanket approval of 2026-11-25 ("complete the rest of the plan overnight"); every pick is mine and reversible, and the owner started the slice with "start a2.4". The plan's own words (section 7) are kept: one generic rule, no per-form data, checked on a contact sheet of every form in every pose, drop it if it looks wrong.
+
+### What it is
+
+Four hats join the Shop as items 10 to 13 (thirteen in all). A bought hat is in `owned`; the player puts one on from its card ("Wear", then "Take off") and the creature wears it in the room, the home and the habitat. A hat does nothing to care, growth, combat or income. It is drawn onto the creature's own picture by one rule that reads only the picture, so it works for all 65 forms in every pose.
+
+### Checked in the code (2026-11-25)
+
+- Every picture of a creature comes from `faceSprite(form, kind, frame)` in `art/face.ts` (a cached `Sprite`: `rows` and `palette`). `kind` is one of 13 (standing: open, closed, half, up, happy, yawn; slumped: droop, droopSad, droopClosed, droopYawn, droopHappy; lying: lie0, lie1). The slumped and lying pictures are wider than the form's grid (`lieDown`), and every picture is a pixel grid, so a rule on the finished grid needs no pose logic.
+- The player's creature is drawn in two places that matter: `art/scene.ts` (one function: the home, the old one-line room and the field picture a creature stands in, `worldOf` in `Stage.tsx`) and `art/habitat.ts` (`drawCreature`). The arena (`art/arena.ts`) and the hatch and evolve scenes (`art/moment.ts`) draw it too. The Book, the forecast and the profile picker draw the form their screen picks (the picker the profile's creature, the forecast the leading form) with `faceSprite(form, "open")`.
+- A canvas for a picture is cached by a string key in `spriteCanvas(sprite, key, tint)`. Six sites build a `form:<id>:<kind>:<frame>` key (line numbers on `main`, before this slice): `scene.ts:128`, `habitat.ts:123`, `arena.ts:183` and `:260` (`blink ? 0 : frame`), `moment.ts:145` and `:154` (a literal `:0`). A hat has to be part of the key at the two sites this slice changes (`scene.ts`, `habitat.ts`), or a hatted and a hatless picture share one canvas; the other four stay hatless and keep their keys.
+- On `main`, `scene.ts` passes the finished picture to `drawBlanket(ctx, picture, ...)`, and `blanketBox` reads the first filled row, the mouth row and (over every row) the leftmost and rightmost filled cell of it. Measured when the code was written: a hat in that picture moves the blanket's top for 69 of the 520 combinations of form, lying picture and hat (a Scorchlet's top is row 26 bare and row 24 in the Knit Cap), because the hat's cells overwrite cells the blanket reads. Making `blanketBox` skip the hat's digits was tried and was not enough (the hat also covers body cells: 35 combinations still differed), so the blanket is fitted to the hatless picture (rule 5, edge 22).
+- Forms use exactly these palette letters: `ABCDEFGHIKLMNOPQRSTUVWYZbcdefghkmnopqrstvwyz` (all 13 kinds, both frames, 65 forms, read 2026-11-25). The digits are free.
+- `save.owned`, `save.wall`, `save.lastBuy` and their migrate rules are in `game/state.ts` (`migrateSave`), the rules in `game/shop.ts` (`buy`, `undoBuy`, `useWall`), the list in `data/shop.ts` (`items`, `itemIds`, `isItemId`, `ItemKind`).
+- `game/requests.ts` builds two pools from `itemIds`: the "buy a named item" targets (`targetsFor`, only items the creature can pay for) and the reward item every `itemEvery`-th draw (`deal`). Four more ids enter both pools. `tests/requests.test.ts` uses `itemIds` (lines 8, 249, 271, 276) and `tests/shop.test.ts` line 45 says "has nine items".
+- `sync/sync.ts` `isUntouched` already counts `owned`, and a worn hat is always owned.
+- `retire.ts` and `putInNewEgg`/`startNewEgg` (`actions.ts`) do not touch `owned` or `wall`, so a worn hat survives a retire and a new egg unless this slice changes it (it will not).
+- `ShopPanel.tsx` `roomOfItem` sends everything that is not the bed or a wallpaper to the kitchen, and `lookWith` returns the room unchanged for any other item. Both need a hat case. The preview canvas is the 128 x 128 crop of one room (`drawHomePreview`, `ROOM`).
+
+### Measured (2026-11-25, a scratch script over all 65 forms in the standing, drooping and lying pictures; scratch only, not kept)
+
+| Stage (forms) | Picture | Widest row | First filled row | Crown row below it (0 = same row) |
+|---|---|---|---|---|
+| baby (1) | 20 x 20 | 20 | 1 | 2 |
+| kid (4) | 24 x 24 | 24 | 0 to 1 | 0 to 3 |
+| young (12) | 36 x 36 | 30 to 36 | 0 to 4 | 0 to 10 |
+| adult (48) | 48 x 48 | 30 to 48 | 0 to 14 | 0 to 15 |
+
+"Crown row" is the rule below; the last column is how far down it falls from the first filled row (ears, horns, antennae and crests stand above it). A mock of the rule with the four hats drawn on all 65 forms in the standing, drooping and lying pictures (a Python mock, scratch only) put the hat on the head of every form, centred, with ears and horns beside it. Looked at: the knit cap in the standing, drooping and lying pictures, the crown and the fisher hat standing; the acorn cap was not looked at (the real contact sheet, step 1 below, covers all four in all three). The hats look small on the adults' wide heads (a hat 13 pixels wide on a crown row 15 to 43 cells wide for the adults and 14 to 22 for the young, measured on the hat sheet's pictures), which reads as a small hat, not as a mistake (Q3).
+
+### The rule (one rule, no per-form data)
+
+1. **Crown row:** the first row of the finished picture whose filled span (first to last filled cell) is at least `max(3, round(0.4 * W))` cells wide, where `W` is the widest filled span of any row. A picture with no filled cell gets no hat.
+2. **Centre:** the middle of that row's span; the hat's left column is `Math.floor(centre - hatWidth / 2 + 0.5)` (round half up, written this way so that the Python mock, whose `round` is half to even, uses the same rule).
+3. **Height:** the hat's last row lies on the crown row (it replaces those cells where the hat has a cell). If that would put the hat's first row above row 0, the hat moves down until its first row is row 0 (it then covers more of the head).
+4. **Edges:** a hat cell outside the picture (left, right, or below its last row) is dropped, never wrapped. The picture keeps its size.
+5. **Size:** a small hat for baby and kid (7 wide), a large one for young and adult (13 wide), chosen by the form's stage. The grids are stored finished (outline included, the bottom row has no outline because it sits on the head).
+6. **Colours:** a hat has its own letters, the digits 1 (outline) to 5, in the picture's palette (copied, never changed in place), so no form's letter is ever replaced.
+7. The hatless picture stays in the cache untouched: a hat is made from a copy.
+8. **No jump between a form's two standing drawings (found on the real code, 2026-11-25):** for the second drawing the crown row and the centre are held within 2 rows and 2 columns of where the rule puts them on the first drawing. Without this one form (droopstar, whose second drawing lifts a claw above the head) carried the hat 10 rows up and 5 columns across every time it swapped drawings while walking; the other 64 forms move at most 2. Generic, no per-form data.
+
+### Decisions (mine, changeable)
+
+1. **Hats are Adult Mode purchases like every shop item** (decision 1 of section 3); a worn hat keeps showing if Adult Mode is switched off, as the wallpaper and the bed do.
+2. **Buying a hat does not put it on** (a wallpaper does). The card then offers "Wear". This keeps `lastBuy` as it is (no "hat before" field, no new migrate rule). Undoing the purchase of a worn hat takes it off.
+3. **One hat worn at a time:** `save.hat: string | null`, an owned hat's id or null. Wearing another replaces it.
+4. **Where it shows:** wherever `scene.ts` draws the living creature (the home, the old one-line room, the field picture) and in the habitat. **Not** on a dead creature, in the hatch and evolve scenes, the arena, the Book, the forecast or the picker (Q1).
+5. **The blanket is drawn from the hatless picture,** so a sleeping creature's blanket does not move.
+6. **The four hats and their prices.** Knit Cap (red, a pom-pom; 2 Fiber), Acorn Cap (brown, a stem; 2 Wood), Fisher Hat (yellow, a brim; 2 Fish), Stone Crown (grey, three points; 2 Stone). Each 12 coins: a cosmetic is about one day of the measured income (`data/shop.ts` header: a day is the three-visit player's 12 coins; the wallpapers are 12 coins and 2 of a material), all `[tune]`. The draft's 30 coins is replaced by this, as section 3 decision 5 asks. Every material then has the uses section 5 counted (Fiber 4, Herbs 3, Wood 3, Fish 3, Stone 4). The card words (`effect`): Knit Cap "A red knit cap with a pom-pom. For looks only."; Acorn Cap "A brown acorn cap. For looks only."; Fisher Hat "A yellow fisher's hat with a brim. For looks only."; Stone Crown "A grey crown with three points. For looks only."
+7. **The shop preview of a hat** is the living-room crop with the creature standing in it, wearing the hat. It is made in `ShopPanel.tsx`: after `drawHomePreview(..., "living")` the `Preview` draws `faceSprite(form, "open", 0, hat)` through `spriteCanvas`/`drawSprite`, in the middle of the crop with its bottom row at y 120 of the 128 x 128 canvas (the floor starts at y 48 in this crop; the position is checked on the sheet), from a new prop `wearing: { formId, hat } | null`; the effect's dependencies include the hat and the form, so a pick redraws it. `art/room.ts` and `Look` are not changed. With no live creature it shows the room alone and the usual hint (the Shop's nav button exists only while the creature is alive, so this is reachable only if it dies with the panel open; the first plan had a special line for it, found unreachable when the check could not open the Shop with an egg, and removed as unneeded).
+8. **The hats join the request board's pools** (`itemIds`): a buy request can name a hat and a reward can be one (a reward hat arrives owned, not worn). Not changed: the rule in `requests.ts` that a reward is never an owned item or one a buy request names. Existing seeded tests that depend on the pool's size are repaired and said so.
+
+### New and changed
+
+- `art/hat.ts` (new): the four hats' grids and palettes, `hatArt(id, stage)`, `crownRow(rows)` and `withHat(sprite, hat, stage)`. Pure; no canvas.
+- `art/face.ts`: `faceSprite(form, kind, frame = 0, hat = null)` returns the hatted picture (cached under a key that has the hat in it).
+- `art/scene.ts` and `art/habitat.ts`: pass the worn hat (null when dead) and add it to the canvas key; the blanket reads the hatless picture.
+- `data/shop.ts`: `ItemKind` gains `"hat"`; `ItemId` gains `hat-knit`, `hat-acorn`, `hat-fisher`, `hat-crown`; `isHatId`.
+- `game/shop.ts`: `useHat(save, id | null)` (like `useWall`); `undoBuy` takes a worn hat off.
+- `game/state.ts`: `hat: string | null` in `Save`, default null, `migrateSave` keeps it only when it is an owned hat id.
+- `ui/ShopPanel.tsx`: a hat's card has "Wear" / "Take off" (a toggle with `aria-pressed`, as the wallpaper's "Use"); `Preview` takes `wearing` (decision 7); `roomOfItem` returns the living room for a hat; `lookWith` needs no hat case (the room is unchanged).
+- `tests/shop.test.ts` (repaired, not new): `PRICES` gets the four hats; "has nine items" becomes thirteen, in order; the material uses `[3, 3, 2, 2, 3]` become `[4, 3, 3, 3, 4]`; the title that says four items and five foods is reworded. `tests/requests.test.ts` is run and repaired only where a count or an order depends on the pool's size.
+- Not changed: `sim`, `care`, `growth`, `combat`, `perks`, `dishes`, `requests` rules, `sync`, Kid Mode's screens.
+
+### Edge cases (a test for each; "(b)" is a browser check)
+
+Rule (unit, on small literal pictures written out in the test):
+1. The crown row on a picture with a one-cell spike on top of a wide head is the wide row, not the spike; with the spike absent it is the first wide row; the threshold itself: a row exactly `round(0.4 * W)` wide is the crown, one cell narrower is not; W = 5 makes the floor of 3 matter (a 3-wide row on a 5-wide picture is the crown, a 2-wide one is not).
+2. An empty picture (all `.`): no hat, no throw, the picture is returned unchanged (the same object). A one-row picture: the crown is row 0, only the hat's cells that fall on row 0 are drawn (the rest are below the picture and dropped), the size is unchanged, no throw.
+3. The crown row is row 0: the hat moves down so its first row is row 0 (the picture's size is unchanged), and no cell is written at a negative row.
+4. A hat wider than the picture, and a head against the left edge, and against the right edge: hat cells outside are dropped, none wraps to the other side, the picture's row lengths are unchanged.
+5. `withHat` never changes its input: the rows array and the palette object are the same after the call, and the hatless `faceSprite` for the same form, kind and frame is still the hatless picture after a hatted one was made (call hatted first, then hatless, then hatted again).
+6. Every non-hat cell of the result equals the hatless picture's cell, and every hat cell that is inside the picture is present (counted against the grid's own cell count).
+7. All 65 forms x 13 kinds x 2 frames x 4 hats: the size is unchanged, at least one hat cell is inside the picture, and no hat letter was in the hatless picture or in the form's palette (so nothing is replaced by a clash).
+8. Literal positions from the mock for six pictures (a baby, a kid, a young and an adult, and one standing and one lying) written as numbers (top row, left column): the expected values come from the Python mock, not from `crownRow`.
+9. The size follows the stage: a baby and a kid get the 7-wide hat, a young and an adult the 13-wide, for each of the four hats; each grid is rectangular, uses only `.` and the digits its palette has, and its bottom row has no outline cell that is below another hat cell.
+10. The sick tint colours the hat with the creature (it goes through `spriteCanvas`; (b)); a dead creature is drawn without the hat (so the dead tint never meets it). Browser: `hat-places` reads the cap's tinted colour on a sick creature (mutant: the sick tint removed).
+
+Rules and save (unit):
+11. `useHat`: an owned hat is worn and returns true; wearing the one already worn returns false and changes nothing; null takes it off (true), null when none is worn returns false; a hat not owned, a wallpaper id, a food id, `"constructor"`, `""` and a number return false and change nothing.
+12. `buy` of a hat takes the price in one step and leaves `hat` as it was (not worn); the refusal codes are the existing ones in the same order (unknown, owned, poor); a second tap does not buy twice. Browser: `hat-wear` buys the Knit Cap with exactly 12 coins and 2 Fiber and the card then says Wear.
+13. `undoBuy` of a worn hat sets `hat` to null; of a hat that is not worn leaves `hat` (including another worn hat) as it was; the refund is exactly the price.
+14. `migrateSave`: no `hat` field gives null; an owned hat id is kept; a hat id that is not owned gives null; a wallpaper id, an unknown id, `"constructor"`, a number and an object give null; a save with the field and no `owned` is read without a throw.
+15. A fresh save has `hat: null`; `isUntouched` is false for a save that owns a hat.
+16. A retire and a new egg leave `hat` and `owned` as they were.
+17. Passive device: a save saved earlier without the hat that is saved after the device wearing it replaces it (the existing newest-save-wins rule; no double spend, the save is one document). Built as: the hat, the purchase and the coins are fields of the one document, read back through `migrateSave`; the rule that picks the newer save is the cloud-sync tests' own.
+18. The shop list has thirteen items in the order of the plan's catalogue (the four of A2.2a, the five foods, the four hats), each with the price above; `dishIds` is still the five foods (a hat has no `dish`); `isWallId` is false for a hat.
+19. Request board: with only hats left unowned, a buy request can name a hat the creature can pay for and a reward item can be a hat; a reward is still never an owned item or the one a buy request names (the existing tests, repaired where they counted nine).
+
+Screen ((b), real clicks, frozen clock, 320 / 360 / 390 at pixel ratio 1 and 2):
+20. A save that owns a hat but wears none: the shop card says "Wear"; tap it: the card says "Take off" and `aria-pressed` is true; the room canvas has the hat's main colour in it (a pixel count above zero; the same canvas before the tap has zero). Tap again: zero again. (This catches a canvas key without the hat.)
+21. Wearing a hat shows in the home (both modes: `worldOf` gives it to both), in the field picture when the creature is out in a field, and in the habitat; a creature out working shows no hat in the room (the room is empty); a dead creature shows none; the arena and the hatch scene show none. Browser: the arena's waiting picture (no fight started) shows none (`hat-places`); the pictures inside a fight (`drawFighter`) and the hatch and evolve scenes are not tried (they draw through `moment.ts`, which never passes a hat).
+22. Sleeping (lying picture) with a worn hat: the hat is on the picture and the blanket is where it was without the hat. Measured: a hat moves `blanketBox` for 69 of 520 combinations, so the "blanket read from the hatted picture" mutant is real. The unit test pins the premise (a Scorchlet's `lie0` box top is 26 bare and 24 in the Knit Cap); the wiring is checked in a browser (`hat-bed`): a young Scorchlet asleep at night is walked to its bed with the Knit Cap on and without, and the blanket's first row (its folded edge, read through the night overlay) and size must be equal, with the cap's colour on the sleeper only in the first. A hatted blanket starts 6 device pixels higher at 360 wide, ratio 2 (measured with the mutant applied by hand).
+23. The preview: a hat card selected shows the creature wearing it (the hat's main colour in the preview canvas); a wallpaper selected shows none.
+24. The shop list with thirteen cards: each of the 13 buttons is at least 44 px tall, no card or text is clipped (Range, not `scrollWidth`), `document.documentElement.scrollWidth <= innerWidth`, and the scroll list still scrolls under the fixed picture (the existing `shop-touch` check stands for it).
+25. Stale: wear on one tab and buy on the Requests tab (a reward hat arrives owned); undo while wearing; a reload keeps the hat worn. Built as: a reward hat arrives owned and not worn, can be worn, and undoing a later purchase leaves it on (unit, `tests/requests.test.ts`); a reload keeps it (`hat-reload`); the same steps clicked across the two tabs are not tried.
+26. Kid Mode: the comparison with `main` on Kid saves that own nothing: 0 differences on the room, habitat and arena pages; a Kid save that wears a hat shows it in the room (Adult Mode off).
+
+Added after the plan review (findings 9, 10, 11, 13):
+27. `isHatId` directly: true for the four ids; false for a wallpaper, a food, `"constructor"`, `"toString"`, `""`, a number, null and undefined.
+28. Evolving while wearing a hat: `save.hat` is unchanged, and the picture's hat is the small one for a kid and the large one for a young (the size follows the new form's stage).
+29. The hat does not hop between looks: for each of the 65 forms the hat's top row and left column are the same in the six standing looks (open, closed, half, up, happy, yawn) of one frame, because only the face changes; between the two drawings it moves at most 2 rows and 2 columns (rule 8; without the rule one form moved 10 and 5), and between `lie0` and `lie1` at most 1 row and 2 columns (the breath, measured over all 65 forms and all four hats).
+30. Each hat card shows its words (decision 6) and the card's `aria-label` has them; the four words are literals in the test.
+
+### Mutation targets (each must fail its named check)
+
+Rule: threshold fraction 0.4 to 0.5 and to 0.3; the floor of 3; the first row that qualifies replaced by the last; centre taken from the first filled row instead of the crown row; hat's last row one row up and one row down; the move-down at row 0 removed (negative row written); the left edge dropping column 0, the last column, or the right edge not clipped (a negative column cannot wrap in JavaScript, so removing the left check is equivalent: argued in `mutate-hats-unit.py` and applied once); the small and large hats swapped by stage; the palette changed in place; the rows changed in place; the cache key without the hat (picture and canvas); the blanket read from the hatted picture (check `hat-bed`); a hat letter equal to a form letter.
+Rules and save: `useHat` accepts a not-owned id; accepts a wallpaper; wearing the worn hat returns true; null with no hat returns true; `buy` wears the hat; `undoBuy` leaves a worn hat on; `undoBuy` takes the other hat off; migrate keeps a not-owned hat; migrate keeps a non-hat id; `isHatId` accepts any item (written with `in` instead of an own-key check is equivalent, because the `kind` check is false for every inherited member: argued in `mutate-hats-unit.py` and applied once); the list order; a price; a hat given a `dish`; a hat's `effect` changed (edge 30); the hat size chosen by the wrong stage boundary (edge 28); the hold on the second drawing removed or set to 3 (edge 29); migrate forgets the hat (edge 17); the request board's buy pool and reward pool without hats, and a reward hat that is put on (edges 19, 25). (The grids have no bottom outline row, so "the bottom outline row dropped" is not a mutant.)
+Screen: "Wear" does nothing; "Take off" does nothing; the scene draws the hat on a dead creature; the habitat ignores the hat; the preview ignores the hat; the preview draws the hat with no creature; the preview's effect does not depend on the hat (a pick does not redraw); the room's and the habitat's canvas key without the hat; the habitat at home and at work drawn bare; `roomOfItem` sends a hat to the kitchen (the preview's room is read at a wall point); the sick tint removed (the cap keeps its plain colour); the arena drawing a hat; buying a hat puts it on; the blanket fitted to the hatted picture (`hat-bed`); Kid Mode drawing no hat; a saved game loading without its hat.
+
+### Verification plan
+
+1. A contact sheet first, from the real code: the four hats on all 65 forms in four pictures (standing `open` of frame 0 and of frame 1, `droop`, `lie0`), 16 sheets, looked at before any test (`lie1` differs from `lie0` only by the breath and is covered by edge 29); then the shop with thirteen cards and the three preview states at the three widths.
+2. A cheap-model fresh-eyes review of the new scripts and tests before any run counts (the brief lists the deliberate behaviours above as "not defects").
+3. Unit tests, then the browser checks, then both mutation runs (each mutant names its check and counts only when that check fails; the old and the new build are served; restores in `finally`; `--check-targets` first).
+4. Every earlier runner whose target files this slice touches (`mutate-shop-unit.py`, `mutate-shop-ui.py`, `mutate-board-*.py`, `mutate-habitat-*.py`, `mutate-home-*.py`) gets `--check-targets` or `--list` and its displaced mutants are repaired (the rule added to ~/CLAUDE.md on 2026-11-25), and the earlier browser suites run on the final tree (shop, board, dishes, habitat, home, decorate, retire, kid).
+5. The Kid comparison with `main`, proved live with a deliberate Kid-visible change; typecheck, tests and build with exit codes and warnings compared with `main`.
+
+### Not built (and why)
+
+The arena, the hatch scene, the Book and the picker showing the hat (Q1); a hat per stage of art beyond two sizes (Q3); a third hat size for the widest adult heads; more than one hat at once; hats from the request board's reward being worn automatically; the Wear button in the Book or the Room (the Shop card is the one place); bond effects and "hat tolerance" (A3). The CLAUDE.md section 7.7 line "Gear visuals: hats draw at one anchor point per form" is old gear design: this slice uses a rule on the picture instead and does not edit CLAUDE.md (an edit needs the owner's approval).
+
+### Questions for the owner (asked at the end, my picks first; none blocks the PR)
+
+1. Where do hats show? [room, home and habitat; not the arena, the hatch scenes, the Book or the picker]
+2. Does buying a hat put it on? [no: tap Wear; a wallpaper does]
+3. Hat sizes: two (small for baby and kid, large for young and adult). Are the adults' hats too small? [keep two; a third size is one more drawing each]
+4. Prices: 12 coins and 2 of one material each. [tune after a day of play]
+5. Names and looks: Knit Cap, Acorn Cap, Fisher Hat, Stone Crown. [as drawn on the sheet]

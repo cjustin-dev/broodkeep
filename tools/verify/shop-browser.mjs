@@ -39,6 +39,12 @@ const CHECK_MODES = {
   "fit-clip": ["adult"],
   "fit-tap": ["adult"],
   "btn-look": ["adult"],
+  "hat-wear": ["adult"],
+  "hat-preview": ["adult"],
+  "hat-places": ["adult"],
+  "hat-reload": ["adult"],
+  "hat-bed": ["adult"],
+  "hat-kid": ["kid"],
 };
 const ALL_IDS = Object.keys(CHECK_MODES);
 const ALL_MODES = ["kid", "adult"];
@@ -67,6 +73,10 @@ const WORLD_WALL_BEDROOM = [37, 10]; // the wall of the bedroom between two stri
 const WORLD_WALL_LIVING = [347, 2]; // the same in the living room
 const WORLD_BED = [70, 58]; // the bed's quilt (the mattress where the bed has none)
 const WORLD_MAT = [610, 137]; // the Feeding Mat's middle, clear of the bowl (the floor where there is none); it is on the screen at the home's right end whenever the view is 158 game pixels wide or more (768 - 610; the view is always 192 or more at the default zoom)
+
+// The hats' body colours (src/art/hat.ts; no form and no room piece draws these exactly, which the checks themselves prove with a count of 0 where no hat is on).
+const KNIT = [216, 80, 79]; // #d8504f, the Knit Cap
+const CROWN = [154, 163, 173]; // #9aa3ad, the Stone Crown
 
 // What the cards say is missing (worked out from the prices in src/data/shop.ts and the wallets in gen-saves-shop.ts).
 const POOR_REASONS = {
@@ -145,6 +155,33 @@ function pixelOf([selector, x, y]) {
   const k = canvas.width / 128;
   const data = canvas.getContext("2d").getImageData(Math.floor(x * k + k / 2), Math.floor(y * k + k / 2), 1, 1).data;
   return [data[0], data[1], data[2]];
+}
+
+// Runs in the page: how many pixels of a canvas are exactly this colour (a count over the whole picture; the hat's cells are drawn in the palette's colours, whole pixels).
+function countColour([selector, rgb]) {
+  const canvas = document.querySelector(selector);
+  if (!canvas) return null;
+  const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) if (data[i] === rgb[0] && data[i + 1] === rgb[1] && data[i + 2] === rgb[2] && data[i + 3] === 255) n++;
+  return n;
+}
+
+// Runs in the page: the first row (counted from the top of the canvas) holding a pixel of this colour (each channel within `slack`), and how many pixels of the canvas have it;
+// the row is -1 when none does.
+function firstRowOfColour([selector, rgb, slack]) {
+  const canvas = document.querySelector(selector);
+  if (!canvas) return null;
+  const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+  let first = -1;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (Math.abs(data[i] - rgb[0]) <= slack && Math.abs(data[i + 1] - rgb[1]) <= slack && Math.abs(data[i + 2] - rgb[2]) <= slack && data[i + 3] === 255) {
+      n++;
+      if (first === -1) first = Math.floor(i / 4 / canvas.width);
+    }
+  }
+  return { first, n };
 }
 
 // Runs in the page: where the live room draws a world point once the camera is at the left end (the bedroom) or the right end (the kitchen) of the home: the default zoom (the
@@ -352,6 +389,32 @@ async function liveRoom(page, end, world) {
   return page.evaluate(worldPixelOf, ["canvas.room", end, ...world]);
 }
 
+// How many pixels of the live room (whatever it shows: the home, a field, the habitat) are this colour. The creature is made to stay still first (see liveRoom), then a few frames are drawn.
+async function roomCount(page, rgb) {
+  await page.evaluate(() => { Math.random = () => 0.99; });
+  await page.clock.runFor(300);
+  await page.waitForTimeout(100);
+  return page.evaluate(countColour, ["canvas.room", rgb]);
+}
+// A creature asleep at night walks from the living room to the bed (20 game pixels a second) and lies down; the camera does not follow it, so Find brings the bed into view.
+// (The same steps as home-browser's "home-asleep"; the timers there run in real time between steps, so the last wait is generous.)
+async function toBed(page) {
+  await page.clock.runFor(3000);
+  await page.clock.runFor(9000);
+  await page.clock.runFor(40000);
+  await page.waitForTimeout(100);
+  await page.locator("button.find").click({ timeout: 5000 });
+  await page.clock.runFor(700);
+  await page.waitForTimeout(100);
+}
+const previewCount = (page, rgb) => page.evaluate(countColour, [".shop-preview", rgb]);
+const hatCard = (page, name) => page.locator(".shop-card", { has: page.locator(".shop-name", { hasText: name }) });
+const mustBe = (n, what, zero) => {
+  if (typeof n !== "number" || (zero ? n !== 0 : n <= 0)) throw new Error(`${what}: ${zero ? "expected 0" : "expected some"} pixels, got ${n}`);
+  return n;
+};
+const closeShop = (page) => page.getByRole("button", { name: "Close", exact: true }).click({ timeout: 5000 });
+
 // Moves the frozen game clock `ms` after T and runs the page's timers once (the one-second tick and the redraw).
 async function advance(page, ms) {
   await page.clock.setFixedTime(T + ms);
@@ -398,7 +461,9 @@ async function openGame(env, scenario, track) {
   await page.goto(stub);
   await page.evaluate(seedSave, save);
   await page.goto(`${env.base}/`);
-  await page.getByRole("button", { name: "Habitat", exact: true }).waitFor({ timeout: 20000 });
+  // (A dead creature has no Habitat button; the picture is what shows the game has loaded.)
+  const ready = scenario === "hat-dead" ? page.locator("canvas.room") : page.getByRole("button", { name: "Habitat", exact: true });
+  await ready.waitFor({ timeout: 20000 });
   await page.waitForTimeout(300);
   return { page, errors };
 }
@@ -425,12 +490,12 @@ const checks = {
     const { page } = await open("rich");
     const before = await savedGame(page);
     await openShop(page);
-    expectEq(trimAll(await page.locator(".shop-name").allTextContents()), ["Comfy Bed", "Feeding Mat", "Wallpaper: Meadow", "Wallpaper: Dusk", "Hearty Bowl", "Green Bowl", "Sweet Bowl", "Stew", "Garden Mix"], "the nine cards, in order");
+    expectEq(trimAll(await page.locator(".shop-name").allTextContents()), ["Comfy Bed", "Feeding Mat", "Wallpaper: Meadow", "Wallpaper: Dusk", "Hearty Bowl", "Green Bowl", "Sweet Bowl", "Stew", "Garden Mix", "Knit Cap", "Acorn Cap", "Fisher Hat", "Stone Crown"], "the thirteen cards, in order");
     expectEq(await page.locator(".shop-undo").count(), 0, "undo bars before any buy");
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await panel(page).waitFor({ state: "hidden", timeout: 5000 });
     expectEq(await savedGame(page), before, "the saved game after opening and closing the shop");
-    return "the shop opens with its nine cards, Close shuts it, and the saved game is exactly as it was";
+    return "the shop opens with its thirteen cards, Close shuts it, and the saved game is exactly as it was";
   },
 
   "buy-exact": async (open) => {
@@ -574,6 +639,149 @@ const checks = {
     return "after a reload the wallpaper is still on the wall and owned, and the undo is still offered inside its window";
   },
 
+  "hat-wear": async (open) => {
+    const { page } = await open("hats-owned");
+    mustBe(await roomCount(page, KNIT), "the room before any hat is on", true);
+    // (The habitat is looked at before the hat goes on, so its picture of the creature is made and kept without one: a hat put on later must still show there.)
+    await navButton(page, "Habitat").click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+    mustBe(await roomCount(page, KNIT), "the habitat before any hat is on", true);
+    await navButton(page, "Room").click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+    await openShop(page);
+    expectEq(trimAll(await hatCard(page, "Knit Cap").locator("button.card-btn").allTextContents()), ["Wear"], "the Knit Cap's button before");
+    expectEq(await hatCard(page, "Knit Cap").locator("button.card-btn").getAttribute("aria-pressed"), "false", "its aria-pressed before");
+    await hatCard(page, "Knit Cap").locator("button.card-btn").click({ timeout: 5000 });
+    expectEq(trimAll(await hatCard(page, "Knit Cap").locator("button.card-btn").allTextContents()), ["Take off"], "the Knit Cap's button after Wear");
+    expectEq(await hatCard(page, "Knit Cap").locator("button.card-btn").getAttribute("aria-pressed"), "true", "its aria-pressed after");
+    expectEq((await savedGame(page)).hat, "hat-knit", "the saved hat after Wear");
+    await closeShop(page);
+    const worn = mustBe(await roomCount(page, KNIT), "the room with the Knit Cap on");
+    await navButton(page, "Habitat").click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+    mustBe(await roomCount(page, KNIT), "the habitat after Wear, which was looked at without a hat before");
+    await navButton(page, "Room").click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+    await openShop(page);
+    await hatCard(page, "Stone Crown").locator("button.card-btn").click({ timeout: 5000 });
+    expectEq(trimAll(await hatCard(page, "Knit Cap").locator("button.card-btn").allTextContents()), ["Wear"], "the Knit Cap's button after another hat went on");
+    expectEq(trimAll(await hatCard(page, "Stone Crown").locator("button.card-btn").allTextContents()), ["Take off"], "the Stone Crown's button");
+    expectEq((await savedGame(page)).hat, "hat-crown", "the saved hat after the second Wear");
+    await closeShop(page);
+    mustBe(await roomCount(page, KNIT), "the room after the Knit Cap was replaced", true);
+    mustBe(await roomCount(page, CROWN), "the room with the Stone Crown on");
+    await openShop(page);
+    await hatCard(page, "Stone Crown").locator("button.card-btn").click({ timeout: 5000 });
+    expectEq(trimAll(await hatCard(page, "Stone Crown").locator("button.card-btn").allTextContents()), ["Wear"], "the Stone Crown's button after Take off");
+    expectEq((await savedGame(page)).hat, null, "the saved hat after Take off");
+    await closeShop(page);
+    mustBe(await roomCount(page, CROWN), "the room after Take off", true);
+    // Buying a hat pays in one step and does not put it on: the card then offers Wear (a save with exactly 12 coins and 2 Fiber).
+    const exact = await open("hat-exact");
+    await openShop(exact.page);
+    await buyButton(exact.page, "Knit Cap").click({ timeout: 5000 });
+    const paid = await savedGame(exact.page);
+    expectEq([paid.coins, paid.inventory.fiber, paid.owned, paid.hat], [0, 0, ["hat-knit"], null], "the saved game after buying the Knit Cap (coins, Fiber, owned, hat)");
+    expectEq(trimAll(await hatCard(exact.page, "Knit Cap").locator("button.card-btn").allTextContents()), ["Wear"], "the Knit Cap's button after the buy");
+    await closeShop(exact.page);
+    mustBe(await roomCount(exact.page, KNIT), "the room after buying the Knit Cap", true);
+    return `Wear puts the Knit Cap on (${worn} of its pixels in the room), another hat replaces it, Take off removes it; the buttons, aria-pressed and the saved hat follow each step; buying a hat does not put it on`;
+  },
+
+  "hat-preview": async (open) => {
+    const { page } = await open("rich");
+    await openShop(page);
+    await pick(page, "Knit Cap");
+    const knit = mustBe(await previewCount(page, KNIT), "the preview with the Knit Cap chosen");
+    expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your creature wearing Knit Cap", "the picture's label");
+    // The room behind the creature is the living room: its wall stripe (#e4d3f0) at the preview's point (4, 10), where the kitchen's picture is [207, 197, 174] (a floor tile line).
+    expectEq(await page.evaluate(pixelOf, [".shop-preview", 4, 10]), [228, 211, 240], "the living room's wall in a hat's preview");
+    expectEq(trimAll(await page.locator(".shop-hint").allTextContents()), ["Tap an item to see it in the room."], "the hint under a hat's preview");
+    await pick(page, "Stone Crown");
+    mustBe(await previewCount(page, CROWN), "the preview with the Stone Crown chosen");
+    mustBe(await previewCount(page, KNIT), "the Knit Cap's colour in the Stone Crown's preview", true);
+    await pick(page, "Wallpaper: Dusk");
+    mustBe(await previewCount(page, KNIT), "the Knit Cap's colour in a wallpaper's preview", true);
+    mustBe(await previewCount(page, CROWN), "the Stone Crown's colour in a wallpaper's preview", true);
+    expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your room with Wallpaper: Dusk", "the picture's label for a wallpaper");
+    const saved = await savedGame(page);
+    expectEq([saved.coins, saved.owned, saved.hat], [100, [], null], "the save after previewing the hats (looking buys nothing and puts nothing on)");
+    return `a hat's preview shows the creature wearing it (${knit} Knit Cap pixels), a wallpaper's shows none, and looking buys nothing`;
+  },
+
+  "hat-places": async (open) => {
+    const worn = await open("hat-worn");
+    const home = mustBe(await roomCount(worn.page, KNIT), "the home with the Knit Cap on");
+    await navButton(worn.page, "Habitat").click({ timeout: 5000 });
+    await worn.page.waitForTimeout(300);
+    const habitat = mustBe(await roomCount(worn.page, KNIT), "the habitat with the Knit Cap on");
+    // The arena is the one place (with the hatch scenes) where the creature is drawn without its hat, by choice (the plan's question 1): its picture says whose it is, no cap shows.
+    await navButton(worn.page, "Arena").click({ timeout: 5000 });
+    await worn.page.waitForTimeout(500);
+    expectEq(await worn.page.locator("canvas.room").getAttribute("aria-label"), "The arena. Gravelhorn is ready to fight.", "the arena's picture, so the count below is of the arena");
+    mustBe(await roomCount(worn.page, KNIT), "the arena's picture with the Knit Cap worn", true);
+    // A sick creature is tinted green all over (scene.ts: 40% of #7bdc6a), the cap too: none of its plain colour is left, and the tinted colour is there.
+    const sick = await open("hat-sick");
+    const SICK_KNIT = KNIT.map((v, i) => Math.round(v * 0.6 + [123, 220, 106][i] * 0.4));
+    mustBe(await roomCount(sick.page, KNIT), "the sick creature's cap in its plain colour", true);
+    const tinted = await sick.page.evaluate(firstRowOfColour, ["canvas.room", SICK_KNIT, 2]);
+    mustBe(tinted.n, `the sick creature's cap tinted to ${SICK_KNIT}`);
+    const working = await open("hat-working");
+    await navButton(working.page, "Habitat").click({ timeout: 5000 });
+    await working.page.waitForTimeout(300);
+    const atWork = mustBe(await roomCount(working.page, KNIT), "the habitat with the creature at work wearing the Knit Cap");
+    const field = await open("hat-field");
+    const inField = mustBe(await roomCount(field.page, KNIT), "the field picture with the Knit Cap on");
+    const dead = await open("hat-dead");
+    mustBe(await roomCount(dead.page, KNIT), "a dead creature's picture", true);
+    // A dead creature is tinted grey all over (scene.ts: 75% of #8a8a8a), so a cap drawn on it would read 0.25 x its colour + 0.75 x 138, not its plain colour: that is what is counted.
+    expectEq(await dead.page.locator("canvas.room").getAttribute("aria-label"), "Gravelhorn has passed away.", "the dead creature's picture, so the count below is of it");
+    const DEAD_KNIT = KNIT.map((v) => Math.round(v * 0.25 + 138 * 0.75));
+    mustBe((await dead.page.evaluate(firstRowOfColour, ["canvas.room", DEAD_KNIT, 2])).n, `a dead creature's picture, the cap's colour tinted grey (${DEAD_KNIT})`, true);
+    return `the Knit Cap shows in the home (${home} pixels), the habitat (${habitat}), a creature at work in the habitat (${atWork}) and the field picture (${inField}), tinted green on a sick creature (${tinted.n} pixels), and not on a dead creature or in the arena`;
+  },
+
+  "hat-reload": async (open) => {
+    const { page } = await open("hat-worn");
+    mustBe(await roomCount(page, KNIT), "the room with the Knit Cap on");
+    await savedGame(page);
+    await page.reload();
+    await page.getByRole("button", { name: "Habitat", exact: true }).waitFor({ timeout: 20000 });
+    await page.waitForTimeout(300);
+    mustBe(await roomCount(page, KNIT), "the room after a reload");
+    await openShop(page);
+    expectEq(trimAll(await hatCard(page, "Knit Cap").locator("button.card-btn").allTextContents()), ["Take off"], "the Knit Cap's button after a reload");
+    return "after a reload the hat is still on the creature and its card still says Take off";
+  },
+
+  "hat-bed": async (open) => {
+    // The blanket's top edge (#ffc2d6, drawn only by the blanket) is on the same row with the Knit Cap on as without it. A hat moves the lying picture's blanket box up two rows
+    // for a Scorchlet (tests/hats.test.ts), so a blanket fitted to the hatted picture would start two game pixels higher. The hat itself is on the sleeper under the blanket.
+    // Lights are off while it sleeps: the whole picture is covered by rgba(15, 10, 50, 0.4) (scene.ts), so each colour is read as 0.6 x itself + (6, 4, 20), give or take 2.
+    const night = (rgb) => [Math.round(rgb[0] * 0.6 + 6), Math.round(rgb[1] * 0.6 + 4), Math.round(rgb[2] * 0.6 + 20)];
+    const EDGE = night([255, 194, 214]);
+    const bare = await open("hat-asleep-bare");
+    await toBed(bare.page);
+    const worn = await open("hat-asleep");
+    await toBed(worn.page);
+    const a = await bare.page.evaluate(firstRowOfColour, ["canvas.room", EDGE, 2]);
+    const b = await worn.page.evaluate(firstRowOfColour, ["canvas.room", EDGE, 2]);
+    if (!a || a.first < 0) throw new Error(`no blanket edge on the bare sleeper (${JSON.stringify(a)}, looking for ${EDGE})`);
+    expectEq([b.first, b.n], [a.first, a.n], "the blanket's first row and size with the Knit Cap on, against without it");
+    const cap = await worn.page.evaluate(firstRowOfColour, ["canvas.room", night(KNIT), 2]);
+    const none = await bare.page.evaluate(firstRowOfColour, ["canvas.room", night(KNIT), 2]);
+    mustBe(cap.n, "the sleeper's picture with the Knit Cap on");
+    mustBe(none.n, "the bare sleeper's picture", true);
+    return `the blanket edge starts on device row ${a.first} (${a.n} pixels) with the Knit Cap on and without it, and the cap shows on the sleeper (${cap.n} pixels)`;
+  },
+
+  "hat-kid": async (open) => {
+    const { page } = await open("hat-worn");
+    const n = mustBe(await roomCount(page, KNIT), "the Kid Mode room with a worn hat");
+    expectEq(await page.getByRole("button", { name: /shop/i }).count(), 0, "buttons with Shop in their name in Kid Mode");
+    return `a hat worn in Adult Mode (the saved game has it on) still shows in Kid Mode (${n} pixels) and Kid Mode still has no Shop`;
+  },
+
   "fit-scroll": async (open) => {
     let panels = 0;
     for (const scenario of SHOP_STATES) {
@@ -628,7 +836,7 @@ const checks = {
 };
 
 // The panels the layout checks look at: every wallet and ownership state the sheet shows.
-const SHOP_STATES = ["rich", "poor", "mixed", "owned-walls", "owned-all", "just-bought", "exact-meadow"];
+const SHOP_STATES = ["rich", "poor", "mixed", "owned-walls", "owned-all", "just-bought", "exact-meadow", "hats-owned", "hat-worn"];
 
 // ---------- the runner ----------
 

@@ -17,6 +17,8 @@ import type { Face, Form, Stage } from "../game/types";
 import { MEAL, YAWN, blinking, eyesClosed } from "./idle";
 import type { View } from "./idle";
 import { wideWidth } from "./layout";
+import type { HatId } from "../data/shop";
+import { withHat } from "./hat";
 import type { Sprite } from "./pixel";
 
 export type Look = "open" | "half" | "closed" | "up" | "happy" | "yawn" | "sad";
@@ -205,13 +207,20 @@ export function lieDown(sprite: Sprite, keepRows: number[], keepCols: number[], 
 }
 
 // The picture for a look, made once per form and reused. `frame` picks the standing drawing (0 is `idle`, 1 is `idle2`) the look
-// is stamped on. The drooping and lying looks always use the first, and keep every row and column the face touched, so the face
+// is stamped on. With a `hat` it is the same picture with the hat on it (art/hat.ts). The drooping and lying looks always use the first, and keep every row and column the face touched, so the face
 // is never squashed or doubled.
 const made = new Map<string, Sprite>();
 
-export function faceSprite(form: Form, kind: FaceKind, frame: 0 | 1 = 0): Sprite {
+export function faceSprite(form: Form, kind: FaceKind, frame: 0 | 1 = 0, hat: HatId | null = null): Sprite {
   const rows = frame === 1 && !isWide(kind) ? form.idle2 : form.idle;
   const key = `${form.id}:${kind}:${rows === form.idle ? 0 : 1}`;
+  if (hat !== null) {
+    const hatKey = `${key}:${hat}`; // (the hatless picture below stays as it is: a hat is made from a copy)
+    const second = frame === 1 && !isWide(kind);
+    const worn = made.get(hatKey) ?? withHat(faceSprite(form, kind, frame), hat, form.stage, second ? faceSprite(form, kind, 0) : undefined);
+    made.set(hatKey, worn);
+    return worn;
+  }
   const hit = made.get(key);
   if (hit) return hit;
 

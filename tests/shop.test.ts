@@ -39,10 +39,14 @@ const PRICES = {
   "sweet-bowl": { coins: 25, bag: { fiber: 3 } },
   stew: { coins: 35, bag: { wood: 2, stone: 2 } },
   "garden-mix": { coins: 35, bag: { fish: 2, stone: 2 } },
+  "hat-knit": { coins: 12, bag: { fiber: 2 } },
+  "hat-acorn": { coins: 12, bag: { wood: 2 } },
+  "hat-fisher": { coins: 12, bag: { fish: 2 } },
+  "hat-crown": { coins: 12, bag: { stone: 2 } },
 } as const;
 
 describe("the catalogue", () => {
-  it("has nine items at these prices and with these words (the four of A2.2a, then the five foods of A2.2b)", () => {
+  it("has thirteen items at these prices, in this order, with the care items' words (the four of A2.2a, the five foods of A2.2b, then the four hats of A2.4; the hats' words are tests/hats.test.ts edge 30)", () => {
     expect(itemIds).toEqual([
       "comfy-bed",
       "feeding-mat",
@@ -53,6 +57,10 @@ describe("the catalogue", () => {
       "sweet-bowl",
       "stew",
       "garden-mix",
+      "hat-knit",
+      "hat-acorn",
+      "hat-fisher",
+      "hat-crown",
     ]);
     for (const id of itemIds) expect(items[id].price, id).toEqual({ coins: PRICES[id].coins, materials: PRICES[id].bag });
     expect(items["comfy-bed"].effect).toBe("While it sleeps at home, happiness falls 50% as fast.");
@@ -63,9 +71,9 @@ describe("the catalogue", () => {
     for (const id of itemIds) expect(items[id].price.coins, id).toBeLessThanOrEqual(3 * 12.2);
   });
 
-  it("every material has at least two uses: Fiber 3, Herbs 3, Wood 2, Fish 2, Stone 3", () => {
+  it("every material has at least two uses: Fiber 4, Herbs 3, Wood 3, Fish 3, Stone 4", () => {
     const uses = (material: string): number => itemIds.filter((id) => material in items[id].price.materials).length;
-    expect(["fiber", "herb", "wood", "fish", "stone"].map(uses)).toEqual([3, 3, 2, 2, 3]);
+    expect(["fiber", "herb", "wood", "fish", "stone"].map(uses)).toEqual([4, 3, 3, 3, 4]);
   });
 });
 

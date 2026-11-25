@@ -12,7 +12,7 @@ import type { Request } from "../src/game/board";
 import { beginFight } from "../src/game/combat/fight";
 import { forceEvolve, forceHatch, killCreature } from "../src/game/dev";
 import { coinsFor, fits, minutesToNext, noteRequest, paidNote, purchaseCounted, requestProgress, requestWords, staleRequest, stepRequests, targetsFor } from "../src/game/requests";
-import { buy, undoBuy } from "../src/game/shop";
+import { buy, undoBuy, useHat } from "../src/game/shop";
 import { simulateTo } from "../src/game/sim";
 import { menuOf } from "../src/game/growth";
 import { migrateSave, newSave } from "../src/game/state";
@@ -84,9 +84,10 @@ const SPOTS: Record<string, string[]> = {
   adult: ["meadow", "herbs", "trees", "pond", "rocks"],
 };
 // Items whose materials a baby, a kid or the special can gather (Fiber and Herbs only), then a young (plus Wood and Fish), then an adult (plus Stone).
-const BUY_LOW = ["feeding-mat", "wall-meadow", "green-bowl", "sweet-bowl"];
-const BUY_YOUNG = [...BUY_LOW, "comfy-bed", "hearty-bowl"];
-const BUY_ADULT = ["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk", "hearty-bowl", "green-bowl", "sweet-bowl", "stew", "garden-mix"];
+// (the hats cost Fiber, Wood, Fish and Stone: the Knit Cap at every stage, the Acorn Cap and the Fisher Hat from a young, the Stone Crown at an adult)
+const BUY_LOW = ["feeding-mat", "wall-meadow", "green-bowl", "sweet-bowl", "hat-knit"];
+const BUY_YOUNG = [...BUY_LOW, "comfy-bed", "hearty-bowl", "hat-acorn", "hat-fisher"];
+const BUY_ADULT = ["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk", "hearty-bowl", "green-bowl", "sweet-bowl", "stew", "garden-mix", "hat-knit", "hat-acorn", "hat-fisher", "hat-crown"];
 const BUY_BY_STAGE: Record<string, string[]> = { baby: BUY_LOW, kid: BUY_LOW, young: BUY_YOUNG, adult: BUY_ADULT };
 
 describe("drawing (edges 1 to 6)", () => {
@@ -278,6 +279,20 @@ describe("drawing (edges 1 to 6)", () => {
     expect(drawn.some((r) => r.type === "buy")).toBe(false);
     expect(drawn.every((r) => r.item === null)).toBe(true);
     expect(drawn).toHaveLength(90);
+  });
+
+  it("with only the four hats left to own, a buy request names a hat the creature can pay for and a reward is a hat (hats plan, edge 19)", () => {
+    const save = adultSave("gravelhorn");
+    const hats = ["hat-knit", "hat-acorn", "hat-fisher", "hat-crown"];
+    save.owned = itemIds.filter((id) => !hats.includes(id));
+    expect(targetsFor(save, save.creature!, "buy").sort()).toEqual([...hats].sort());
+    const drawn = drawMany(save, 40).flat();
+    const bought = drawn.filter((r) => r.type === "buy").map((r) => r.target as string);
+    const rewards = drawn.filter((r) => r.item !== null).map((r) => r.item as string);
+    expect(bought.length).toBeGreaterThan(5); // a run with no buy request or no reward would pass for nothing
+    expect(rewards.length).toBeGreaterThan(5);
+    expect(bought.every((id) => hats.includes(id))).toBe(true);
+    expect(rewards.every((id) => hats.includes(id))).toBe(true);
   });
 
   it("a field request can always be drawn: three fields and at most two other open requests (edge 3)", () => {
@@ -653,6 +668,21 @@ describe("paying (edges 13 to 15)", () => {
     expect(save.board.waits.at(-1)).toEqual({ doneAt: T0, coins: 2, item: "stew" });
     expect(save.board.done).toBe(1);
     expect(save.log.at(-1)!.text).toBe("Request done: Feed Meat ×2, 2 coins and Stew");
+  });
+
+  it("a hat paid as the item arrives owned and not worn; it can be worn, and undoing a later purchase leaves it on (hats plan, edge 25)", () => {
+    const save = twoMeals("hat-fisher");
+    eatTwice(save);
+    expect(save.owned).toEqual(["hat-fisher"]);
+    expect(save.hat).toBeNull();
+    expect(useHat(save, "hat-fisher")).toBe(true);
+    expect(save.hat).toBe("hat-fisher");
+    save.coins = 100;
+    save.inventory = { herb: 5 };
+    expect(buy(save, "wall-meadow", T0)).toBe("bought");
+    expect(undoBuy(save, T0)).toBe("undone");
+    expect(save.owned).toEqual(["hat-fisher"]);
+    expect(save.hat).toBe("hat-fisher");
   });
 
   it("pays only the coins for an item that is owned by then, and never lists an item twice (edge 13)", () => {

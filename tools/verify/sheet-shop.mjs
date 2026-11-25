@@ -1,4 +1,4 @@
-// Contact sheet for the shop (A2.2a): one screenshot per state and window size, written to sheets-shop/<WxH>-<state>.png, to be LOOKED at before any
+// Contact sheet for the shop (A2.2a, with the hats of A2.4): one screenshot per state and window size, written to sheets-shop/<WxH>-<state>.png, to be LOOKED at before any
 // check is trusted. It also prints each page's height against the window's. A state with the panel open is shot with the window as tall as the
 // panel's content (the panel scrolls inside a fixed layer, which a full-page shot does not follow), and the line says how tall that was.
 // Run: node sheet-shop.mjs --base http://127.0.0.1:4173
@@ -67,6 +67,11 @@ const openShop = async (page) => {
   await shopButton(page).click({ timeout: 5000 });
   await page.locator('section[aria-label="Shop"]').waitFor({ state: "visible", timeout: 5000 });
 };
+// The hats are the last cards of the list: scrolled to the end, so the sheet shows them (the other panel states show the top of the list).
+const openShopToEnd = async (page) => {
+  await openShop(page);
+  await page.locator(".shop-scroll").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+};
 const pick = (page, name) => page.locator(`.shop-pick[aria-label^="${name}"]`).click({ timeout: 5000 });
 // A stand-in for the Switch button that shows with two or more profiles on an account (it needs a cloud session to be real): the same classes and
 // two lines of text, put in the bag row, so the header can be seen at its fullest.
@@ -88,10 +93,17 @@ const STATES = {
   "room-all-owned": ["owned-all", "adult", async () => {}, false],
   "room-kid-owned": ["owned-all", "kid", async () => {}, false],
   "room-kid-plain": ["rich", "kid", async () => {}, false],
+  "room-hat-worn": ["hat-worn", "adult", async () => {}, false],
+  "room-hat-kid": ["hat-worn", "kid", async () => {}, false],
   "shop-rich": ["rich", "adult", openShop, true],
   "shop-rich-dusk": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Wallpaper: Dusk"); }, true],
   "shop-rich-bed": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Comfy Bed"); }, true],
   "shop-rich-mat": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Feeding Mat"); }, true],
+  "shop-rich-knit": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Knit Cap"); }, true],
+  "shop-rich-crown": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Stone Crown"); }, true],
+  "shop-longname-fisher": ["long-name", "adult", async (p) => { await openShop(p); await pick(p, "Fisher Hat"); }, true],
+  "shop-hats-owned": ["hats-owned", "adult", openShopToEnd, true],
+  "shop-hat-worn": ["hat-worn", "adult", openShopToEnd, true],
   "shop-poor": ["poor", "adult", openShop, true],
   "shop-mixed": ["mixed", "adult", openShop, true],
   "shop-owned-walls": ["owned-walls", "adult", openShop, true],
