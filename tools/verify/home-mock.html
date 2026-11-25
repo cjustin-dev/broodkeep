@@ -1,0 +1,159 @@
+<!doctype html>
+<!-- H0 of docs/home-plan.md: a throwaway MOCK of a three-room top-down home, drawn with the game's real creature drawings (the egg, a baby, a kid, a young, an adult),
+     to choose the tile size (16 or 24 game pixels) and the default zoom by looking. No game code, no assertions: it is a contact sheet (home-mock.mjs shoots it).
+     Served by `vite` (run-home-mock.sh), so the module imports below are the game's own source files. The furniture is flat boxes: only its size in tiles matters here.
+     Query: ?tile=16|24 &widths=320,360,390 (phone widths in css px) &zooms=1,2,3,5 &shape=square|wide  (pixel ratio 2: one canvas pixel is one device pixel). -->
+<meta charset="utf-8" />
+<title>Home mock</title>
+<style>
+  body { margin: 0; padding: 12px; background: #120c20; color: #f0e8ff; font: 12px/1.3 sans-serif; }
+  .row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+  figure { margin: 0; }
+  figcaption { margin-top: 3px; max-width: 360px; }
+  canvas { display: block; image-rendering: pixelated; outline: 1px solid #5a4a88; }
+</style>
+<body>
+<div id="out"></div>
+<script type="module">
+import { forms } from "/src/data/forms/index.ts";
+import { eggSprite } from "/src/art/sprites.ts";
+import { spriteCanvas } from "/src/art/pixel.ts";
+
+const q = new URLSearchParams(location.search);
+const TILE = Number(q.get("tile") ?? 24);
+const WIDTHS = (q.get("widths") ?? "320,360,390").split(",").map(Number);
+const ZOOMS = (q.get("zooms") ?? "1,2,3,5").split(",").map(Number);
+const SHAPE = q.get("shape") ?? "square";
+const DPR = 2;
+
+// The home: three rooms of 10 x 8 tiles in a row, a one-tile partition between them (32 x 8 tiles). The top two rows of a room are its wall, the other six its floor.
+const COLS = 32;
+const ROWS = 8;
+const WALL_ROWS = 2;
+const PART = [10, 21];
+const DOOR_ROWS = [4, 5]; // the doorway in each partition: two floor rows high
+const ROOMS = [
+  { from: 0, to: 9, floor: ["#5b4a7c", "#54446f"], wall: "#3a2e66", name: "bedroom" },
+  { from: 11, to: 20, floor: ["#4a5c7d", "#445475"], wall: "#2f3a66", name: "living room" },
+  { from: 22, to: 31, floor: ["#6b5b4a", "#625343"], wall: "#4a3a56", name: "kitchen" },
+];
+// Furniture in tiles: [col, row, cols, rows, colour]. The row is the top row; a floor row is 2 to 7.
+const FURNITURE = [
+  [1, 1, 4, 2, "#8a5aa8"], // the bed, against the wall
+  [6, 1, 2, 1, "#6a4a88"], // a chest of drawers
+  [13, 4, 5, 3, "#a8486a"], // the rug
+  [12, 1, 4, 1, "#4a6a9a"], // a sofa on the wall
+  [18, 2, 2, 2, "#8a6a3a"], // a table
+  [23, 1, 6, 1, "#8a8a9a"], // the kitchen counter on the wall
+  [30, 2, 1, 2, "#b8b8c8"], // the fridge
+  [24, 6, 1, 1, "#d98a3a"], // the food bowl
+];
+
+function homeCanvas() {
+  const W = COLS * TILE;
+  const H = ROWS * TILE;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#120c20";
+  g.fillRect(0, 0, W, H);
+  for (const r of ROOMS) {
+    for (let col = r.from; col <= r.to; col++) {
+      for (let row = 0; row < ROWS; row++) {
+        g.fillStyle = row < WALL_ROWS ? r.wall : r.floor[(col + row) % 2];
+        g.fillRect(col * TILE, row * TILE, TILE, TILE);
+      }
+    }
+    g.fillStyle = "#1a1030"; // the baseboard where the wall meets the floor
+    g.fillRect(r.from * TILE, WALL_ROWS * TILE - 2, (r.to - r.from + 1) * TILE, 2);
+  }
+  for (const col of PART) {
+    for (let row = 0; row < ROWS; row++) {
+      const door = DOOR_ROWS.includes(row);
+      g.fillStyle = door ? "#3a3058" : "#2a2048";
+      g.fillRect(col * TILE, row * TILE, TILE, TILE);
+      if (!door) {
+        g.fillStyle = "#1a1030";
+        g.fillRect(col * TILE, row * TILE, 1, TILE);
+        g.fillRect(col * TILE + TILE - 1, row * TILE, 1, TILE);
+      }
+    }
+  }
+  g.fillStyle = "rgba(0,0,0,0.14)"; // the tile grid, faint, on the floors only
+  for (const r of ROOMS) {
+    for (let col = r.from; col <= r.to + 1; col++) g.fillRect(col * TILE, WALL_ROWS * TILE, 1, (ROWS - WALL_ROWS) * TILE);
+    for (let row = WALL_ROWS; row <= ROWS; row++) g.fillRect(r.from * TILE, row * TILE - (row === ROWS ? 1 : 0), (r.to - r.from + 1) * TILE, 1);
+  }
+  for (const [col, row, cols, rows, colour] of FURNITURE) {
+    g.fillStyle = "#1a1020";
+    g.fillRect(col * TILE, row * TILE, cols * TILE, rows * TILE);
+    g.fillStyle = colour;
+    g.fillRect(col * TILE + 1, row * TILE + 1, cols * TILE - 2, rows * TILE - 3);
+  }
+  // The creatures, by their real drawings, feet on the bottom of floor row 6 (living room: the five sizes in a row; bedroom: an adult by the bed; kitchen: a baby by the bowl).
+  const pick = (stage) => Object.values(forms).find((f) => f.stage === stage);
+  const stand = (sprite, key, leftX, feetY) => {
+    const cv = spriteCanvas(sprite, key);
+    g.drawImage(cv, leftX, feetY - cv.height);
+  };
+  const feet = 7 * TILE;
+  const kinds = [["egg", eggSprite("speckled"), 16], ...["baby", "kid", "young", "adult"].map((s) => [s, { rows: pick(s).idle, palette: pick(s).palette }, pick(s).idle.length])];
+  let x = ROOMS[1].from * TILE + 2; // packed left to right with 3 game pixels between them: the five sizes are 144 + 12 pixels, a room is 160 (10 tiles of 16) or 240 wide
+  for (const [name, sprite, size] of kinds) {
+    stand(sprite, `mock-${name}`, x, feet);
+    x += size + 3;
+  }
+  const adult = kinds[4];
+  stand(adult[1], "mock-adult", 3 * TILE, feet);
+  stand(kinds[1][1], "mock-baby", 25 * TILE, feet);
+  return c;
+}
+
+const home = homeCanvas();
+const adultSize = Object.values(forms).find((f) => f.stage === "adult").idle.length;
+const out = document.getElementById("out");
+const row = document.createElement("div");
+row.className = "row";
+out.append(row);
+for (const width of WIDTHS) {
+  const wrapper = width - 32; // the page width minus the 16 px side padding of .app on each side
+  const devW = 128 * Math.floor((wrapper * DPR) / 128); // the stage's canvas: 128 game pixels times a whole k of device pixels (Stage.tsx), so a little narrower than the wrapper
+  const devH = SHAPE === "square" ? devW : Math.round(devW * 0.62);
+  const col = document.createElement("div");
+  for (const z of ZOOMS) {
+    const cv = document.createElement("canvas");
+    cv.width = devW;
+    cv.height = devH;
+    cv.style.width = `${devW / DPR}px`;
+    cv.style.height = `${devH / DPR}px`;
+    const g = cv.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = "#120c20";
+    g.fillRect(0, 0, devW, devH);
+    // The camera looks at the middle of the living room's floor (a little below the middle of the home), or the whole home centred when it is smaller than the view.
+    const viewW = devW / z;
+    const viewH = devH / z;
+    const clampStart = (want, view, total) => (view >= total ? -(view - total) / 2 : Math.max(0, Math.min(total - view, want)));
+    const sx = clampStart(16 * TILE - viewW / 2, viewW, home.width);
+    const sy = clampStart(5.5 * TILE - viewH / 2, viewH, home.height);
+    const srcX = Math.max(0, Math.floor(sx));
+    const srcY = Math.max(0, Math.floor(sy));
+    const srcW = Math.min(home.width - srcX, Math.ceil(viewW) + 1); // (one more than the view, so a fractional start never leaves the last device column bare)
+    const srcH = Math.min(home.height - srcY, Math.ceil(viewH) + 1);
+    g.drawImage(home, srcX, srcY, srcW, srcH, Math.round((srcX - sx) * z), Math.round((srcY - sy) * z), srcW * z, srcH * z);
+    const fig = document.createElement("figure");
+    fig.append(cv);
+    const cap = document.createElement("figcaption");
+    const seen = `${(viewW / TILE).toFixed(1)} x ${(viewH / TILE).toFixed(1)} tiles in view`;
+    cap.textContent = `tile ${TILE} · phone ${width} wide · ${SHAPE} ${devW}x${devH} device px · ${z} device px per game px (${z / DPR} css) · ${seen} · adult ${adultSize} = ${(adultSize / TILE).toFixed(1)} tiles = ${Math.round((adultSize * z) / DPR)} css px`;
+    fig.append(cap);
+    col.append(fig);
+    const gap = document.createElement("div");
+    gap.style.height = "10px";
+    col.append(gap);
+  }
+  row.append(col);
+}
+document.title = "ready";
+</script>
