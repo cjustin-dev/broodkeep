@@ -17,7 +17,7 @@ failed; 2 the run stopped (copy out of sync, clean build failed its own checks, 
 The edge cases it handles are the shop runner's (mutate-shop-ui.py): an `old` that occurs 0 or 2+ times is ERROR and not applied; a build that
 breaks, a checker that hangs (killed by process group), a served page that is not the build just made, a server already answering on the port, a
 checker exit 1 whose FAIL lines name only other ids (CAUGHT-BY-OTHER), exit 1 with no FAIL line (ERROR), exit 0 (SURVIVED); every mutant runs the
-checker at ONE size (360x640@2, or the mutant's own `size`), and the clean baseline runs at 360x640@2 and at each size a mutant names; the all-sizes proof of the clean build is run-board.sh; Ctrl-C or SIGTERM restores the file under
+checker at ONE size (360x640@2, or the mutant's own `size`), and the clean baseline runs at 360x640@2 and at each size a mutant names (there, the checks that size's mutants must break); the all-sizes proof of the clean build is run-board.sh; Ctrl-C or SIGTERM restores the file under
 edit and stops the servers; the final clean rebuild must equal the first one and the copy's src/ must equal the real src/.
 """
 
@@ -48,7 +48,7 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["board-tab", "board-cards", "board-fit", "board-tap", "shop-scroll", "board-live", "board-note", "board-kid"]
+ALL_IDS = ["board-tab", "board-cards", "board-fit", "board-tap", "shop-scroll", "shop-touch", "board-live", "board-note", "board-kid"]
 
 SHOP = "src/ui/ShopPanel.tsx"
 TAB = "src/ui/RequestsTab.tsx"
@@ -135,6 +135,12 @@ MUTANTS = [
     dict(id="page-behind-follows-the-wheel", expect=["shop-scroll"], kid_only=False, size="320x568@2",
          what="the list lets a wheel at its end go on to the page behind (that page is scrollable at 320 x 568 only)",
          edits=[(CSS, "  overscroll-behavior: contain;\n  padding-bottom: calc(28px + env(safe-area-inset-bottom));", "  padding-bottom: calc(28px + env(safe-area-inset-bottom));")]),
+    dict(id="page-behind-follows-a-finger", expect=["shop-touch"], kid_only=False, size="360x640@2",
+         what="the page behind the open Shop is scrollable again: a finger dragged on the title, tabs or room picture (nothing there scrolls) moves the home page under the panel (that page is 83 px longer than its window at 360 x 640)",
+         edits=[(CSS, "body:has(.shop-panel) {\n  overflow: hidden;\n}", "body:has(.shop-panel) {\n  overflow: auto;\n}")]),
+    dict(id="list-a-sliver-on-its-side", expect=["shop-touch"], kid_only=False, size="740x360@2",
+         what="no side-by-side layout for a phone on its side: the title, tabs and room picture are stacked above the list again, which is left 65 px of a 740 x 360 window (by a run of the build before the fix)",
+         edits=[(CSS, "@media (orientation: landscape) and (max-height: 520px) {", "@media (orientation: landscape) and (max-height: 0px) {")]),
     dict(id="card-wider-than-the-list-at-320", expect=["board-fit"], kid_only=False, size="320x568@2",
          what="every shop card is 300 px wide at least: it ends at x=316, inside the 320 window and past the list's 288 px, so only the list's own scrollWidth shows it",
          edits=[(CSS, ".shop-card {\n  --card-edge: #8d7bc6;\n  display: flex;", ".shop-card {\n  --card-edge: #8d7bc6;\n  min-width: 300px;\n  display: flex;")]),
@@ -495,11 +501,12 @@ def run(args):
         base.start()
         verify_serving(base.base, dist)
         rc, text = run_checker(base.base, ALL_IDS, None, BASELINE_TIMEOUT, base_log)
-        # A mutant that names its own window (size) is only caught by its edit if the clean build passes in that window too.
+        # A mutant that names its own window (size) is only caught by its edit if the clean build passes the checks it must break in that window too.
         extra_rcs = []
         for other in sorted({m["size"] for m in MUTANTS if m.get("size", SIZE) != SIZE}) if rc == 0 else []:  # (a failed first baseline stops the run below)
             log = os.path.join(LOGS, "baseline-" + other.replace("@", "-") + ".log")
-            extra_rcs.append((other, log, run_checker(base.base, ALL_IDS, None, BASELINE_TIMEOUT, log, other)[0]))
+            wanted = sorted({i for m in MUTANTS if m.get("size", SIZE) == other for i in m["expect"]})  # (the ids those mutants must break: the others were built for portrait windows)
+            extra_rcs.append((other, log, run_checker(base.base, wanted, None, BASELINE_TIMEOUT, log, other)[0]))
         base.stop()
     except Infra as e:
         raise Stop(f"clean build: {e}")

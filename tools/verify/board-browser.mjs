@@ -1,6 +1,7 @@
 // Browser checks for A2.3 (docs/adult-a2-plan.md section 11): the Requests tab of the Shop panel, its cards, the layout at 320, 360 and 390 wide (pixel
 // ratio 1 and 2), a request finished by real taps in the room, the note over the room, the refill of a slot, and Kid Mode, which must show nothing of it.
-// It also holds `shop-scroll`: the Shop panel's title, tabs and room picture stay fixed and only its list scrolls (a real mouse wheel, a real tap deep in the list).
+// It also holds `shop-scroll`: the Shop panel's title, tabs and room picture stay fixed and only its list scrolls (a real mouse wheel, a real tap deep in the list),
+// and `shop-touch`: the same on a phone (a mobile window with touch, real touch events sent a few pixels at a time), also on its side, and the page behind the panel never moves.
 //
 // Run: node board-browser.mjs --base http://127.0.0.1:4173 [--only id1,id2] [--sizes 320x568@1,360x640@2] [--modes kid,adult]
 // Exit: 0 when no check failed and at least one ran; 1 when any FAIL; 2 when the script broke (a requested --only id ran zero times,
@@ -31,6 +32,7 @@ const CHECK_MODES = {
   "board-fit": ["adult"],
   "board-tap": ["adult"],
   "shop-scroll": ["adult"],
+  "shop-touch": ["adult"],
   "board-live": ["adult"],
   "board-note": ["adult"],
   "board-kid": ["kid"],
@@ -45,6 +47,12 @@ const DEFAULT_SIZES = [
   [390, 844, 1],
   [390, 844, 2],
 ];
+// A check with windows of its own (used when --sizes is not given): the touch check also runs a phone on its side and a tall phone at ratio 3.
+const CHECK_SIZES = {
+  "shop-touch": [[320, 568, 2], [360, 640, 2], [390, 844, 3], [740, 360, 2], [844, 390, 3]],
+};
+// Checks that drive the page with a finger run in a mobile window (isMobile, hasTouch), which a desktop window is not.
+const TOUCH_CHECKS = new Set(["shop-touch"]);
 const CHECK_TIMEOUT_MS = 120_000;
 
 // The Requests tab as each saved game shows it: state, title, progress, note, the rewards' labels and the words shown on them ("+2", the item's name), the "+25%" mark, and the bar's translateX in percent. Worked out by hand
@@ -286,6 +294,27 @@ async function openRequests(page) {
   await page.waitForTimeout(200);
 }
 
+// A finger on the screen, as the browser's protocol sends one (real touch events, the same a phone makes): down at (x, y), moved in steps to (x, y + dy), a short
+// pause with the finger still down (so nothing flings), up. `flick`: fewer, faster steps and no pause, so the browser flings, then a wait for the fling to end.
+async function touchDrag(cdp, x, y, dy, { flick = false } = {}) {
+  const steps = flick ? 5 : 12;
+  const gap = flick ? 8 : 16;
+  const send = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+  await send("touchStart", [{ x, y }]);
+  for (let i = 1; i <= steps; i++) {
+    await send("touchMove", [{ x, y: y + (dy * i) / steps }]);
+    await new Promise((r) => setTimeout(r, gap));
+  }
+  if (!flick) await new Promise((r) => setTimeout(r, 120));
+  await send("touchEnd", []);
+  await new Promise((r) => setTimeout(r, flick ? 1200 : 400));
+}
+
+// Throws when a box (from shopBoxes) is not where it was.
+function boxMoved(a, b, what) {
+  for (const k of ["top", "bottom", "left", "right"]) if (Math.abs(a[k] - b[k]) > 0.5) throw new Error(`${what} moved: ${k} ${Math.round(a[k])} to ${Math.round(b[k])}`);
+}
+
 // One meal of Pellets, by real taps: the Feed button, then the food.
 async function eatPellet(page) {
   await feedButton(page).click({ timeout: 5000 });
@@ -323,6 +352,7 @@ async function openGame(env, scenario, track) {
   const context = await env.browser.newContext({
     viewport: { width: env.w, height: env.h },
     deviceScaleFactor: env.dpr,
+    ...(env.touch ? { isMobile: true, hasTouch: true } : {}),
     locale: "en-US",
     timezoneId: "UTC",
     serviceWorkers: "block",
@@ -504,6 +534,110 @@ const checks = {
     return `${views} views (Items and Requests, with and without the Undo bar; ${scrolled} had a list long enough to scroll): every list opens at its top, the panel does not scroll, the list shows at least ${LIST_MIN} px, a mouse wheel scrolls only the list to its end with 16 px or more below the last card and its button inside the list, the title, tabs, room picture and Undo bar stay where they were, the page behind does not move further, and a tap on the last item changes the room picture still in view`;
   },
 
+  "shop-touch": async (openScenario, env) => {
+    const LIST_MIN = 100; // px of list a window must show: a card's name and its price line at the least (a phone on its side too)
+    const PARTS = ["head", "tabs", "preview", "undo"];
+    let views = 0;
+    let scrolledViews = 0;
+    let fixedDrags = 0;
+    let skippedDrags = 0;
+    let pageRoom = 0;
+    for (const [scenario, view] of [["rich", "Items"], ["rich", "Requests"], ["undo-pending", "Items"]]) {
+      const at = `${scenario} ${view}`;
+      const { page } = await openScenario(scenario);
+      const cdp = await page.context().newCDPSession(page);
+      // The control: a finger dragged on the plain home page (the gutter beside the room) scrolls it, where it can scroll at all. If it did not, the tool
+      // would not be driving the page, and every "did not move" below would pass for nothing.
+      const room = await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight);
+      if (room > 1) {
+        pageRoom += 1;
+        await touchDrag(cdp, 8, Math.round(env.h / 2), -Math.min(Math.round(room), 300));
+        const moved = await page.evaluate(() => document.scrollingElement.scrollTop);
+        if (!(moved > 0)) throw new Error(`${at}: a finger dragged up on the home page (${Math.round(room)} px longer than its window) did not scroll it: the touch tool is not driving the page`);
+      }
+      await navButton(page, "Shop").tap({ timeout: 5000 });
+      await panel(page).waitFor({ state: "visible", timeout: 5000 });
+      if (view === "Requests") {
+        await tabButton(page, "Requests").tap({ timeout: 5000 });
+        await page.locator(".req-list").waitFor({ state: "visible", timeout: 5000 });
+      }
+      await page.waitForTimeout(400);
+      const before = await page.evaluate(shopBoxes);
+      if (before.panelOverflow > 0.5) throw new Error(`${at}: the panel itself scrolls (${before.panelOverflow} px more than its window)`);
+      if (before.list.bottom > env.h + 0.5) throw new Error(`${at}: the list ends at ${Math.round(before.list.bottom)}, past the window (${env.h})`);
+      const shown = before.list.bottom - before.list.top;
+      if (shown < LIST_MIN) throw new Error(`${at}: the window shows ${Math.round(shown)} px of the list, fewer than ${LIST_MIN}`);
+      if ((view === "Items") !== (before.preview !== null)) throw new Error(`${at}: the room picture is ${before.preview === null ? "missing" : "shown"}`);
+      if ((scenario === "undo-pending") !== (before.undo !== null)) throw new Error(`${at}: the Undo bar is ${before.undo === null ? "missing" : "shown"}`);
+      if (view === "Items" && !(before.listMax > 0)) throw new Error(`${at}: the 9 items fit the list's window, so nothing was tested`);
+      if (before.listTop !== 0) throw new Error(`${at}: the list opens scrolled to ${before.listTop}, not at its top`);
+      const pageBase = before.pageScroll; // (the tap that opened the panel may have scrolled the page behind a little)
+      const stayed = (after, what) => {
+        for (const part of PARTS) if (before[part] !== null) boxMoved(before[part], after[part], `${at}: the ${part} ${what}`);
+      };
+
+      // A finger dragged up on the list scrolls the list, a step at a time, to its end; nothing else moves.
+      let now = before;
+      if (before.listMax > 0) {
+        scrolledViews += 1;
+        let guard = 0;
+        while (now.listTop < now.listMax - 1) {
+          if (guard++ >= 40) throw new Error(`${at}: 40 finger drags did not take the list to its end (at ${now.listTop} of ${now.listMax})`);
+          const h = now.list.bottom - now.list.top;
+          await touchDrag(cdp, Math.round((now.list.left + now.list.right) / 2), Math.round(now.list.bottom - 20), -Math.round(h * 0.8));
+          const next = await page.evaluate(shopBoxes);
+          if (!(next.listTop > now.listTop)) throw new Error(`${at}: a finger dragged up on the list did not scroll it (stayed at ${now.listTop} of ${now.listMax})`);
+          now = next;
+        }
+        stayed(now, "after the list was scrolled by a finger");
+        expectEq([now.panelScroll, now.pageScroll], [0, pageBase], `${at}: the panel's and the page's scroll after the finger drags on the list`);
+        if (now.lastCard.bottom > now.list.bottom - 16 + 0.5) throw new Error(`${at}: the last card ends at ${Math.round(now.lastCard.bottom)}, less than 16 px above the list's end (${Math.round(now.list.bottom)})`);
+        if (view === "Items" && (now.lastButton === null || now.lastButton.top < now.list.top - 0.5 || now.lastButton.bottom > now.list.bottom - 16 + 0.5)) throw new Error(`${at}: the last card's button is not inside the list`);
+      }
+
+      // A finger dragged on a part that never scrolls (title row, tabs, room picture, Undo bar), up and then down: the page behind the panel must not move
+      // (it is scrollable in some windows, and a drag on a fixed layer is handed to it), and the parts and the list stay where they were.
+      for (const part of PARTS) {
+        if (before[part] === null) continue;
+        const b = before[part];
+        const x = Math.round((b.left + b.right) / 2);
+        const y = Math.round((b.top + b.bottom) / 2);
+        for (const want of [-120, 120]) {
+          const dy = Math.max(1 - y, Math.min(env.h - 1 - y, want)); // (the finger stays inside the window)
+          if (Math.abs(dy) < 20) {
+            skippedDrags += 1; // (the part is within 20 px of the window's edge in that direction: counted, and said in the result)
+            continue;
+          }
+          await touchDrag(cdp, x, y, dy);
+          const after = await page.evaluate(shopBoxes);
+          expectEq([after.pageScroll, after.panelScroll, after.listTop], [pageBase, 0, now.listTop], `${at}: the page's, the panel's and the list's scroll after a finger dragged ${dy} px on the ${part}`);
+          stayed(after, `after a finger dragged ${dy} px on it`);
+          fixedDrags += 1;
+        }
+      }
+
+      if (view === "Items") {
+        // The point of it: from deep in the list a real tap on an item changes the room picture, which is still on the screen, and nothing scrolled.
+        await page.locator(".shop-card").last().locator(".shop-pick").tap({ timeout: 5000 });
+        await page.waitForTimeout(300);
+        expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your room with Garden Mix", `${at}: the room picture after a tap on the last item`);
+        const tapped = await page.evaluate(shopBoxes);
+        expectEq([tapped.pageScroll, tapped.panelScroll], [pageBase, 0], `${at}: the page's and the panel's scroll after the tap`);
+        stayed(tapped, "after the tap");
+        // A quick flick down the list (a fling) moves the list and nothing else.
+        const h = tapped.list.bottom - tapped.list.top;
+        await touchDrag(cdp, Math.round((tapped.list.left + tapped.list.right) / 2), Math.round(tapped.list.top + 20), Math.round(h * 0.6), { flick: true });
+        const flung = await page.evaluate(shopBoxes);
+        if (!(flung.listTop < tapped.listTop)) throw new Error(`${at}: a quick flick down the list did not move it (stayed at ${tapped.listTop})`);
+        expectEq([flung.pageScroll, flung.panelScroll], [pageBase, 0], `${at}: the page's and the panel's scroll after the flick`);
+        stayed(flung, "after the flick");
+      }
+      views += 1;
+    }
+    if (scrolledViews < 2) throw new Error(`only ${scrolledViews} of ${views} views had a list that scrolls: the two Items views must`);
+    return `${views} views by touch (${pageRoom} with a home page that scrolls, which a control finger scrolled first): the list shows at least ${LIST_MIN} px, a finger scrolls only the list to its end (${scrolledViews} lists), ${fixedDrags} finger drags up and down (${skippedDrags} skipped for being within 20 px of the window's edge) on the title, tabs, room picture and Undo bar leave the page behind, the panel, the list and those parts where they were, a tap on the last item changes the room picture still in view, and a flick scrolls only the list`;
+  },
+
   "board-live": async (openScenario) => {
     // Two real meals of Pellets finish the request for them: it pays at the second, once, and its slot waits.
     const { page } = await openScenario("live-feed");
@@ -628,7 +762,7 @@ async function main() {
         if (!match) throw new Error(`bad size ${s} (want WxH@ratio)`);
         return [Number(match[1]), Number(match[2]), Number(match[3])];
       })
-    : DEFAULT_SIZES;
+    : [...new Map([...DEFAULT_SIZES, ...Object.values(CHECK_SIZES).flat()].map((z) => [z.join("x"), z])).values()];
 
   const browser = await chromium.launch({ headless: true });
   const ran = Object.fromEntries(ALL_IDS.map((id) => [id, 0]));
@@ -638,12 +772,13 @@ async function main() {
     for (const [w, h, dpr] of sizes) {
       for (const id of ALL_IDS) {
         if (!ids.includes(id)) continue;
+        if (!(args.sizes ? sizes : (CHECK_SIZES[id] ?? DEFAULT_SIZES)).some((z) => z[0] === w && z[1] === h && z[2] === dpr)) continue;
         for (const mode of CHECK_MODES[id]) {
           if (!modes.includes(mode)) continue;
           const label = `[${mode} ${w}x${h}@${dpr}]`;
           let line;
           try {
-            const detail = await runCheck(id, { browser, base, mode, w, h, dpr });
+            const detail = await runCheck(id, { browser, base, mode, w, h, dpr, touch: TOUCH_CHECKS.has(id) });
             line = `PASS ${id} ${label} ${oneLine(detail)}`;
           } catch (err) {
             f++;
