@@ -2,6 +2,7 @@
 // Reads the save but never changes it.
 
 import { getForm } from "../data/forms";
+import type { Layout } from "../data/home";
 import type { CallKind, Save } from "../game/state";
 import { MINUTE, hourOf } from "../game/time";
 import { tuning } from "../data/tuning";
@@ -61,13 +62,14 @@ export function drawBubble(ctx: CanvasRenderingContext2D, name: IconName, x: num
   ctx.drawImage(icon(name), x + 2, y + 2);
 }
 
-export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View, gameNowMs: number): void {
+// `layout` is for Decorate mode, which draws a layout other than the saved one (the piece a finger is carrying is left out and drawn on top afterwards).
+export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View, gameNowMs: number, layout?: Layout): void {
   ctx.imageSmoothingEnabled = false;
   const c = save.creature;
   const alive = save.phase === "alive" && c;
   const home = view.world === "home";
   const spots = spotsOf(view.world);
-  const look = lookOf(save);
+  const look = layout ? { ...lookOf(save), layout } : lookOf(save);
   // In the home: the three rooms. In the one-line room: a living creature that is out in a field (and not away on a job) is drawn in the field, and anything else in the
   // room.
   if (home) drawHomeBack(ctx, hourOf(gameNowMs), look);

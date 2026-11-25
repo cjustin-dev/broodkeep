@@ -168,6 +168,19 @@ h2 {
   padding: 0;
 }
 
+/* The Decorate button (docs/home-plan.md section 12) sits over the picture's top right corner, in the Find button's cell. */
+.btn.decorate-btn {
+  grid-area: 1 / 1;
+  justify-self: end;
+  align-self: start;
+  z-index: 2;
+  width: 48px;
+  min-height: 48px;
+  height: 48px;
+  margin: 8px;
+  padding: 0;
+}
+
 .room {
   display: block;
   border-radius: var(--radius-md);
@@ -300,6 +313,33 @@ input:focus-visible {
 .btn.food {
   min-height: 64px;
   background: var(--panel-hi);
+}
+
+/* Decorate mode (docs/home-plan.md section 12): the furniture that is put away, five to a row, each as its own picture; the bin and Done below it, two wide. */
+.tray.pieces {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.btn.piece {
+  min-height: 64px;
+  padding: 6px;
+  background: var(--panel-hi);
+}
+
+.piece-thumb {
+  display: block;
+  max-width: 100%;
+  max-height: 48px;
+  image-rendering: pixelated;
+}
+
+.care.decor-care {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.care.decor-care .btn {
+  min-height: 64px; /* with up to five pieces in the tray (one row) the dock is as tall as the nav and care buttons it replaces, so the picture does not move; six to eight add a row, and on a tall screen the stage centres the picture in the height that is left, so it moves up by half of that (decorate-fit measures both) */
 }
 
 /* A shop food in the tray's second row: the field food's picture with a mark in the corner (x2, or the second food of a recipe). The row keeps the food

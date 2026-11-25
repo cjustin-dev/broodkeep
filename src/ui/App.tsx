@@ -10,6 +10,7 @@ import type { CloudSync } from "../sync/sync";
 import { ActionBar } from "./ActionBar";
 import { AdultHeader } from "./AdultHud";
 import { ArenaBar } from "./ArenaBar";
+import { DecorateBar } from "./DecorateBar";
 import { DevPanel } from "./DevPanel";
 import type { Game } from "./game";
 import { HabitatBar } from "./HabitatBar";
@@ -127,7 +128,9 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
       )}
       <Stage game={game} />
       <div class="dock">
-        {save.phase === "dead" ? (
+        {game.decor ? (
+          <DecorateBar game={game} />
+        ) : save.phase === "dead" ? (
           <DeathCard game={game} />
         ) : (
           <>

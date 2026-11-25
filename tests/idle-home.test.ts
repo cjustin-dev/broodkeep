@@ -142,6 +142,61 @@ describe("a meal in the home", () => {
   });
 });
 
+describe("Decorate mode: the creature stands still (view.still)", () => {
+  const always = (): number => 0; // "start something": with this generator a free creature walks off by itself (the control below proves it)
+
+  it("calls off a walk it was on: it stands where it is, with its path gone", () => {
+    const view = homeView();
+    view.pose = "walk";
+    view.path = [{ x: 300, y: 144 }];
+    view.still = true;
+    updateView(view, 0.1, AWAKE, never, 48, "home");
+    expect([view.pose, view.path.length, view.x, view.y]).toEqual(["idle", 0, 360, 144]);
+  });
+
+  it("starts no walk by itself in ten seconds, where a free creature does (the control)", () => {
+    const control = homeView();
+    for (let t = 0; t < 10; t += 0.1) updateView(control, 0.1, AWAKE, always, 48, "home");
+    expect([control.x, control.y]).not.toEqual([360, 144]); // the generator really does send it walking
+    const view = homeView();
+    view.still = true;
+    for (let t = 0; t < 10; t += 0.1) {
+      updateView(view, 0.1, AWAKE, always, 48, "home");
+      expect(view.pose).not.toBe("walk");
+    }
+    expect([view.x, view.y]).toEqual([360, 144]);
+  });
+
+  it("does not walk to bed when it falls asleep, and goes when it may move again", () => {
+    const view = homeView();
+    view.still = true;
+    run(view, 3, ASLEEP);
+    expect([view.pose, view.toBed, view.x, view.y]).toEqual(["idle", false, 360, 144]);
+    view.still = false;
+    run(view, 3, ASLEEP);
+    expect([view.pose, view.toBed]).toEqual(["walk", true]);
+  });
+
+  it("calls off the walk to bed it was on", () => {
+    const view = homeView();
+    run(view, 3, ASLEEP);
+    expect(view.toBed).toBe(true);
+    const [x, y] = [view.x, view.y];
+    view.still = true;
+    run(view, 1, ASLEEP);
+    expect([view.pose, view.toBed, view.path.length, view.x, view.y]).toEqual(["idle", false, 0, x, y]);
+  });
+
+  it("leaves a creature that is already asleep in its bed", () => {
+    const view = homeView();
+    run(view, 19, ASLEEP);
+    expect(view.pose).toBe("sleep");
+    view.still = true;
+    run(view, 2, ASLEEP);
+    expect([view.pose, view.x, view.y]).toEqual(["sleep", 48, 96]);
+  });
+});
+
 describe("when the furniture is moved (reseat)", () => {
   it("puts a creature that a piece now covers on the nearest free anchor: an adult goes one tile down, a kid one tile left", () => {
     useLayout(withTable(15, 4)); // columns 15 and 16, rows 4 and 5: both anchors' tiles

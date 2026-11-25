@@ -3,9 +3,13 @@
 
 import { playback } from "../art/arena";
 import type { Playback } from "../art/arena";
-import { createView } from "../art/idle";
+import { moved, nearestSpot } from "../art/homeEdit";
+import { layoutOf } from "../art/homeLayout";
+import { createView, reseat } from "../art/idle";
 import { shownOf } from "../art/moment";
 import type { View } from "../art/idle";
+import { homeOf } from "../data/home";
+import type { Layout, PieceKind } from "../data/home";
 import { endFight, startFight } from "../game/actions";
 import type { StartFightResult } from "../game/actions";
 import { playRound } from "../game/combat/battle";
@@ -20,6 +24,11 @@ import { gameNow } from "../game/time";
 import { writeSave } from "../sync/local";
 
 export type Screen = "room" | "habitat" | "arena";
+
+// Decorate mode (docs/home-plan.md section 12): view state, never saved. `selected` is the piece the tray's bin and the arrow keys act on.
+export interface Decor {
+  selected: PieceKind | null;
+}
 
 const NOTE_MS = 6000; // how long a note stays over the room
 
@@ -37,6 +46,8 @@ export class Game {
   arena: Arena | null = null; // the fight on the arena screen (not saved: closing the app in a fight forgets it)
   view: View = createView(); // looks only (position, pose), never saved
   devSpeed = 1; // dev mode time multiplier
+  viewMiddle: { col: number; row: number } | null = null; // the home's tile (fractions allowed) at the middle of the picture, set by the Stage every frame: where a piece out of the tray lands
+  decor: Decor | null = null; // Decorate mode: null when it is off (not saved: it ends with the visit, and with anything that takes the player off the home's picture)
   note: string | null = null; // Adult Mode: why a button did nothing, shown over the room for a few seconds (not saved)
   onSave: ((byPlayer: boolean) => void) | null = null; // told each time the game is saved on this device (the cloud sync listens, sync/sync.ts)
   private lastReal = Date.now();
@@ -91,9 +102,82 @@ export class Game {
   setScreen(screen: Screen): void {
     if (this.screen === screen || this.fighting) return;
     this.screen = screen;
+    this.dropDecor();
     this.dropNote();
     if (screen !== "arena") this.arena = null; // a finished fight's card goes with the screen
     this.listeners.forEach((listener) => listener());
+  }
+
+  // Decorate mode on. Only on the home's picture (the room screen, in the home) and not while a hatch or evolve scene plays. Says whether it started.
+  startDecor(): boolean {
+    if (this.decor || this.screen !== "room" || this.view.world !== "home" || this.view.moment !== null) return false;
+    this.decor = { selected: null };
+    this.view.still = true;
+    reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)
+    this.listeners.forEach((listener) => listener());
+    return true;
+  }
+
+  endDecor(): void {
+    if (!this.decor) return;
+    this.dropDecor();
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // Leave Decorate mode without waking the screens (the callers do that themselves).
+  private dropDecor(): void {
+    this.decor = null;
+    this.view.still = false;
+  }
+
+  // The piece the tray's bin and the arrow keys act on: the selected one, while it is put out in the home.
+  get selectedPiece(): PieceKind | null {
+    const kind = this.decor?.selected ?? null;
+    return kind !== null && layoutOf(this.save.home)[kind] !== null ? kind : null;
+  }
+
+  select(kind: PieceKind | null): void {
+    if (!this.decor || this.decor.selected === kind) return;
+    this.decor.selected = kind;
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // Put a layout the rules allowed into the save (the game is saved, and sent to the account, as for any other change).
+  setLayout(layout: Layout): void {
+    this.act((save) => {
+      save.home = homeOf(layout);
+    });
+  }
+
+  // A piece out of the tray goes on the allowed spot nearest `near` (a tile: the middle of the view) and is selected. False when there is no spot.
+  bringOut(kind: PieceKind, near: { col: number; row: number }): boolean {
+    const layout = layoutOf(this.save.home);
+    const at = this.decor && layout[kind] === null && (kind !== "mat" || this.save.owned.includes("feeding-mat")) ? nearestSpot(layout, kind, near) : null;
+    if (!at) return false;
+    this.setLayout({ ...layout, [kind]: at });
+    this.select(kind);
+    return true;
+  }
+
+  // The selected piece goes into the tray. False when nothing is selected, and for the bed (a sleepy creature walks to it).
+  putAway(): boolean {
+    const kind = this.selectedPiece;
+    const next = kind ? moved(layoutOf(this.save.home), kind, null) : null;
+    if (!kind || !next) return false;
+    this.setLayout(next);
+    this.select(null);
+    return true;
+  }
+
+  // The selected piece one tile over (the arrow keys). False when nothing is selected or the rules do not allow it.
+  nudge(dcol: number, drow: number): boolean {
+    const kind = this.selectedPiece;
+    const layout = layoutOf(this.save.home);
+    const from = kind ? layout[kind] : null;
+    const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }) : null;
+    if (!next) return false;
+    this.setLayout(next);
+    return true;
   }
 
   // Start a fight (the energy is spent now). Says why not if it cannot start.
@@ -194,6 +278,7 @@ export class Game {
 
   replaceSave(save: Save): void {
     this.save = save;
+    this.dropDecor();
     this.seenDone = save.board.done; // a game put in from the account is not announced
     this.screen = "room";
     this.arena = null;
