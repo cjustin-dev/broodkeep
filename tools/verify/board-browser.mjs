@@ -528,7 +528,7 @@ const checks = {
           // The point of it: from deep in the list a real tap on an item changes the room picture, which is still on the screen.
           await page.locator(".shop-card").last().locator(".shop-pick").click({ timeout: 5000 });
           await page.waitForTimeout(200);
-          expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your room with Garden Mix", `${at}: the room picture after a tap on the last item`);
+          expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your creature wearing Stone Crown", `${at}: the room picture after a tap on the last item (the last of the thirteen is the Stone Crown, a hat: its picture is of the creature)`);
           const tapped = await page.evaluate(shopBoxes);
           same(before.preview, tapped.preview, `${at}: the room picture after the tap`);
         }
@@ -625,7 +625,7 @@ const checks = {
         // The point of it: from deep in the list a real tap on an item changes the room picture, which is still on the screen, and nothing scrolled.
         await page.locator(".shop-card").last().locator(".shop-pick").tap({ timeout: 5000 });
         await page.waitForTimeout(300);
-        expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your room with Garden Mix", `${at}: the room picture after a tap on the last item`);
+        expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your creature wearing Stone Crown", `${at}: the room picture after a tap on the last item (the last of the thirteen is the Stone Crown, a hat: its picture is of the creature)`);
         const tapped = await page.evaluate(shopBoxes);
         expectEq([tapped.pageScroll, tapped.panelScroll], [pageBase, 0], `${at}: the page's and the panel's scroll after the tap`);
         stayed(tapped, "after the tap");
