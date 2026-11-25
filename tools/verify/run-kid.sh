@@ -3,7 +3,17 @@
 # dist/ as the new build, and compares both with kid-compare.mjs at pixel ratio 1 and 2 (with the self-test), plus a control run of the old
 # build against itself. Exit 0 only when all three runs exit 0. Output: $VERIFY_OUT/kid-*.out
 . "$(dirname "$0")/lib.sh"
-REF=${1:-origin/main}
+# Arguments: an optional git ref (default origin/main) and an optional --expect-home, in either order. --expect-home: the differences the home makes on purpose are expected
+# (see kid-compare.mjs); the two build-against-build runs get it, the control run never does.
+REF=origin/main
+EXTRA=
+for arg in "$@"; do
+  case "$arg" in
+    --expect-home) EXTRA=--expect-home ;;
+    --*) echo "unknown option $arg" >&2; exit 2 ;;
+    *) REF=$arg ;;
+  esac
+done
 require_dist
 fresh_saves
 SRC="$VERIFY_OUT/old-src"
@@ -17,9 +27,9 @@ OLD=$SERVER_PID
 serve 4191 "$VERIFY_OUT/srv-new.log" python3 -m http.server 4191 --bind 127.0.0.1 --directory "$VERIFY_OUT/dist-new"
 NEW=$SERVER_PID
 cd "$HERE" || exit 2
-node kid-compare.mjs --old http://127.0.0.1:4190 --new http://127.0.0.1:4191 --selftest --dpr 1 > "$VERIFY_OUT/kid-dpr1.out" 2>&1
+node kid-compare.mjs --old http://127.0.0.1:4190 --new http://127.0.0.1:4191 --selftest $EXTRA --dpr 1 > "$VERIFY_OUT/kid-dpr1.out" 2>&1
 r1=$?
-node kid-compare.mjs --old http://127.0.0.1:4190 --new http://127.0.0.1:4191 --selftest --dpr 2 > "$VERIFY_OUT/kid-dpr2.out" 2>&1
+node kid-compare.mjs --old http://127.0.0.1:4190 --new http://127.0.0.1:4191 --selftest $EXTRA --dpr 2 > "$VERIFY_OUT/kid-dpr2.out" 2>&1
 r2=$?
 node kid-compare.mjs --old http://127.0.0.1:4190 --new http://127.0.0.1:4190 --dpr 1 > "$VERIFY_OUT/kid-control.out" 2>&1
 r3=$?

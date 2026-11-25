@@ -139,7 +139,38 @@ What the sheets show (tiles across the square view at 320, 360 and 390 wide, rec
 
 **Picks (reversible):**
 - **Tile size 24.** The adult is 2 tiles tall in a room 10 tiles wide, which is nearer Stardew's farmer against its rooms than 3 tiles of 16 (Stardew's size is from my memory, not checked), and the footprints on the walk grid are simple: the egg, baby and kid take 1 x 1 tile (16, 20 and 24 pixels) and the young and adult 2 x 2 (36 and 48), against 1, 2, 2, 3 and 3 at tile 16. The cost is art: a furniture tile has 576 pixels to draw, against 256. The home is 768 x 192 game pixels.
-- **Default zoom 1 CSS pixel per game pixel**: 1, 2 or 3 whole device pixels per game pixel at pixel ratio 1, 2 or 3, so it is sharp at every ratio, and an adult is 48 CSS pixels tall (2 tiles). On the three phone widths at ratio 2 that is 10.7 to 13.3 tiles across: a whole 10-tile room with a little of the next, and the whole 8-row home height. (A zoom of 1.5 CSS pixels showed 7.1 to 8.9 tiles, less than a room, and cut the home's height at 320 wide; it was my first pick and I dropped it when the real viewport width was used.) The smallest zoom is the whole home in view, or 1 device pixel per game pixel where it does not fit; the largest is 5 device pixels at ratio 2 (2.5 CSS pixels per game pixel, today's scale at 360 wide).
+- **Default zoom: the largest whole zoom at which the home's whole 192 pixel height still fits the square picture** (changed in H1, 2026-11-25; the H0 pick was 1 CSS pixel per game pixel). It is `floor(picture / 192)` device pixels per game pixel, at least 1 and at most the largest zoom, so it is always a whole number (sharp), the picture is filled up and down with nothing of the home cut off, and the adult is as big as it can be without losing the height. At the four windows the checks use (computed from `defaultZoom` and the stage's formula `128 * floor(width * ratio / 128)`): 320 wide at ratio 2 opens at 2 (a 512 pixel picture, 10.7 tiles across, an adult 48 CSS pixels tall), 360 at ratio 2 at 3 (640, 8.9 tiles, 72 CSS pixels), 390 at ratio 3 at 5 (1024, 8.5 tiles, 80 CSS pixels) and 360 at ratio 1 at 1 (256, 10.7 tiles, 48 CSS pixels). The smallest zoom is 1 device pixel per game pixel; the largest is `round(2.5 x ratio)` device pixels (3, 5 and 8 at ratio 1, 2 and 3: 2.5 CSS pixels per game pixel, today's scale at 360 wide). A pinch settles on the nearest whole zoom between them.
 - **The view stays square** (as the stage is today). A wide view (0.62 of the stage's width) shows the whole home height at zoom 2 too, but it would change the stage's shape for the fields, the habitat and the arena, which share it, and was not taken.
 - **Questions 1 to 7 take my picks as written above:** the mock first (done); the top-down view with the creature walking anywhere on the floor; the Wallpaper items colour all three rooms until Decorate mode; the Find button, icon only; Kid Mode gets the same gestures and no new words; the Shop's picture shows the room the item belongs to (the bed in the bedroom, the mat in the kitchen, the wallpaper in the living room); front pictures only, flipped left and right. **Question 8: CLAUDE.md is amended** (section 12's "Kid Mode stays as it is" and the A1 to A5 order, and the 2026-11-22 note in 7.4), in the H1 pull request, where the home is built.
 
+
+## 11. H1 result: what covers each edge case of section 5 (2026-11-25)
+
+Built on branch `home-h1`. "Unit" is `tests/home.test.ts`, `camera.test.ts`, `gesture.test.ts` and `idle-home.test.ts`; "browser" is a check id of `tools/verify/home-browser.mjs`. Anything marked "not covered" is built (or not) but has no test or check of its own.
+
+| # | Covered by |
+|---|---|
+| 1 | browser `home-pan` (both ends stop at the walls, 100 left, 60 right, 12 over the slop, 5 under it nothing), unit `camera` (clamp, pan) |
+| 2 | browser `home-pet` (a finger dragged from the creature and kept down 800 ms pets nothing and pans the wall), unit `gesture` |
+| 3 | browser `home-pet` (a second finger 200 ms into a hold: nothing is petted), unit `gesture` |
+| 4 | browser `home-pinch` (whole zoom after release, between 1 and the largest, at 360x640@1, 320x568@2, 360x640@2 and 390x844@3), unit `camera` (the point under the fingers, the clamp, the snap) |
+| 5 | unit `gesture` (a pinch or a pan never taps). A drag that starts on the Find button, a care button or the HUD never reaches the picture because the handlers are on the canvas: structural, not tested with a finger |
+| 6 | not covered (a window resized or turned while the picture is open; the checks open each window at its size) |
+| 7 | browser `home-find` (awake, egg, dead, away, kid, each taken to the kitchen end) and `home-asleep`; the Find icon shows the creature's call when it has one (`Stage.tsx`): built, no check |
+| 8 | the scene starts framed on the creature (`Stage.tsx`) and the evolve puts it on the nearest anchor where the new footprint fits (`moment.ts`, the search is unit-tested for a 2-wide footprint): built, no scene check |
+| 9 | the Kid comparison with `main` in `--expect-home` mode (the habitat and the arena show only the stage's resolved grid values, no size or position), and the older browser suites run again (see progress.md) |
+| 10 | browser `home-pet` (the egg: 3 taps shave 1.5 minutes, a miss nothing), unit `home` (`eggSpot`) |
+| 11 | browser `home-open` (the dead state's words), unit `home` (`deadCenter`, `deadFeet`) and the contact sheet |
+| 12 | unit `home` (`poopSpot`: five fixed tiles) and the contact sheet's `calls` state |
+| 13 | unit `idle-home` (15 tiles, 18 seconds, ends on the bed's front; a walk called off), browser `home-asleep` (in the bedroom by 12 s, lying in the bed at 52 s) |
+| 14, 23 | unit `home` (`foodTile`: facing side, other side, below, own tile) and `idle-home` (side, below) |
+| 15 | browser `home-open` and `home-asleep` (a sleeping creature darkens the whole picture, the void too), the contact sheet; the hatch flash is not covered |
+| 16 | browser `home-find` (the glide is a jump when less motion is asked for) |
+| 17 | browser `home-open` (the words, tabindex 0), `home-asleep` (the words change with the room), `home-keys` |
+| 18 | not covered (no real phone) |
+| 19 | H1 adds no saved field; the checks' saved games are made from the current rules. The Shop's pictures: see the contact sheet of the Shop in progress.md |
+| 20 | done while building by finding every user of the 128 x 128 room; not recorded as a list. The older suites and the Kid comparison are the net for anything missed |
+| 21 | the rule is kept (a hold is checked at pointer-down); the browser checks pin `Math.random`, so no check runs with a walking creature: not covered |
+| 22 | see 8 |
+
+Extra checks the slice added beyond the list: modifier keys (Ctrl, Meta, Alt) are left to the browser (`home-keys`, one press each), the page behind does not move under a finger on the picture (`home-pan`, with a control finger above the picture that does scroll it), the edge pixels of the home (`home-open`: the wall starts exactly at the picture's edge), a mouse's right button does nothing (`home-mouse`), and a three-finger pinch that loses a finger starts again from the two left (unit `gesture`).

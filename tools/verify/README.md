@@ -1,4 +1,4 @@
-# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a; the shop's foods, A2.2b; the request board, A2.3)
+# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a; the shop's foods, A2.2b; the request board, A2.3; the home, H0 and H1)
 
 These scripts are not part of the game, the build or `npm test`. They check the Retire card in the Creature Book (A1.4) and the habitat's spot
 card, job card and call back (A2.1), the shop (A2.2a), its foods in the Feed tray (A2.2b) and the request board (A2.3) on a real browser, and check the checks: a mutation run breaks the code on purpose and the named check must fail. What they found and how often they were run is
@@ -32,7 +32,7 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 | `gen-saves-dishes.sh`, `gen-saves-dishes.ts` | Writes the 38 saved games of the dish checks (`saves/dishes-<scenario>-<mode>.json`: 19 scenarios, each in Kid and Adult Mode: a Land kid owning nothing, one dish or all five, hungry, full, about to grow up; a Water and a Sky kid; a young, an adult, the special and a baby that own all five; the shop's wallets). |
 | `run-dishes.sh`, `dishes-browser.mjs` | The dish checks (12 ids, 19 runs per window size) against `dist/`: the second Feed tray row and its corner marks, no row for a creature that is not a kid, a single dish's size, eating a dish and what it counts, a full creature, a stale tap after growing up (Adult and Kid), buying and undoing in the shop, the preview, a reload, the tray's fit (the row adds 76 px, the care row stays reachable, the food row's 4 px baseline at 320) and the five food cards in four shop states. Has a `trap` that stops the preview server. |
 | `mutate-dishes-unit.py` | Mutation run for the dish rules (30 mutants over `dishes.ts`, `availability.ts`, `actions.ts`, `growth.ts`, `forecast.ts`, `shop.ts` and `data/shop.ts`); each names the test, in `tests/dishes.test.ts` or `tests/shop.test.ts`, that must fail. `--list` checks every `old` text occurs once. |
-| `mutate-dishes-ui.py` | Mutation run for the dish screen: 30 mutants, each rebuilt and served on port 4180 and only its named check ids run (a mutant may name its own window size). `--check-targets` proves every `old` text occurs exactly once and prints the table. |
+| `mutate-dishes-ui.py` | Mutation run for the dish screen: 32 mutants, each rebuilt and served on port 4180 and only its named check ids run (a mutant may name its own window size). `--check-targets` proves every `old` text occurs exactly once and prints the table. |
 | `run-sheet-dishes.sh`, `sheet-dishes.mjs`, `stitch-dishes.py` | The dish contact sheet (21 states: the tray with and without dishes, the Water and Sky trays in Adult Mode, a young and the special, a full creature, after a meal, the shop with the foods) at three widths. Look at it before trusting a layout check. |
 | `gen-saves-board.sh`, `gen-saves-board.ts` | Writes the saved games of the request board checks and sheet (`saves/board-<scenario>-<mode>.json`: three, types-b, stale, longest, done, empty, undo-pending, rich, live-feed, each in Kid and Adult Mode, the Kid file holding the same board). |
 | `run-sheet-board.sh`, `sheet-board.mjs`, `stitch-board.py` | The request board contact sheet (the Items tab as it opens, scrolled to its end and with the Undo bar, as the window shows it, seven Requests states, the room with a saved board in both modes) at three widths, as `$VERIFY_OUT/sheets-board/sheet-<W>x<H>-<group>.png`. No assertions: look at it first. A console or page error in a state counts as an error. |
@@ -40,6 +40,11 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 | `mutate-board-unit.py` | Mutation run for the board rules (70 mutants over `requests.ts`, `board.ts`, `actions.ts`, `jobs.ts`, `fight.ts`, `ui/game.ts`); each names the test, in `tests/requests.test.ts` or `tests/game-note.test.ts`, that must fail. `--list` proves every `old` text occurs once. |
 | `mutate-board-ui.py` | Mutation run for the board screen and the Shop panel's scroll layout: 35 mutants (`--only id1,id2` runs some of them after the same baselines), each rebuilt and served on port 4181 and only its named check ids run (a mutant may name its own window size; the clean build is then also run at that size first, so a 320-only mutant has a clean control at 320). `--check-targets` proves every `old` text occurs once. Same machinery as `mutate-shop-ui.py`. |
 | `nav-mock.mjs` | Measures the room each word has in a four- and a five-button nav row at 320, 360 and 390 wide (ratio 1 and 2) with the real `app.css`: the figure behind putting the board in the shop as a tab (Habitat has 0.8 px to spare in a fifth button at 320). No assertions. |
+| `home-mock.html`, `home-mock.mjs`, `run-home-mock.sh` | Home H0, the mock (no game code): a three-room top-down home drawn with the real creatures at tile 16 and 24 and at phone widths, as sheets in `$VERIFY_OUT/sheets-home/`. Kept because the plan's numbers (tiles across the picture, the zoom steps) came from it. |
+| `run-home.sh`, `home-browser.mjs` | The home checks (8 ids: `home-open`, `home-pan`, `home-pinch`, `home-find`, `home-pet`, `home-asleep`, `home-keys`, `home-mouse`) against `dist/`, with real touch events (CDP `Input.dispatchTouchEvent`, a few pixels at a time), a real mouse and real keys, at 320x568@2, 360x640@2, 390x844@3 and 360x640@1 in both modes, plus 1024x768@1 for the keys and the mouse. The camera is read from the canvas's own pixels (the wall's stripes), never from a number the game shows. Extra arguments: `--only id1,id2 --sizes 360x640@2 --modes adult`. Output: `$VERIFY_OUT/home-browser.out`; exit 0 all passed, 1 a check failed, 2 the run could not start. |
+| `mutate-home-ui.py` | Mutation run for the home's screen side (the camera, the gestures, the Find button, the touch rules, the walk to bed): each mutant is rebuilt and served on port 4182 and only its named check ids run at 360x640@2. `--check-targets` proves every `old` text occurs exactly once; `--only id1,id2` runs some. Works on `$VERIFY_OUT/home-ui-copy`. |
+| `mutate-home-unit.py` | Mutation run for the home's pure rules (`src/art/home.ts`, `camera.ts`, `src/ui/gesture.ts`, `src/art/idle.ts`): each mutant must fail its named test in `tests/home.test.ts`, `camera.test.ts`, `gesture.test.ts` or `idle-home.test.ts` (only those four files run per mutant). `--list` checks every `old` occurs once. Works on `$VERIFY_OUT/home-unit-copy`. |
+| `run-sheet-home.sh`, `sheet-home.mjs`, `stitch-home.py` | The home contact sheet (the states, the camera at each end and zoom, the pages round the picture) at three widths, as `$VERIFY_OUT/sheets-home-h1/sheet-<W>x<H>-<group>.png` (its own folder: the mock writes to `sheets-home/`). It has no assertions: look at it first. |
 | `lib.sh` | Shared by the run scripts: where output goes, and a server that refuses a port that already answers. |
 
 ## The usual order
@@ -76,6 +81,13 @@ tools/verify/run-sheet-board.sh
 tools/verify/run-board.sh
 python3 tools/verify/mutate-board-unit.py
 python3 tools/verify/mutate-board-ui.py
+tools/verify/run-kid.sh
+
+# the home (H1), the same order; the home run needs `npm run build` first
+tools/verify/run-sheet-home.sh
+tools/verify/run-home.sh
+python3 tools/verify/mutate-home-unit.py
+python3 tools/verify/mutate-home-ui.py
 tools/verify/run-kid.sh
 ```
 

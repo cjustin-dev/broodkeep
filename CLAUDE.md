@@ -177,7 +177,8 @@ The habitat is a top-down outdoor map on the same tile grid and renderer as the 
 - Creature art uses a three-quarter view: a front-facing sprite that flips left and right with a hop-walk bounce. This keeps art cost the same as a plain sprite for each of the 20 forms.
 - A room saves as a small list of item, position and rotation, so it syncs and works offline like everything else.
 - Phase 3 ships a simple fixed room. The full editor comes in Phase 4.
-- **2026-11-22:** the adult track's shop places furniture free-form in the existing room. That is the first slice of this editor, with no separate editor mode; the full Decorate mode stays for later.
+- **2026-11-22 (corrected 2026-11-25):** the adult track's shop was meant to place furniture in the room. It does not: its items carry no position (`data/shop.ts`) and the bed and the mat are drawn at fixed places. Placing furniture is Decorate mode (slice H2 below).
+- **2026-11-25, the home:** the owner asked for a much larger space, a bedroom, a living room and a kitchen, in the style of Stardew Valley's home designing. The room became a three-room **home**, 768 x 192 game pixels on a grid of 24 pixel tiles, drawn through a camera: a finger or the mouse drags it, two fingers pinch it, the arrow keys and plus and minus move it, and a Find button (an icon, no words) brings it back to the creature. The camera does not follow the creature. Both modes get it, with the same gestures. The fields, the habitat and the arena keep the old 128 x 128 picture. The plan, the picks and the edge cases are in [docs/home-plan.md](docs/home-plan.md): slice H1 (the home, the walk, the camera) is built, H2 is Decorate mode (the save gets a layout) and H3, the house growing, is optional.
 
 ### 7.5 Crafting and economy
 
@@ -277,7 +278,7 @@ Chosen: **Broodkeep**. Runners-up were Hatchwild, Shellshift, Moltlings and Wyld
 The owner added an adult expansion spec and, after a review of it against the code, adopted it. The spec is [docs/adult-expansion-spec.md](docs/adult-expansion-spec.md): Adult Mode and an adult HUD, a shop and request board, creature initiatives, training minigames, bond, interactive fields, skill combat and an adult endgame.
 
 - **Where the spec and the code disagree, the section "Adult expansion" of [docs/decisions.md](docs/decisions.md) wins.** It holds the owner's answers, the corrections (the real spot, field and button names, how growth really counts) and the changes made to the spec.
-- **Kid Mode stays as it is.** Adult features are additive and switched by `settings.adultMode`, saved per profile.
+- **Kid Mode stays as it is, except the home (2026-11-25).** Adult features are additive and switched by `settings.adultMode`, saved per profile. The home (7.4) is not an adult feature: Kid Mode gets the same three rooms, the same camera and the same gestures, with no new words, as the owner asked for both modes.
 - **Food and medicine stay unlimited.** No new creatures. The spec's guardrails stay in force: no loot boxes, no FOMO timers, no streak punishment, no ads, no real money, rewards only go up (section 7.9 says the same). The spec's other guardrail, "no energy timers that block play", means no real-time lockout (answer 6 in decisions.md, closed 2026-11-22): the creature's own Energy stat keeps gating jobs and fights.
-- **Build in the spec's phase order (A1 to A5, section 9), one phase at a time.** Values marked `[tune]` are playtest starting values.
+- **Build in the spec's phase order (A1 to A5, section 9), one phase at a time.** The Home slices (H1 to H3, [docs/home-plan.md](docs/home-plan.md)) come first: they are built before A2.4 (hats), by the owner's choice of 2026-11-24. Values marked `[tune]` are playtest starting values.
 - This section does not change sections 1 to 5, 8, 10 or 11.

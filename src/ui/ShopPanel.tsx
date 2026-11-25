@@ -1,7 +1,8 @@
 // The Shop (Adult Mode): what the coins and materials buy. A preview of the room with the chosen item, the wallet, a 10 second undo after a buy, and
 // a card for each item. A second tab, Requests, is the request board (ui/RequestsTab.tsx), beside the shop (the nav row has no room for a fifth button). The rules are in game/shop.ts; the list and the prices in data/shop.ts. The plan is docs/adult-a2-plan.md, section 9.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { drawRoom, lookOf } from "../art/room";
+import { drawHomePreview, lookOf } from "../art/room";
+import type { RoomId } from "../data/home";
 import type { Look } from "../art/room";
 import { ROOM } from "../art/layout";
 import { materialIds, materials } from "../data/habitat";
@@ -23,14 +24,18 @@ function lookWith(save: Save, id: ItemId): Look {
   return { ...look, bed: look.bed || id === "comfy-bed", mat: look.mat || id === "feeding-mat" };
 }
 
-function Preview({ look, hour, label }: { look: Look; hour: number; label: string }) {
+// The room an item belongs to, which is the part of the home the picture shows (docs/home-plan.md question 6): the bed in the bedroom, the mat and the foods in the
+// kitchen, a wallpaper in the living room.
+const roomOfItem = (id: ItemId): RoomId => (id === "comfy-bed" ? "bedroom" : items[id].kind === "wallpaper" ? "living" : "kitchen");
+
+function Preview({ look, hour, room, label }: { look: Look; hour: number; room: RoomId; label: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const ctx = ref.current?.getContext("2d");
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
-    drawRoom(ctx, hour, look);
-  }, [look.wall, look.bed, look.mat, hour]);
+    drawHomePreview(ctx, hour, look, room);
+  }, [look.wall, look.bed, look.mat, hour, room]);
   return <canvas ref={ref} class="shop-preview" width={ROOM.w} height={ROOM.h} role="img" aria-label={label} />;
 }
 
@@ -153,7 +158,7 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
           </div>
           {tab === "items" && (
             <>
-              <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />
+              <Preview look={lookWith(save, picked)} hour={hourOf(now)} room={roomOfItem(picked)} label={`Your room with ${items[picked].name}`} />
               <p class="shop-hint">Tap an item to see it in the room.</p>
             </>
           )}

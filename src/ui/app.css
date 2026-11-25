@@ -147,6 +147,25 @@ h2 {
 .stage {
   display: grid;
   place-items: center;
+  place-content: center; /* the one cell is as big as the picture and in the middle, so the Find button (below) lands on the picture's corner and not the stage's, which can be taller */
+}
+
+/* The Find button (docs/home-plan.md 3.2) sits over the bottom right corner of the home's picture, in the same grid cell as the canvas (and, in Adult Mode, above the note).
+   A grid item with a place of its own is put first, so the picture needs the same cell, or it would be pushed into the row below (the Kid Mode page, which has no other rule). */
+.stage > .room {
+  grid-area: 1 / 1;
+}
+
+.btn.find {
+  grid-area: 1 / 1;
+  justify-self: end;
+  align-self: end;
+  z-index: 2;
+  width: 48px;
+  min-height: 48px;
+  height: 48px;
+  margin: 8px;
+  padding: 0;
 }
 
 .room {
