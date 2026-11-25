@@ -106,13 +106,13 @@ REQUEST = "with only the Playroom left to own, a buy request may name it and no 
 #  - withoutRoom with the bed let into `inside` (the filter's `kind !== "bed"` removed): the bed is nulled there, and the very next line deletes its key (`if (bedInside) delete pieces.bed;`), so
 #    the result is the same; the mutant that leaves the bed put away is "room-undo-puts-the-bed-away", and the one that keeps it where it was is "room-undo-keeps-the-bed".
 #  - dropping `n < ROOMS.length &&` in roomsBuilt: `owned.includes(ROOMS[4]?.item as string)` is `includes(undefined)`, which is false for a list of strings, so the loop stops at 4 either way.
-#  - `col + cols <= colsOf(rooms)` written as `<= COLS` in nearestSpot: a spot past the rooms built is refused by `moved(..., rooms)` (rule 1), so `find` returns the same first allowed spot.
+#  - `col + cols <= colsOf(rooms)` written as `<= 43` (COLS) in nearestSpot: a spot past the rooms built is refused by `moved(..., rooms)` (rule 1), so `find` returns the same first allowed spot.
 #  - `col < colsOf(rooms)` written as `col < COLS` in the rule 5 loop of problemWith: `fits` is false on every tile past the rooms built, so the loop reads nothing more.
 #  - the clamp of nearestFree to `colsOf(ROOMS_BUILT) - 1` written as `COLS - 1`: the search walks the void until it reaches the same last column of the rooms built.
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 EQUIVALENT = [
     mut("built-needs-no-bound", F_DATA_HOME, "while (n < ROOMS.length && owned.includes(ROOMS[n]?.item as string)) n++;", "while (owned.includes(ROOMS[n]?.item as string)) n++;", "(none)"),
-    mut("nearest-spot-ends-at-the-widest-home", F_EDIT, "col + cols <= colsOf(rooms)", "col + cols <= COLS", "(none)"),
+    mut("nearest-spot-ends-at-the-widest-home", F_EDIT, "col + cols <= colsOf(rooms)", "col + cols <= 43", "(none)"),  # (the literal COLS: homeEdit.ts does not import it, and the first run threw a ReferenceError)
     mut("rule5-walks-the-widest-home", F_LAYOUT, "for (let col = 0; col < colsOf(rooms); col++) {", "for (let col = 0; col < COLS; col++) {", "(none)"),
     mut("nearest-free-clamps-to-the-widest-home", F_HOME, "Math.min(colsOf(ROOMS_BUILT) - 1, col)", "Math.min(COLS - 1, col)", "(none)"),
     mut("room-undo-nulls-then-deletes-the-bed", F_DATA_HOME, 'const inside = KINDS.filter((kind) => kind !== "bed" && inRoom(kind));', "const inside = KINDS.filter((kind) => inRoom(kind));", "(none)"),
