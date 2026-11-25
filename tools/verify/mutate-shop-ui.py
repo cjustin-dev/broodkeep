@@ -58,7 +58,7 @@ MUTANT_TIMEOUT = 240
 
 ALL_IDS = [
     "nav-shop", "open-close", "buy-exact", "buy-poor", "double-tap", "undo-live", "preview-room", "room-looks", "hud-bed", "reload-keeps",
-    "fit-scroll", "fit-clip", "fit-tap", "btn-look",
+    "fit-scroll", "fit-clip", "fit-tap", "btn-look", "hat-wear", "hat-preview", "hat-places", "hat-reload", "hat-bed", "hat-kid",
 ]
 
 NAV = "src/ui/Nav.tsx"
@@ -70,6 +70,7 @@ HUD = "src/ui/AdultHud.tsx"
 CARE = "src/game/care.ts"
 STATE = "src/game/state.ts"
 CSS = "src/ui/app.css"
+HABITAT = "src/art/habitat.ts"
 
 # edits: (file, old, new), applied in order. `old` must occur exactly once in that file of the copy.
 # expect: check ids that must FAIL for the mutant to count as caught. kid_only: the checker runs --modes kid.
@@ -122,7 +123,7 @@ MUTANTS = [
          edits=[(RULES, "since <= window ? window - since : null", "since <= window * 100 ? window - since : null")]),
     dict(id="preview-ignores-the-card", expect=["preview-room"], kid_only=False,
          what="the preview always shows the room as the player has it",
-         edits=[(SHOP, "<Preview look={lookWith(save, picked)}", "<Preview look={lookOf(save)}")]),
+         edits=[(SHOP, "look={lookWith(save, picked)}", "look={lookOf(save)}")]),
     dict(id="preview-always-has-the-mat", expect=["preview-room"], kid_only=False,
          what="the preview of any furniture shows the Feeding Mat",
          edits=[(SHOP, 'mat: look.mat || id === "feeding-mat"', "mat: true")]),
@@ -131,7 +132,7 @@ MUTANTS = [
          edits=[(SHOP, 'if (item.kind === "wallpaper") return { ...look, walls: { ...look.walls, living: id } };', 'if (item.kind === "wallpaper") return { ...look };')]),
     dict(id="preview-not-redrawn", expect=["preview-room"], kid_only=False,
          what="the preview canvas is redrawn only when the hour changes",
-         edits=[(SHOP, "}, [look.walls[room], look.bed, look.mat, hour, room]);", "}, [hour]);")]),
+         edits=[(SHOP, "}, [look.walls[room], look.bed, look.mat, hour, room, wearing?.formId, wearing?.hat]);", "}, [hour]);")]),
     dict(id="picked-card-not-pressed", expect=["preview-room"], kid_only=False,
          what="the card being previewed is not marked pressed",
          edits=[(SHOP, "aria-pressed={selected}", "aria-pressed={false}")]),
@@ -179,6 +180,52 @@ MUTANTS = [
     dict(id="button-without-edge", expect=["btn-look"], kid_only=False,
          what="the card buttons have no edge (a Use or Undo button has the surface's own fill)",
          edits=[(CSS, "box-shadow: var(--lift), inset 0 0 0 2px var(--card-edge), inset 0 1px 0 rgba(255, 255, 255, 0.16);", "box-shadow: none;")]),
+    # A2.4, the hats
+    dict(id="hat-wear-does-nothing", expect=["hat-wear"], kid_only=False,
+         what="the Wear button puts nothing on (Take off still works)",
+         edits=[(SHOP, "useHat(s, worn ? null : id)", "useHat(s, worn ? null : null)")]),
+    dict(id="hat-take-off-does-nothing", expect=["hat-wear"], kid_only=False,
+         what="the Take off button takes nothing off",
+         edits=[(SHOP, "useHat(s, worn ? null : id)", "useHat(s, id)")]),
+    dict(id="hat-button-label-stuck", expect=["hat-wear"], kid_only=False,
+         what="the hat card's button always says Wear",
+         edits=[(SHOP, '{worn ? "Take off" : "Wear"}', '{"Wear"}')]),
+    dict(id="hat-button-not-pressed", expect=["hat-wear"], kid_only=False,
+         what="the hat card's button is never aria-pressed",
+         edits=[(SHOP, "aria-pressed={worn} onClick={() => game.act((s) => useHat", "aria-pressed={false} onClick={() => game.act((s) => useHat")]),
+    dict(id="hat-scene-key-without-the-hat", expect=["hat-wear"], kid_only=False,
+         what="the room keeps one canvas for a creature's picture, hat or not (a hat put on later does not show)",
+         edits=[(SCENE, "`form:${form.id}:${kind}:${frame}${hat ? `:${hat}` : \"\"}`, tint);", "`form:${form.id}:${kind}:${frame}`, tint);")]),
+    dict(id="hat-habitat-key-without-the-hat", expect=["hat-wear"], kid_only=False,
+         what="the habitat keeps one canvas for a creature's picture, hat or not",
+         edits=[(HABITAT, "`form:${form.id}:${kind}:${frame}${hat ? `:${hat}` : \"\"}`, tint);", "`form:${form.id}:${kind}:${frame}`, tint);")]),
+    dict(id="hat-on-the-dead", expect=["hat-places"], kid_only=False,
+         what="a dead creature's picture wears the hat",
+         edits=[(SCENE, "const hat = dead ? null : hatOf(save);", "const hat = hatOf(save);")]),
+    dict(id="hat-habitat-at-home-bare", expect=["hat-places"], kid_only=False,
+         what="the habitat draws the creature at home with no hat",
+         edits=[(HABITAT, "drawCreature(ctx, c, view, HOME.centerX, HOME.feetY, false, hatOf(save));", "drawCreature(ctx, c, view, HOME.centerX, HOME.feetY, false, null);")]),
+    dict(id="hat-habitat-at-work-bare", expect=["hat-places"], kid_only=False,
+         what="the habitat draws the creature at work with no hat",
+         edits=[(HABITAT, "drawCreature(ctx, c, view, place.centerX, place.feetY, true, hatOf(save));", "drawCreature(ctx, c, view, place.centerX, place.feetY, true, null);")]),
+    dict(id="hat-preview-bare", expect=["hat-preview"], kid_only=False,
+         what="a hat's preview shows no creature",
+         edits=[(SHOP, "pickedHat && c ? { formId: c.formId, hat: picked as HatId } : null;", "null;")]),
+    dict(id="hat-preview-not-redrawn", expect=["hat-preview"], kid_only=False,
+         what="the preview is not redrawn when another hat is picked",
+         edits=[(SHOP, "hour, room, wearing?.formId, wearing?.hat]);", "hour, room]);")]),
+    dict(id="hat-preview-in-the-kitchen", expect=["hat-preview"], kid_only=False,
+         what="a hat's preview is of the kitchen",
+         edits=[(SHOP, 'items[id].kind === "wallpaper" || items[id].kind === "hat" ? "living" : "kitchen"', 'items[id].kind === "wallpaper" ? "living" : "kitchen"')]),
+    dict(id="hat-forgotten-on-load", expect=["hat-reload"], kid_only=False,
+         what="a saved game loads without its hat",
+         edits=[(STATE, "value.hat = isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : null;", "value.hat = null;")]),
+    dict(id="hat-blanket-from-the-hatted-picture", expect=["hat-bed"], kid_only=False,
+         what="the sleeper's blanket is fitted to its picture with the hat on",
+         edits=[(SCENE, "drawBlanket(ctx, faceSprite(form, kind, frame), drawX, y, flip);", "drawBlanket(ctx, picture, drawX, y, flip);")]),
+    dict(id="hat-hidden-in-kid-mode", expect=["hat-kid"], kid_only=True,
+         what="Kid Mode draws no hat",
+         edits=[(SCENE, "const hat = dead ? null : hatOf(save);", "const hat = dead || !save.settings.adultMode ? null : hatOf(save);")]),
 ]
 
 

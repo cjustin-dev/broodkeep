@@ -188,7 +188,7 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
                 label={pickedHat ? `Your creature wearing ${items[picked].name}` : `Your room with ${items[picked].name}`}
                 wearing={wearing}
               />
-              <p class="shop-hint">{pickedHat && !c ? "Your creature will wear it." : "Tap an item to see it in the room."}</p>
+              <p class="shop-hint">Tap an item to see it in the room.</p>
             </>
           )}
           {undoBar}

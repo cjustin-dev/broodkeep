@@ -390,7 +390,7 @@ const checks = {
     await openShop(page);
     // It opens on Items, as the shop always did.
     expectEq(await pressed(page), [["Items", "true"], ["Requests", "false"]], "the tabs when the shop opens");
-    expectEq(await page.locator(".shop-card").count(), 9, "item cards on the Items tab");
+    expectEq(await page.locator(".shop-card").count(), 13, "item cards on the Items tab");
     expectEq(await page.locator(".req-list").count(), 0, "request lists on the Items tab");
     // A tap on Requests shows the three cards and takes the item cards away.
     await tabButton(page, "Requests").click({ timeout: 5000 });
@@ -433,7 +433,7 @@ const checks = {
     await tabButton(bought.page, "Items").click({ timeout: 5000 });
     await bought.page.locator(".shop-card").first().waitFor({ state: "visible", timeout: 5000 });
     expectEq(await bought.page.locator(".shop-undo").count(), 0, "undo bars on Items after the undo");
-    return "the shop opens on Items (9 cards), Requests shows the 3 cards, Enter and Space switch with the focus kept, closing resets to Items, the undo is on both tabs and works from Requests, and switching tabs leaves the save untouched";
+    return "the shop opens on Items (13 cards), Requests shows the 3 cards, Enter and Space switch with the focus kept, closing resets to Items, the undo is on both tabs and works from Requests, and switching tabs leaves the save untouched";
   },
 
   "board-cards": async (openScenario) => {

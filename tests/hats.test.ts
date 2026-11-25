@@ -2,7 +2,7 @@
 // The edge cases are numbered as in docs/adult-a2-plan.md section 12; "edge N" below is that list. Expected values are written out by hand (pictures, positions and
 // words), never made by the code under test; the positions of edge 8 come from a Python mock of the rule (scratch), not from `crownRow`.
 import { describe, expect, it } from "vitest";
-import { faceSprite } from "../src/art/face";
+import { blanketBox, faceSprite } from "../src/art/face";
 import type { FaceKind } from "../src/art/face";
 import { crownRow, hatArt, hatOf, hatSizeOf, withHat } from "../src/art/hat";
 import { forms, getForm } from "../src/data/forms";
@@ -51,6 +51,12 @@ describe("the crown row (edges 1, 2)", () => {
     const three = ".".repeat(8) + "BBB" + ".".repeat(9);
     expect(crownRow([four, wide])?.row).toBe(0); // 4 = round(0.4 x 10)
     expect(crownRow([three, wide])?.row).toBe(1); // 3 is one short
+    // The rounding itself: 0.4 x 9 = 3.6 rounds up to 4 (a floor would take 3), and 0.4 x 11 = 4.4 rounds down to 4 (a ceiling would ask for 5).
+    const nine = ".".repeat(3) + "B".repeat(9) + ".".repeat(3);
+    const eleven = ".".repeat(2) + "B".repeat(11) + ".".repeat(2);
+    expect(crownRow([three, nine])?.row).toBe(1);
+    expect(crownRow([".".repeat(5) + "BBB" + ".".repeat(7), nine].map((r) => r.slice(0, 15)))?.row).toBe(1);
+    expect(crownRow([".".repeat(6) + "BBBB" + ".".repeat(5), eleven])?.row).toBe(0);
   });
 
   it("edge 1: with the widest row 5 wide the floor of 3 matters (3 wide is the crown, 2 wide is not)", () => {
@@ -217,6 +223,16 @@ describe("the hats' art (edge 9)", () => {
       return Math.max(...cols) - Math.min(...cols) + 1;
     };
     expect([width("blip"), width("pebblin"), width("cragpup"), width("gravelhorn")]).toEqual([7, 7, 13, 13]);
+  });
+});
+
+describe("the blanket (edge 22)", () => {
+  // The scene fits the blanket to the HATLESS lying picture (scene.ts: drawBlanket(ctx, faceSprite(form, kind, frame), ...)). This pins why: a hat can move the blanket's box,
+  // so a blanket fitted to the hatted picture would sit two rows higher on a Scorchlet in a Knit Cap. The wiring itself is checked in a browser (shop-browser, "hat-bed").
+  it("a hat moves blanketBox for some lying pictures (a Scorchlet's top is 26 plain, 24 in a Knit Cap)", () => {
+    const scorchlet = forms.scorchlet!;
+    expect(blanketBox(faceSprite(scorchlet, "lie0", 0))).toEqual({ left: -1, right: 44, top: 26, bottom: 35 });
+    expect(blanketBox(faceSprite(scorchlet, "lie0", 0, "hat-knit"))).toEqual({ left: -1, right: 44, top: 24, bottom: 35 });
   });
 });
 
