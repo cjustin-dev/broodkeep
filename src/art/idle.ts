@@ -3,9 +3,13 @@
 // Reactions (hop for joy, head shake for "no", eating) are started by calling triggerPose
 // or startEating. Feelings (sad, sick, hungry, sleepy) come in through the mood.
 
+import { TILE } from "../data/home";
 import type { FoodId } from "../game/types";
-import { ROOM, bedSpot, standY, walkMaxX } from "./layout";
+import { anchorOf, anchorPos, bedFront, findPath, foodTile, footprintOf, startAnchor, wanderPath } from "./home";
+import type { Anchor } from "./home";
+import { ROOM, bedSpot, walkMaxX } from "./layout";
 import type { Moment, Shown } from "./moment";
+import type { World } from "./spots";
 
 // "refuse" is the creature saying no: eyes shut, slow gentle head shake.
 // "wobble" is the quick wiggle of a tapped egg.
@@ -41,6 +45,11 @@ export interface Snack {
 export interface View {
   size: number; // width and height of the creature's standing picture (16 for an egg, 20 to 48 for a creature), set by updateView
   x: number; // left edge of the sprite
+  y: number; // the line of its feet: ROOM.groundY in the one-line room, any floor row in the home (a standing picture's top is y - size)
+  world: World; // which space x and y are in: the old one-line room (and the fields) or the home (set by updateView)
+  placed: World | null; // the world x and y were last put in order for (a change of world puts the creature somewhere valid in the new one)
+  path: Array<{ x: number; y: number }>; // the home walk: the spots to walk to, in order (left edge, feet line)
+  toBed: boolean; // asleep in the home and already on the way to the bed
   facing: 1 | -1; // 1 = looking right
   pose: Pose;
   poseTime: number; // seconds spent in this pose
@@ -90,6 +99,11 @@ export function createView(): View {
   return {
     size: ROOM.sprite,
     x: ROOM.eggX,
+    y: ROOM.groundY,
+    world: "line",
+    placed: null,
+    path: [],
+    toBed: false,
     facing: 1,
     pose: "idle",
     poseTime: 0,
@@ -119,6 +133,7 @@ export function triggerPose(view: View, pose: Pose): void {
 
 // Put a piece of food on the floor in front of the creature and start eating it.
 export function startEating(view: View, food: FoodId): void {
+  if (view.world === "home") return startEatingHome(view, food);
   // The food (8 pixels across) goes on the side it is facing, unless the wall or the bed is in the way there.
   const rightOk = view.x + view.size + 8 <= ROOM.bedLeft;
   const leftOk = view.x - 8 >= 0;
@@ -127,6 +142,26 @@ export function startEating(view: View, food: FoodId): void {
   setPose(view, "eat");
   const x = Math.round(view.x); // whole pixels, like the creature, so the food lines up with it
   view.snack = { food, x: x + (view.facing === 1 ? view.size : -8), y: ROOM.groundY - 8 };
+}
+
+// In the home the creature first stops on the tile it is at, and the food goes on the free tile beside it (foodTile): the side it faces, the other side, the tile below,
+// or the tile it stands on when nothing is free. On a side the food is put right against the picture, as in the one-line room; below, it is put in the middle of the tile.
+function startEatingHome(view: View, food: FoodId): void {
+  const f = footprintOf(view.size);
+  const here = anchorOf(view.x, view.y, view.size);
+  const at = anchorPos(here, view.size);
+  view.x = at.x;
+  view.y = at.y;
+  view.path = [];
+  const { tile, own } = foodTile(here, f, view.facing);
+  if (!own && tile.row === here.row) view.facing = tile.col < here.col ? -1 : 1;
+  setPose(view, "eat");
+  const x = Math.round(view.x);
+  if (!own && tile.row !== here.row) {
+    view.snack = { food, x: here.col * TILE + (f * TILE - 8) / 2, y: (tile.row + 1) * TILE - 8 }; // (the tile below, which may be the only free one: not on a wall or a counter)
+    return;
+  }
+  view.snack = { food, x: x + (view.facing === 1 ? view.size : -8), y: view.y - 8 };
 }
 
 // How much of the food is left, from 1 (all of it) to 0 (eaten).
@@ -160,13 +195,13 @@ export function addEffect(view: View, kind: Effect["kind"], x: number, y: number
 
 // A heart just above the creature's head, left of the middle.
 export function addHeart(view: View): void {
-  addEffect(view, "heart", view.x + view.size / 4, standY(view.size) - 2);
+  addEffect(view, "heart", view.x + view.size / 4, view.y - view.size - 2);
 }
 
 // Sparkles at random spots over a standing creature's body.
 export function addSparkles(view: View, count: number, rand: () => number = Math.random): void {
   for (let i = 0; i < count; i++) {
-    addEffect(view, "sparkle", view.x + 2 + rand() * (view.size - 4), standY(view.size) + 2 + rand() * (view.size * 0.6));
+    addEffect(view, "sparkle", view.x + 2 + rand() * (view.size - 4), view.y - view.size + 2 + rand() * (view.size * 0.6));
   }
 }
 
@@ -178,8 +213,10 @@ export function frameOf(view: View): 0 | 1 {
 }
 
 // Move the view forward by dt seconds. "rand" gives numbers from 0 up to 1.
-export function updateView(view: View, dt: number, mood: Mood, rand: () => number, size: number = view.size): void {
+export function updateView(view: View, dt: number, mood: Mood, rand: () => number, size: number = view.size, world: World = view.world): void {
   view.size = size;
+  view.world = world;
+  if (view.placed !== world) enterWorld(view);
   view.clock += dt;
   view.poseTime += dt;
   view.mood = mood;
@@ -189,14 +226,28 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
   if (view.pose !== "eat") view.snack = null;
 
   if (mood.asleep) {
-    goToBed(view, dt);
+    if (world === "home") sleepHome(view, dt);
+    else goToBed(view, dt);
     return;
   }
-  if (view.pose === "sleep") setPose(view, "idle", 1);
+  if (view.pose === "sleep") {
+    setPose(view, "idle", 1);
+    if (world === "home") wakeHome(view);
+  }
+  if (view.toBed) {
+    // Woken (the lights were put back on) before it got to the bed: the walk is called off, and the next nap starts a new one from wherever it stands.
+    view.toBed = false;
+    view.path = [];
+    if (view.pose === "walk") setPose(view, "idle", 1);
+  }
 
   const speed = mood.sad || mood.sick ? 8 : 14; // pixels per second
   switch (view.pose) {
     case "walk": {
+      if (world === "home") {
+        if (followPath(view, speed * dt)) setPose(view, "idle", 1 + rand() * 2);
+        break;
+      }
       const dx = view.targetX - view.x;
       const step = speed * dt;
       if (Math.abs(dx) <= step) {
@@ -220,7 +271,99 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
         } else setPose(view, "idle", 1 + rand() * 2);
       }
   }
-  view.x = Math.min(walkMaxX(view.size), Math.max(ROOM.walkMinX, view.x));
+  if (world === "line") view.x = Math.min(walkMaxX(view.size), Math.max(ROOM.walkMinX, view.x));
+}
+
+// The furniture moved (docs/home-plan.md section 12), whether or not the creature is on show (an away creature keeps its place): in the home it goes to the nearest anchor that is free
+// now, a walk or a meal is called off (a creature on its way to bed plans the walk again from where it stands), and a sleeping one stands in front of the bed where it is now.
+export function reseat(view: View): void {
+  if (view.world !== "home") return;
+  view.path = [];
+  view.toBed = false;
+  const at = anchorPos(view.pose === "sleep" ? bedFront(view.size) : anchorOf(view.x, view.y, view.size), view.size);
+  view.x = at.x;
+  view.y = at.y;
+  if (view.pose === "walk" || view.pose === "eat") setPose(view, "idle", 1);
+}
+
+// The creature is put somewhere valid in the world it is now in: the one-line room (on the ground line, inside the walking area) or the home (on its starting tile).
+function enterWorld(view: View): void {
+  view.placed = view.world;
+  view.path = [];
+  view.toBed = false;
+  view.effects = []; // (a heart or a sparkle is a place in the old world: it would float at the same numbers in the new one)
+  if (view.pose === "walk") setPose(view, "idle", 1);
+  if (view.world === "home") {
+    const at = anchorPos(startAnchor(view.size), view.size);
+    view.x = at.x;
+    view.y = at.y;
+  } else {
+    view.y = ROOM.groundY;
+    view.x = Math.min(walkMaxX(view.size), Math.max(ROOM.walkMinX, view.x));
+    view.targetX = view.x;
+  }
+}
+
+// The home: walk along view.path, `step` pixels. Returns true when the walk is over. A walk starts from a spot that may be part way between two tiles, so the
+// first stretch can be a short diagonal.
+function followPath(view: View, step: number): boolean {
+  let left = step;
+  while (left > 0) {
+    const to = view.path[0];
+    if (!to) return true;
+    const dx = to.x - view.x;
+    const dy = to.y - view.y;
+    const d = Math.hypot(dx, dy);
+    if (dx !== 0) view.facing = dx > 0 ? 1 : -1;
+    if (d <= left) {
+      view.x = to.x;
+      view.y = to.y;
+      view.path.shift();
+      left -= d;
+    } else {
+      view.x += (dx / d) * left;
+      view.y += (dy / d) * left;
+      left = 0;
+    }
+  }
+  return view.path.length === 0;
+}
+
+// The tile a walking creature is on or on its way to: where a new walk is worked out from, so it never turns round in the middle of a step.
+function walkStart(view: View): { from: Anchor; first: Array<{ x: number; y: number }> } {
+  const next = view.path[0];
+  if (view.pose === "walk" && next) return { from: anchorOf(next.x, next.y, view.size), first: [next] };
+  return { from: anchorOf(view.x, view.y, view.size), first: [] };
+}
+
+function walkTo(view: View, first: Array<{ x: number; y: number }>, steps: Anchor[]): void {
+  view.path = [...first, ...steps.map((a) => anchorPos(a, view.size))];
+}
+
+// Asleep in the home: walk to the front of the bed, then lie down (the picture is then drawn on the bed, scene.ts).
+function sleepHome(view: View, dt: number): void {
+  if (view.pose === "sleep") return;
+  if (!view.toBed) {
+    const { from, first } = walkStart(view);
+    walkTo(view, first, findPath(from, bedFront(view.size), footprintOf(view.size)) ?? []);
+    view.toBed = true;
+  }
+  view.pose = "walk";
+  if (followPath(view, 20 * dt)) {
+    const at = anchorPos(bedFront(view.size), view.size);
+    view.x = at.x;
+    view.y = at.y;
+    setPose(view, "sleep");
+  }
+}
+
+// It wakes up in front of the bed.
+function wakeHome(view: View): void {
+  const at = anchorPos(bedFront(view.size), view.size);
+  view.x = at.x;
+  view.y = at.y;
+  view.path = [];
+  view.toBed = false;
 }
 
 function chooseNext(view: View, mood: Mood, rand: () => number): void {
@@ -252,6 +395,13 @@ function chooseNext(view: View, mood: Mood, rand: () => number): void {
 }
 
 function startWalk(view: View, rand: () => number): void {
+  if (view.world === "home") {
+    const from = anchorOf(view.x, view.y, view.size);
+    const steps = wanderPath(from, footprintOf(view.size), rand);
+    if (steps.length === 0) return setPose(view, "idle", 2 + rand() * 3);
+    walkTo(view, [], steps);
+    return setPose(view, "walk");
+  }
   view.targetX = Math.round(ROOM.walkMinX + rand() * (walkMaxX(view.size) - ROOM.walkMinX));
   setPose(view, "walk");
 }

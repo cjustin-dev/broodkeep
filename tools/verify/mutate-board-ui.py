@@ -48,7 +48,7 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["board-tab", "board-cards", "board-fit", "board-tap", "shop-scroll", "shop-touch", "board-live", "board-note", "board-kid"]
+ALL_IDS = ["board-tab", "board-cards", "board-fit", "board-tap", "shop-scroll", "shop-touch", "panel-touch", "board-live", "board-note", "board-kid"]
 
 SHOP = "src/ui/ShopPanel.tsx"
 TAB = "src/ui/RequestsTab.tsx"
@@ -124,8 +124,8 @@ MUTANTS = [
          edits=[(SHOP, '          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>', '        </div>\n        <div class="shop-scroll" key={tab}>\n          {undoBar}')]),
     dict(id="room-picture-in-the-list", expect=["shop-scroll"], kid_only=False,
          what="the room picture sits at the top of the list, so it scrolls away with it",
-         edits=[(SHOP, '          {tab === "items" && (\n            <>\n              <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />\n              <p class="shop-hint">Tap an item to see it in the room.</p>\n            </>\n          )}\n          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>',
-                 '          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>\n          {tab === "items" && (\n            <>\n              <Preview look={lookWith(save, picked)} hour={hourOf(now)} label={`Your room with ${items[picked].name}`} />\n              <p class="shop-hint">Tap an item to see it in the room.</p>\n            </>\n          )}')]),
+         edits=[(SHOP, '          {tab === "items" && (\n            <>\n              <Preview look={lookWith(save, picked)} hour={hourOf(now)} room={roomOfItem(picked)} label={`Your room with ${items[picked].name}`} />\n              <p class="shop-hint">Tap an item to see it in the room.</p>\n            </>\n          )}\n          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>',
+                 '          {undoBar}\n        </div>\n        <div class="shop-scroll" key={tab}>\n          {tab === "items" && (\n            <>\n              <Preview look={lookWith(save, picked)} hour={hourOf(now)} room={roomOfItem(picked)} label={`Your room with ${items[picked].name}`} />\n              <p class="shop-hint">Tap an item to see it in the room.</p>\n            </>\n          )}')]),
     dict(id="no-room-below-the-last-card", expect=["shop-scroll"], kid_only=False,
          what="the list has no padding below its last card",
          edits=[(CSS, "  overscroll-behavior: contain;\n  padding-bottom: calc(28px + env(safe-area-inset-bottom));", "  overscroll-behavior: contain;")]),
@@ -137,7 +137,10 @@ MUTANTS = [
          edits=[(CSS, "  overscroll-behavior: contain;\n  padding-bottom: calc(28px + env(safe-area-inset-bottom));", "  padding-bottom: calc(28px + env(safe-area-inset-bottom));")]),
     dict(id="page-behind-follows-a-finger", expect=["shop-touch"], kid_only=False, size="360x640@2",
          what="the page behind the open Shop is scrollable again: a finger dragged on the title, tabs or room picture (nothing there scrolls) moves the home page under the panel (that page is 83 px longer than its window at 360 x 640)",
-         edits=[(CSS, "body:has(.shop-panel) {\n  overflow: hidden;\n}", "body:has(.shop-panel) {\n  overflow: auto;\n}")]),
+         edits=[(CSS, "body:has(.panel) {\n  overflow: hidden;\n}", "body:has(.panel) {\n  overflow: auto;\n}")]),
+    dict(id="page-behind-a-panel-follows-a-finger", expect=["panel-touch"], kid_only=False,
+         what="only the Shop locks the page behind it (the selector before this change): Settings, the Creature Book, the Growth Forecast and Developer mode hand a finger's drag at their top and their end to the home page (83 px longer than its window at 360 x 640)",
+         edits=[(CSS, "body:has(.panel) {\n  overflow: hidden;\n}", "body:has(.shop-panel) {\n  overflow: hidden;\n}")]),
     dict(id="list-a-sliver-on-its-side", expect=["shop-touch"], kid_only=False, size="740x360@2",
          what="no side-by-side layout for a phone on its side: the title, tabs and room picture are stacked above the list again, which is left 65 px of a 740 x 360 window (by a run of the build before the fix)",
          edits=[(CSS, "@media (orientation: landscape) and (max-height: 520px) {", "@media (orientation: landscape) and (max-height: 0px) {")]),

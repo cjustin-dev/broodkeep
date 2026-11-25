@@ -59,10 +59,14 @@ const DUSK_WALL = [142, 138, 196]; // #8e8ac4
 const MATTRESS = [109, 134, 224]; // #6d86e0
 const QUILT = [224, 112, 143]; // #e0708f
 const MAT = [242, 210, 122]; // #f2d27a
-// Where each is read, in the room's own 128 x 128 pixels: the wall between two stripes, the bed's quilt (where the mattress is without it), the mat.
-const AT_WALL = [7, 2];
-const AT_BED = [100, 94];
-const AT_MAT = [20, 119];
+// Where each is read. The Shop's picture is a 128 x 128 window on the room an item belongs to (previewCrop in src/art/room.ts: the corner of each window is below), and the live
+// room is the home, 768 x 192 game pixels, seen through a camera. So a probe is a point of the home (a world pixel). In the picture it is read at the point minus the window's
+// corner; in the live room (liveRoom below) the camera is panned to an end of the home and the point is read where the page draws it.
+const CROP = { bedroom: [24, 8], living: [336, 0], kitchen: [560, 64] };
+const WORLD_WALL_BEDROOM = [37, 10]; // the wall of the bedroom between two stripes (a wall pixel whose x ends in 5 to 9 is the base colour)
+const WORLD_WALL_LIVING = [347, 2]; // the same in the living room
+const WORLD_BED = [70, 58]; // the bed's quilt (the mattress where the bed has none)
+const WORLD_MAT = [610, 137]; // the Feeding Mat's middle, clear of the bowl (the floor where there is none); it is on the screen at the home's right end whenever the view is 158 game pixels wide or more (768 - 610; the view is always 192 or more at the default zoom)
 
 // What the cards say is missing (worked out from the prices in src/data/shop.ts and the wallets in gen-saves-shop.ts).
 const POOR_REASONS = {
@@ -134,12 +138,28 @@ async function readSave() {
   return JSON.parse(JSON.stringify(value === undefined ? null : value));
 }
 
-// Runs in the page: the colour of one pixel of a canvas, read in the room's own 128 x 128 grid (the canvas may be drawn larger).
+// Runs in the page: the colour of one pixel of the Shop's picture, read in its own 128 x 128 grid (the canvas may be drawn larger).
 function pixelOf([selector, x, y]) {
   const canvas = document.querySelector(selector);
   if (!canvas) return null;
   const k = canvas.width / 128;
   const data = canvas.getContext("2d").getImageData(Math.floor(x * k + k / 2), Math.floor(y * k + k / 2), 1, 1).data;
+  return [data[0], data[1], data[2]];
+}
+
+// Runs in the page: where the live room draws a world point once the camera is at the left end (the bedroom) or the right end (the kitchen) of the home: the default zoom (the
+// largest whole number of device pixels per game pixel that fits the home's 192 pixel height in the square picture, at most 2.5 x the pixel ratio), the picture's middle on the
+// camera's centre, a pixel in the middle of the point's block.
+function worldPixelOf([selector, end, wx, wy]) {
+  const canvas = document.querySelector(selector);
+  if (!canvas) return null;
+  const vp = canvas.width;
+  const z = Math.min(Math.max(1, Math.round(2.5 * window.devicePixelRatio)), Math.max(1, Math.floor(vp / 192)));
+  const camX = end === "left" ? vp / z / 2 : 768 - vp / z / 2;
+  const sx = Math.floor(vp / 2 + (wx - camX) * z + z / 2);
+  const sy = Math.floor(vp / 2 + (wy - 96) * z + z / 2);
+  if (sx < 0 || sy < 0 || sx >= vp || sy >= vp) throw new Error(`the point ${wx},${wy} is not on the screen at the ${end} end (device pixel ${sx},${sy} of ${vp}, zoom ${z})`);
+  const data = canvas.getContext("2d").getImageData(sx, sy, 1, 1).data;
   return [data[0], data[1], data[2]];
 }
 
@@ -306,13 +326,31 @@ async function openShop(page) {
   await page.waitForTimeout(200);
 }
 
-const preview = (page, x, y) => page.evaluate(pixelOf, [".shop-preview", x, y]);
+// The Shop's picture at a world point of the room it shows (a point outside that room's window is a mistake in the check, not a colour).
+const preview = (page, room, world) => {
+  const [x, y] = [world[0] - CROP[room][0], world[1] - CROP[room][1]];
+  if (x < 0 || y < 0 || x >= 128 || y >= 128) throw new Error(`the point ${world} is outside the ${room} picture`);
+  return page.evaluate(pixelOf, [".shop-preview", x, y]);
+};
 // A tap on a card, then a wait for the preview to be drawn again (an effect draws it a moment after the tap; the page's timers run at real speed).
 const pick = async (page, name) => {
   await pickCard(page, name).click({ timeout: 5000 });
   await page.waitForTimeout(250);
 };
-const room = (page, x, y) => page.evaluate(pixelOf, ["canvas.room", x, y]);
+
+// The live room at a world point. The camera starts framed on the creature, so it is panned to the home's left or right end with the arrow keys (20 presses cover the home at
+// every zoom), the frames are drawn, and the pixel is read.
+async function liveRoom(page, end, world) {
+  // (The creature wanders in real time in these suites, so it is made to stay and look around. The pin lands inside its first idle pose, which lasts 2 seconds from the first frame
+  // and ends the check's wait for the page well before that, so no walk has begun; the probes are also 150 pixels or more from where it starts.)
+  await page.evaluate(() => { Math.random = () => 0.99; });
+  await page.locator("canvas.room").focus();
+  if (!(await page.evaluate(() => document.activeElement === document.querySelector("canvas.room")))) throw new Error("the home's picture did not take the keyboard focus, so the arrow keys cannot pan it");
+  for (let i = 0; i < 20; i++) await page.keyboard.press(end === "left" ? "ArrowLeft" : "ArrowRight");
+  await page.clock.runFor(300);
+  await page.waitForTimeout(100);
+  return page.evaluate(worldPixelOf, ["canvas.room", end, ...world]);
+}
 
 // Moves the frozen game clock `ms` after T and runs the page's timers once (the one-second tick and the redraw).
 async function advance(page, ms) {
@@ -409,7 +447,7 @@ const checks = {
     expectEq(await page.locator('button[aria-label="Buy Wallpaper: Meadow"]').count(), 0, "Buy buttons for the item just bought");
     expectEq(trimAll(await page.locator(".shop-card").nth(2).locator("button.card-btn").allTextContents()), ["Stop using"], "the Meadow card's button");
     expectEq(await page.locator('.shop-wallet [aria-label="0 coins"]').count(), 1, "the wallet's coins");
-    expectEq(await preview(page, ...AT_WALL), MEADOW_WALL, "the preview's wall once bought");
+    expectEq(await preview(page, "bedroom", WORLD_WALL_BEDROOM), MEADOW_WALL, "the preview's wall once bought");
     return "buying at exactly 12 coins and 2 Herbs leaves 0 and 0, owns the wallpaper, puts it on the wall and offers the undo with 10 seconds";
   },
 
@@ -460,7 +498,7 @@ const checks = {
     await undoBar(page).waitFor({ state: "hidden", timeout: 5000 });
     const saved = await savedGame(page);
     expectEq([saved.coins, saved.inventory.fiber, saved.inventory.wood, saved.owned, saved.lastBuy], [100, 5, 5, [], null], "the save after the undo");
-    expectEq(await preview(page, ...AT_BED), QUILT, "the preview still shows the bed (it is the card chosen), and the card is back to Buy");
+    expectEq(await preview(page, "bedroom", WORLD_BED), QUILT, "the preview still shows the bed (it is the card chosen), and the card is back to Buy");
     expectEq(await buyButton(page, "Comfy Bed").count(), 1, "the Buy button for the item given back");
 
     const late = await open("just-bought");
@@ -476,33 +514,33 @@ const checks = {
     const { page } = await open("rich");
     await openShop(page);
     expectEq(await pickCard(page, "Comfy Bed").getAttribute("aria-pressed"), "true", "the first card is the one previewed");
-    expectEq([await preview(page, ...AT_WALL), await preview(page, ...AT_BED)], [PLAIN_WALL, QUILT], "preview with the bed");
+    expectEq([await preview(page, "bedroom", WORLD_WALL_BEDROOM), await preview(page, "bedroom", WORLD_BED)], [PLAIN_WALL, QUILT], "preview with the bed (the bedroom)");
     await pick(page, "Wallpaper: Dusk");
-    expectEq([await preview(page, ...AT_WALL), await preview(page, ...AT_BED)], [DUSK_WALL, MATTRESS], "preview with the Dusk wallpaper (no bed)");
+    expectEq(await preview(page, "living", WORLD_WALL_LIVING), DUSK_WALL, "preview with the Dusk wallpaper (the living room)");
     await pick(page, "Wallpaper: Meadow");
-    expectEq(await preview(page, ...AT_WALL), MEADOW_WALL, "preview with the Meadow wallpaper");
+    expectEq(await preview(page, "living", WORLD_WALL_LIVING), MEADOW_WALL, "preview with the Meadow wallpaper (the living room)");
     await pick(page, "Feeding Mat");
-    expectEq([await preview(page, ...AT_WALL), await preview(page, ...AT_MAT)], [PLAIN_WALL, MAT], "preview with the mat");
-    await pick(page, "Comfy Bed");
-    const mat = await preview(page, ...AT_MAT);
-    if (JSON.stringify(mat) === JSON.stringify(MAT)) throw new Error("the mat is drawn in the preview of the bed, where it is not owned or chosen");
+    expectEq(await preview(page, "kitchen", WORLD_MAT), MAT, "preview with the mat (the kitchen)");
+    await pick(page, "Hearty Bowl");
+    const mat = await preview(page, "kitchen", WORLD_MAT);
+    if (JSON.stringify(mat) === JSON.stringify(MAT)) throw new Error("the mat is drawn in the preview of the Hearty Bowl, where it is not owned or chosen");
     // Nothing was bought by looking.
     const saved = await savedGame(page);
     expectEq([saved.coins, saved.owned], [100, []], "the save after previewing everything");
-    return "each card changes the preview's pixels (wall, quilt, mat) to the literal colours, and previewing buys nothing";
+    return "each card changes the preview's pixels (wall, quilt, mat) to the literal colours, in the room the item belongs to (bedroom, living room, kitchen); a food leaves the mat out; previewing buys nothing";
   },
 
   "room-looks": async (open, env) => {
     const owned = await open("owned-all");
     await owned.page.waitForTimeout(300);
-    expectEq(await room(owned.page, ...AT_WALL), DUSK_WALL, "the live room's wall with Dusk on the wall");
-    expectEq(await room(owned.page, ...AT_BED), QUILT, "the live room's bed with the Comfy Bed");
-    expectEq(await room(owned.page, ...AT_MAT), MAT, "the live room's floor with the Feeding Mat");
+    expectEq(await liveRoom(owned.page, "left", WORLD_WALL_BEDROOM), DUSK_WALL, "the live room's wall with Dusk on the wall");
+    expectEq(await liveRoom(owned.page, "left", WORLD_BED), QUILT, "the live room's bed with the Comfy Bed");
+    expectEq(await liveRoom(owned.page, "right", WORLD_MAT), MAT, "the live room's floor with the Feeding Mat");
     const plain = await open("rich");
     await plain.page.waitForTimeout(300);
-    expectEq(await room(plain.page, ...AT_WALL), PLAIN_WALL, "the plain room's wall");
-    expectEq(await room(plain.page, ...AT_BED), MATTRESS, "the plain room's bed");
-    const floor = await room(plain.page, ...AT_MAT);
+    expectEq(await liveRoom(plain.page, "left", WORLD_WALL_BEDROOM), PLAIN_WALL, "the plain room's wall");
+    expectEq(await liveRoom(plain.page, "left", WORLD_BED), MATTRESS, "the plain room's bed");
+    const floor = await liveRoom(plain.page, "right", WORLD_MAT);
     if (JSON.stringify(floor) === JSON.stringify(MAT)) throw new Error("the plain room has the mat's colour where the mat would be");
     return `${env.mode} Mode: the room shows what the save owns (Dusk wall, quilt, mat) and, with nothing owned, the plain wall, the plain bed and no mat`;
   },
@@ -529,7 +567,7 @@ const checks = {
     await page.reload();
     await page.getByRole("button", { name: "Habitat", exact: true }).waitFor({ timeout: 20000 });
     await page.waitForTimeout(300);
-    expectEq(await room(page, ...AT_WALL), MEADOW_WALL, "the live room's wall after a reload");
+    expectEq(await liveRoom(page, "left", WORLD_WALL_BEDROOM), MEADOW_WALL, "the live room's wall after a reload");
     await openShop(page);
     expectEq(trimAll(await page.locator(".shop-card").nth(2).locator("button.card-btn").allTextContents()), ["Stop using"], "the Meadow card after a reload");
     expectEq(trimAll(await undoBar(page).locator("button").allTextContents()), ["Undo (10s)"], "the undo button after a reload inside the window");

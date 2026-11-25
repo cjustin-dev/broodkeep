@@ -8,14 +8,16 @@ import { tuning } from "../data/tuning";
 import { MEAL, eyesClosed, foodLeft, frameOf, poseOffsets, snackCut } from "./idle";
 import type { Mood, Snack, View } from "./idle";
 import type { Sprite } from "./pixel";
-import { POOP_SPOTS, ROOM, STONE_WIDTH, bedSpot, deadX, standY, stoneX } from "./layout";
+import { ROOM, STONE_WIDTH } from "./layout";
 import { blanketBox, faceSprite, isWide, pickFace } from "./face";
 import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
 import { drawField } from "./field";
-import { drawMomentOver, drawMomentUnder } from "./moment";
-import { drawRoom, lookOf } from "./room";
+import { isBehind } from "./home";
+import { drawMomentOver, drawMomentUnder, fillScreen } from "./moment";
+import { drawHomeBack, drawHomePieces, drawRoom, lookOf } from "./room";
+import { spotsOf } from "./spots";
 
 // What the creature is looking like it feels, from the save. Used to steer the idle movement.
 export function moodOf(save: Save): Mood {
@@ -63,14 +65,25 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
   ctx.imageSmoothingEnabled = false;
   const c = save.creature;
   const alive = save.phase === "alive" && c;
-  // A living creature that is out in a field (and not away on a job) is drawn in the field. Anything else is the room.
-  if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hourOf(gameNowMs), lookOf(save));
+  const home = view.world === "home";
+  const spots = spotsOf(view.world);
+  const look = lookOf(save);
+  // In the home: the three rooms. In the one-line room: a living creature that is out in a field (and not away on a job) is drawn in the field, and anything else in the
+  // room.
+  if (home) drawHomeBack(ctx, hourOf(gameNowMs), look);
+  else if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hourOf(gameNowMs), look);
+
+  // Furniture is drawn in two layers round whatever stands in the home: the pieces whose bottom edge is at or above the feet first, then the thing, then the rest.
+  // (Asleep in bed, dead, away: nothing is walking among the furniture, so all of it goes first.)
+  const standing = alive && !c.job && (c.sleep === null || view.pose !== "sleep");
+  const feet = save.phase === "egg" ? spots.egg.y + ROOM.sprite : standing ? view.y : Number.POSITIVE_INFINITY;
+  if (home) drawHomePieces(ctx, look, (p) => isBehind(p, feet));
 
   // Poop on the floor.
   if (alive) {
     for (let i = 0; i < c.poop; i++) {
-      const spot = POOP_SPOTS[i];
-      if (spot) ctx.drawImage(icon("poop"), spot[0], spot[1]);
+      const spot = spots.poop(i);
+      if (spot) ctx.drawImage(icon("poop"), spot.x, spot.y);
     }
   }
 
@@ -81,12 +94,12 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     const progress = Math.min(1, ((gameNowMs - egg.startedAt) / MINUTE + egg.shavedMinutes) / tuning.egg.minutes);
     const sprite = spriteCanvas(eggSprite(egg.pattern), `egg:${egg.pattern}`);
     const wobble = view.pose === "wobble" ? off.dx : Math.round(Math.sin(view.clock * (2 + progress * 6)) * progress * 1.4);
-    const x = ROOM.eggX + wobble;
-    drawSprite(ctx, sprite, x, ROOM.eggY);
-    if (progress > 0.6) drawCracks(ctx, x, ROOM.eggY, progress);
+    const x = spots.egg.x + wobble;
+    drawSprite(ctx, sprite, x, spots.egg.y);
+    if (progress > 0.6) drawCracks(ctx, x, spots.egg.y, progress);
   } else if (alive && c.job) {
     // Out working in the habitat: the room is empty, with a bubble that says where it went.
-    drawBubble(ctx, "tree", ROOM.w / 2 - 6, 54);
+    drawBubble(ctx, "tree", spots.bubble.x, spots.bubble.y);
   } else if (c) {
     const form = getForm(c.formId);
     const asleep = c.sleep !== null;
@@ -102,17 +115,20 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
           : undefined;
       // Asleep or dead: lying flat with eyes shut. Sad or sick: slumped. Otherwise the picture
       // follows what it is doing and feeling (blinking, yawning, tired eyes, and so on).
-      const lying = asleep || dead;
-      const kind = pickFace(view, asleep, dead);
+      // In the home it lies down only once it has walked to the bed (its pose is "sleep" then); in the one-line room it lies on the bed at once.
+      const inBed = asleep && (!home || view.pose === "sleep");
+      const lying = inBed || dead;
+      const kind = pickFace(view, inBed, dead);
       const size = form.idle.length;
       // Only a standing creature has two drawings to swap between (the slumped and lying ones come from the first).
       const frame = isWide(kind) ? 0 : frameOf(view);
       const picture = faceSprite(form, kind, frame);
       const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}`, tint);
-      const onBed = asleep && !dead;
-      const bed = bedSpot(size);
-      const x = Math.round(dead ? deadX(size) : onBed ? bed.x : view.x + off.dx); // whole pixels, so the tears and marks line up
-      const y = (onBed ? bed.y : standY(size)) + (dead ? 0 : off.dy);
+      const onBed = inBed && !dead;
+      const bed = spots.bed(size);
+      const grave = spots.dead(size);
+      const x = Math.round(dead ? grave.x : onBed ? bed.x : view.x + off.dx); // whole pixels, so the tears and marks line up
+      const y = (dead ? grave.y : onBed ? bed.y : view.y - size) + (dead ? 0 : off.dy);
       // The lying and slumped pictures are wider than the standing one, so they start further left to stay centered.
       const flip = view.facing === -1;
       const drawX = x - (sprite.width - size) / 2;
@@ -123,13 +139,17 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
 
       if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
 
-      if (dead) drawTombstone(ctx, stoneX(size), ROOM.groundY - 12);
-      else if (asleep) drawFloatingZ(ctx, view.clock, Math.min(x + size - 4, ROOM.w - 8), y); // (the icon is 8 wide: keep it in the room)
+      if (dead) {
+        const stone = spots.stone(size);
+        drawTombstone(ctx, stone.x, stone.y);
+      } else if (inBed) drawFloatingZ(ctx, view.clock, Math.min(x + size - 4, spots.w - 8), y); // (the icon is 8 wide: keep it in the room)
       else if (c.call && Math.floor(view.clock * 2) % 4 !== 3) {
-        drawBubble(ctx, callIcon[c.call], x + size - 2, y - 12);
+        drawBubble(ctx, callIcon[c.call], Math.max(0, Math.min(x + size - 2, spots.w - 12)), Math.max(0, y - 12)); // (kept inside the walls)
       }
     }
   }
+
+  if (home) drawHomePieces(ctx, look, (p) => !isBehind(p, feet));
 
   // Hearts and sparkles.
   for (const fx of view.effects) {
@@ -142,10 +162,11 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
     }
   }
 
-  // Lights off: darken the room while the creature sleeps.
+  // Lights off: darken the room while the creature sleeps. In the home the whole picture goes dark, whatever room the creature is in or the camera looks at.
   if (alive && c.sleep) {
     ctx.fillStyle = "rgba(15, 10, 50, 0.4)";
-    ctx.fillRect(0, 0, ROOM.w, ROOM.h);
+    if (home) fillScreen(ctx);
+    else ctx.fillRect(0, 0, ROOM.w, ROOM.h);
   }
 
   drawMomentOver(ctx, view); // the flash goes over everything

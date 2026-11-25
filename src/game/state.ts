@@ -4,6 +4,8 @@
 import { lineageOf } from "../data/book";
 import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
+import { coerceHome } from "../data/home";
+import type { HomeSave } from "../data/home";
 import { isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
 import { freshBoard, migrateBoard } from "./board";
@@ -122,6 +124,7 @@ export interface Save {
   wall: string | null; // the wallpaper shown in the room: an owned wallpaper, or null for the plain wall
   lastBuy: LastBuy | null; // the purchase that can still be undone, for `tuning.shop.undoSeconds`
   board: Board; // the request board (game/requests.ts): up to 3 requests and the slots of the finished ones; empty until Adult Mode has dealt it
+  home?: HomeSave; // where the player put the furniture (data/home.ts); missing means the starter layout. A change replaces this object, never edits it
 }
 
 export function freshCounters(): Counters {
@@ -234,5 +237,10 @@ export function migrateSave(value: unknown): Save | null {
       : null;
   // A save from before the request board has none. A bad entry is dropped and the slots are capped (game/board.ts); it must never throw.
   value.board = migrateBoard(value.board);
+  // A save from before Decorate mode has no `home`. Only a well-formed one is kept (a bad one from storage or the cloud means the starter layout; whether the pieces are in
+  // allowed places is `layoutOf`'s rule, art/homeLayout.ts), and this must never throw.
+  const home = coerceHome(value.home);
+  if (home) value.home = home;
+  else delete value.home;
   return value;
 }

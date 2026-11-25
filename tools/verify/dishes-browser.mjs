@@ -50,12 +50,15 @@ const DEFAULT_SIZES = [
 ];
 const CHECK_TIMEOUT_MS = 120_000;
 
-// Colours as the room draws them (src/art/room.ts), as [r, g, b]; read at these points of the room's own 128 x 128 pixels.
+// Colours as the room draws them (src/art/room.ts), as [r, g, b]; read at these points of the home (768 x 192 game pixels, world pixels). The live room is the home seen
+// through a camera that is panned to an end of it (liveRoom below); the Shop's picture of a food is the 128 x 128 window on the kitchen that starts at the corner below.
 const PLAIN_WALL = [239, 227, 247]; // #efe3f7
 const MATTRESS = [109, 134, 224]; // #6d86e0 (the bed's mattress, where the Comfy Bed's quilt would be)
-const AT_WALL = [7, 2];
-const AT_BED = [100, 94];
-const AT_MAT = [20, 119];
+const MAT = [242, 210, 122]; // #f2d27a (the Feeding Mat)
+const WORLD_WALL_BEDROOM = [37, 10]; // the wall between two stripes (a wall pixel whose x ends in 5 to 9 is the base colour)
+const WORLD_BED = [70, 58]; // the bed's quilt (the mattress where the bed has none)
+const WORLD_MAT = [610, 137]; // the Feeding Mat's middle, clear of the bowl (the floor where there is none); it is on the screen at the home's right end whenever the view is 158 game pixels wide or more (768 - 610; the view is always 192 or more at the default zoom)
+const KITCHEN_CROP = [560, 64];
 
 // The tray's buttons, by field (the names are data/foods.ts; the order is the field's plan, filling then light then sweet).
 const FOOD_LABELS = { pebblin: ["Pellets", "Meat", "Carrot", "Worm", "Treat"] };
@@ -128,12 +131,28 @@ async function readSave() {
   return JSON.parse(JSON.stringify(value === undefined ? null : value));
 }
 
-// Runs in the page: the colour of one pixel of a canvas, read in the room's own 128 x 128 grid (the canvas may be drawn larger).
+// Runs in the page: the colour of one pixel of the Shop's picture, read in its own 128 x 128 grid (the canvas may be drawn larger).
 function pixelOf([selector, x, y]) {
   const canvas = document.querySelector(selector);
   if (!canvas) return null;
   const k = canvas.width / 128;
   const data = canvas.getContext("2d").getImageData(Math.floor(x * k + k / 2), Math.floor(y * k + k / 2), 1, 1).data;
+  return [data[0], data[1], data[2]];
+}
+
+// Runs in the page: where the live room draws a world point once the camera is at the left end (the bedroom) or the right end (the kitchen) of the home: the default zoom (the
+// largest whole number of device pixels per game pixel that fits the home's 192 pixel height in the square picture, at most 2.5 x the pixel ratio), the picture's middle on the
+// camera's centre, a pixel in the middle of the point's block.
+function worldPixelOf([selector, end, wx, wy]) {
+  const canvas = document.querySelector(selector);
+  if (!canvas) return null;
+  const vp = canvas.width;
+  const z = Math.min(Math.max(1, Math.round(2.5 * window.devicePixelRatio)), Math.max(1, Math.floor(vp / 192)));
+  const camX = end === "left" ? vp / z / 2 : 768 - vp / z / 2;
+  const sx = Math.floor(vp / 2 + (wx - camX) * z + z / 2);
+  const sy = Math.floor(vp / 2 + (wy - 96) * z + z / 2);
+  if (sx < 0 || sy < 0 || sx >= vp || sy >= vp) throw new Error(`the point ${wx},${wy} is not on the screen at the ${end} end (device pixel ${sx},${sy} of ${vp}, zoom ${z})`);
+  const data = canvas.getContext("2d").getImageData(sx, sy, 1, 1).data;
   return [data[0], data[1], data[2]];
 }
 
@@ -267,8 +286,25 @@ const panel = (page) => page.locator('section[aria-label="Shop"]');
 const buyButton = (page, name) => page.locator(`button[aria-label="Buy ${name}"]`);
 const undoBar = (page) => page.locator(".shop-undo");
 const pickCard = (page, name) => page.locator(`.shop-pick[aria-label^="${name}"]`);
-const room = (page, x, y) => page.evaluate(pixelOf, ["canvas.room", x, y]);
-const preview = (page, x, y) => page.evaluate(pixelOf, [".shop-preview", x, y]);
+// The Shop's picture of a food (the kitchen window) at a world point of the kitchen (a point outside the window is a mistake in the check, not a colour).
+const preview = (page, world) => {
+  const [x, y] = [world[0] - KITCHEN_CROP[0], world[1] - KITCHEN_CROP[1]];
+  if (x < 0 || y < 0 || x >= 128 || y >= 128) throw new Error(`the point ${world} is outside the kitchen picture`);
+  return page.evaluate(pixelOf, [".shop-preview", x, y]);
+};
+// The live room at a world point. The camera starts framed on the creature, so it is panned to the home's left or right end with the arrow keys (20 presses cover the home at
+// every zoom), the frames are drawn, and the pixel is read.
+async function liveRoom(page, end, world) {
+  // (The creature wanders in real time in these suites, so it is made to stay and look around. The pin lands inside its first idle pose, which lasts 2 seconds from the first frame
+  // and ends the check's wait for the page well before that, so no walk has begun; the probes are also 150 pixels or more from where it starts.)
+  await page.evaluate(() => { Math.random = () => 0.99; });
+  await page.locator("canvas.room").focus();
+  if (!(await page.evaluate(() => document.activeElement === document.querySelector("canvas.room")))) throw new Error("the home's picture did not take the keyboard focus, so the arrow keys cannot pan it");
+  for (let i = 0; i < 20; i++) await page.keyboard.press(end === "left" ? "ArrowLeft" : "ArrowRight");
+  await page.clock.runFor(300);
+  await page.waitForTimeout(100);
+  return page.evaluate(worldPixelOf, ["canvas.room", end, ...world]);
+}
 const note = (page) => page.locator("p.reason");
 
 async function openTray(page) {
@@ -493,15 +529,16 @@ const checks = {
 
   "shop-preview-food": async (open) => {
     const { page } = await open("rich");
-    const live = [await room(page, ...AT_WALL), await room(page, ...AT_BED), await room(page, ...AT_MAT)];
-    expectEq(live.slice(0, 2), [PLAIN_WALL, MATTRESS], "the live room's wall and bed with nothing owned");
+    expectEq([await liveRoom(page, "left", WORLD_WALL_BEDROOM), await liveRoom(page, "left", WORLD_BED)], [PLAIN_WALL, MATTRESS], "the live room's wall and bed with nothing owned");
+    const floor = await liveRoom(page, "right", WORLD_MAT);
+    if (JSON.stringify(floor) === JSON.stringify(MAT)) throw new Error("the live room has the mat's colour where the mat would be, with nothing owned");
     await openShop(page);
     for (const name of ["Hearty Bowl", "Stew", "Garden Mix"]) {
       await pickCard(page, name).click({ timeout: 5000 });
       await page.waitForTimeout(250);
-      expectEq([await preview(page, ...AT_WALL), await preview(page, ...AT_BED), await preview(page, ...AT_MAT)], live, `the preview with ${name} chosen, against the live room`);
+      expectEq(await preview(page, WORLD_MAT), floor, `the kitchen preview with ${name} chosen, at the mat's place, against the live room`);
     }
-    return "choosing a food card leaves the room preview exactly as the live room is (a food adds nothing to the room)";
+    return "choosing a food card shows the kitchen with the floor where the mat would be, exactly as the live room is (a food adds nothing to the room)";
   },
 
   "reload-keeps": async (open) => {

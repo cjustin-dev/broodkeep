@@ -2,6 +2,8 @@
 // ratio 1 and 2), a request finished by real taps in the room, the note over the room, the refill of a slot, and Kid Mode, which must show nothing of it.
 // It also holds `shop-scroll`: the Shop panel's title, tabs and room picture stay fixed and only its list scrolls (a real mouse wheel, a real tap deep in the list),
 // and `shop-touch`: the same on a phone (a mobile window with touch, real touch events sent a few pixels at a time), also on its side, and the page behind the panel never moves.
+// `panel-touch` is the page-behind half of that for the other panels (Settings, Creature Book, Growth Forecast, Developer mode), in both modes where the panel exists.
+// (By a run before the fix the Kid home page scrolls 358 px behind a panel at 740 x 360 and not at all on a portrait phone, so Kid Mode is tested for the page behind only on its side.)
 //
 // Run: node board-browser.mjs --base http://127.0.0.1:4173 [--only id1,id2] [--sizes 320x568@1,360x640@2] [--modes kid,adult]
 // Exit: 0 when no check failed and at least one ran; 1 when any FAIL; 2 when the script broke (a requested --only id ran zero times,
@@ -33,6 +35,7 @@ const CHECK_MODES = {
   "board-tap": ["adult"],
   "shop-scroll": ["adult"],
   "shop-touch": ["adult"],
+  "panel-touch": ["adult", "kid"],
   "board-live": ["adult"],
   "board-note": ["adult"],
   "board-kid": ["kid"],
@@ -50,9 +53,11 @@ const DEFAULT_SIZES = [
 // A check with windows of its own (used when --sizes is not given): the touch check also runs a phone on its side and a tall phone at ratio 3.
 const CHECK_SIZES = {
   "shop-touch": [[320, 568, 2], [360, 640, 2], [390, 844, 3], [740, 360, 2], [844, 390, 3]],
+  // Only windows where the home page can scroll behind the panel (a tall phone's cannot, so there is nothing to see move): two phones and one on its side.
+  "panel-touch": [[320, 568, 2], [360, 640, 2], [740, 360, 2]],
 };
 // Checks that drive the page with a finger run in a mobile window (isMobile, hasTouch), which a desktop window is not.
-const TOUCH_CHECKS = new Set(["shop-touch"]);
+const TOUCH_CHECKS = new Set(["shop-touch", "panel-touch"]);
 const CHECK_TIMEOUT_MS = 120_000;
 
 // The Requests tab as each saved game shows it: state, title, progress, note, the rewards' labels and the words shown on them ("+2", the item's name), the "+25%" mark, and the bar's translateX in percent. Worked out by hand
@@ -636,6 +641,92 @@ const checks = {
     }
     if (scrolledViews < 2) throw new Error(`only ${scrolledViews} of ${views} views had a list that scrolls: the two Items views must`);
     return `${views} views by touch (${pageRoom} with a home page that scrolls, which a control finger scrolled first): the list shows at least ${LIST_MIN} px, a finger scrolls only the list to its end (${scrolledViews} lists), ${fixedDrags} finger drags up and down (${skippedDrags} skipped for being within 20 px of the window's edge) on the title, tabs, room picture and Undo bar leave the page behind, the panel, the list and those parts where they were, a tap on the last item changes the room picture still in view, and a flick scrolls only the list`;
+  },
+
+  "panel-touch": async (openScenario, env) => {
+    // Settings, the Creature Book, the Growth Forecast (Adult Mode only) and Developer mode (seven taps on the version line in Settings) each scroll as a whole inside a
+    // fixed panel. A finger dragged on one must scroll the panel and never the home page behind it, also at the panel's top and its end, where a finger hands the rest on.
+    const labels = env.mode === "adult" ? ["Settings", "Creature Book", "Growth Forecast", "Developer mode"] : ["Settings", "Creature Book", "Developer mode"];
+    const openSettings = (page) => page.getByRole("button", { name: "Settings", exact: true }).tap({ timeout: 5000 });
+    const opens = {
+      "Settings": openSettings,
+      "Creature Book": (page) => page.getByRole("button", { name: /^Creature Book/ }).tap({ timeout: 5000 }),
+      "Growth Forecast": (page) => page.getByRole("button", { name: /^Growth Forecast/ }).tap({ timeout: 5000 }),
+      "Developer mode": async (page) => {
+        await openSettings(page);
+        await page.locator('section.panel[aria-label="Settings"]').waitFor({ state: "visible", timeout: 5000 });
+        for (let i = 0; i < 7; i++) await page.locator("button.version").tap({ timeout: 5000 });
+      },
+    };
+    const scrollState = () => {
+      const p = document.querySelector(".panel");
+      return { page: document.scrollingElement.scrollTop, pageMax: document.scrollingElement.scrollHeight - innerHeight, panel: p ? p.scrollTop : null, panelMax: p ? p.scrollHeight - p.clientHeight : null };
+    };
+    let withRoom = 0;
+    let pageDrags = 0;
+    for (const label of labels) {
+      const at = `${env.mode} ${label}`;
+      const { page } = await openScenario("three");
+      const cdp = await page.context().newCDPSession(page);
+      // The control: a finger dragged on the plain home page (the gutter beside the room) scrolls it. If it did not, the tool would not be driving the page, and every
+      // "did not move" below would pass for nothing. A window where the home page cannot scroll has nothing to move: allowed in Kid Mode on a tall phone, never in Adult Mode.
+      const room = await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight);
+      if (room > 1) {
+        withRoom += 1;
+        await touchDrag(cdp, 8, Math.round(env.h / 2), -Math.min(Math.round(room), 300));
+        const moved = await page.evaluate(() => document.scrollingElement.scrollTop);
+        if (!(moved > 0)) throw new Error(`${at}: a finger dragged up on the home page (${Math.round(room)} px longer than its window) did not scroll it: the touch tool is not driving the page`);
+      } else if (env.mode === "adult") {
+        throw new Error(`${at}: the home page cannot scroll in a ${env.w} x ${env.h} window, so nothing would be tested`);
+      }
+      await opens[label](page);
+      await page.locator(`section.panel[aria-label="${label}"]`).waitFor({ state: "visible", timeout: 5000 });
+      await page.waitForTimeout(400);
+      // The home page is put half-way down (so a push either way shows) after the panel opened (the tap that opened it may have scrolled the page a little).
+      const opened = await page.evaluate(scrollState);
+      if (!(opened.panelMax > 0)) throw new Error(`${at}: the panel's content fits its window (${opened.panelMax} px to scroll), so nothing was tested`);
+      if (opened.panel !== 0) throw new Error(`${at}: the panel opens scrolled to ${opened.panel}, not at its top`);
+      if (room > 1) {
+        const mid = Math.round(opened.pageMax / 2);
+        await page.evaluate((y) => window.scrollTo(0, y), mid);
+        const set = await page.evaluate(scrollState);
+        if (Math.abs(set.page - mid) > 0.5) throw new Error(`${at}: the page could not be put at ${mid} (it is at ${set.page}) before the finger drags`);
+      }
+      const pageBase = (await page.evaluate(scrollState)).page;
+      const unmoved = (s, what) => {
+        if (Math.abs(s.page - pageBase) > 0.5) throw new Error(`${at}: the page behind moved from ${Math.round(pageBase)} to ${Math.round(s.page)} ${what}`);
+      };
+      const x = Math.round(env.w / 2);
+      const span = Math.round(env.h * 0.4);
+
+      // A finger dragged up on the panel scrolls the panel.
+      await touchDrag(cdp, x, Math.round(env.h * 0.8), -span);
+      let s = await page.evaluate(scrollState);
+      if (!(s.panel > 0)) throw new Error(`${at}: a finger dragged up on the panel did not scroll it (stayed at ${s.panel} of ${Math.round(s.panelMax)})`);
+      unmoved(s, "after a finger dragged up on the panel");
+      // At the panel's end a finger dragged further up has nothing left to scroll: it must not be handed to the page.
+      await page.evaluate(() => {
+        const p = document.querySelector(".panel");
+        p.scrollTop = p.scrollHeight;
+      });
+      s = await page.evaluate(scrollState);
+      if (Math.abs(s.panel - s.panelMax) > 1) throw new Error(`${at}: the panel could not be put at its end (at ${s.panel} of ${s.panelMax})`);
+      await touchDrag(cdp, x, Math.round(env.h * 0.8), -span);
+      s = await page.evaluate(scrollState);
+      unmoved(s, "after a finger dragged up past the panel's end");
+      // Likewise at its top, with a finger dragged down.
+      await page.evaluate(() => {
+        document.querySelector(".panel").scrollTop = 0;
+      });
+      s = await page.evaluate(scrollState);
+      if (s.panel !== 0) throw new Error(`${at}: the panel could not be put at its top (at ${s.panel})`);
+      await touchDrag(cdp, x, Math.round(env.h * 0.3), span);
+      s = await page.evaluate(scrollState);
+      unmoved(s, "after a finger dragged down at the panel's top");
+      if (s.panel !== 0) throw new Error(`${at}: the panel moved to ${s.panel} when a finger dragged down at its top`);
+      if (room > 1) pageDrags += 3; // (a page that cannot scroll cannot move: those drags only tested the panel)
+    }
+    return `${labels.length} panels by touch in ${env.mode} mode: a finger scrolls the panel; ${withRoom} had a home page that scrolls (a control finger scrolled it first), and on those ${pageDrags} drags (up in the panel, up past its end, down at its top) leave the page behind where it was`;
   },
 
   "board-live": async (openScenario) => {

@@ -2,8 +2,11 @@
 // a bed, a food bowl and a rug. PLACEHOLDER ART made from simple rectangles.
 // Phase 4 replaces this with a room you can decorate.
 
+import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
+import type { Layout, Piece, Placement, RoomId } from "../data/home";
 import { plainWall, walls } from "../data/shop";
 import type { Save } from "../game/state";
+import { layoutOf } from "./homeLayout";
 import { BED_WIDTH, ROOM } from "./layout";
 
 function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number): void {
@@ -19,16 +22,18 @@ export function sky(hour: number): { color: string; body: "sun" | "moon"; stars:
   return { color: "#1d2b53", body: "moon", stars: true };
 }
 
-// What the shop changed in the room (data/shop.ts): the wallpaper on the wall (null: the plain wall), and whether the Comfy Bed and the Feeding Mat are in.
+// What the shop changed in the room (data/shop.ts): the wallpaper on the wall (null: the plain wall), and whether the Comfy Bed and the Feeding Mat are in; and, in the home, where
+// the furniture stands (the old one-line room ignores that).
 export interface Look {
   wall: string | null;
   bed: boolean;
   mat: boolean;
+  layout: Layout;
 }
 
-export const plainLook: Look = { wall: null, bed: false, mat: false };
+export const plainLook: Look = { wall: null, bed: false, mat: false, layout: STARTER };
 
-export const lookOf = (save: Save): Look => ({ wall: save.wall, bed: save.owned.includes("comfy-bed"), mat: save.owned.includes("feeding-mat") });
+export const lookOf = (save: Save): Look => ({ wall: save.wall, bed: save.owned.includes("comfy-bed"), mat: save.owned.includes("feeding-mat"), layout: layoutOf(save.home) });
 
 export function drawRoom(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
   // Wall with soft stripes (a wallpaper changes the three colours).
@@ -85,4 +90,174 @@ export function drawRoom(ctx: CanvasRenderingContext2D, hour: number, look: Look
   }
   rect(ctx, "#8a5a3a", bed, ROOM.bedY + 22, 3, 3);
   rect(ctx, "#8a5a3a", bed + BED_WIDTH - 3, ROOM.bedY + 22, 3, 3);
+}
+
+// ---------- the home (docs/home-plan.md, slice H1) ----------
+// Three rooms on a 24 pixel tile grid (data/home.ts). Still PLACEHOLDER ART made from simple rectangles, in the old room's colours: Decorate mode (slice H2) will
+// bring the real furniture. The back layer (walls, floors, windows, the doorways, rugs) is drawn first; the solid pieces are drawn by drawHomePieces so the scene can put
+// a creature in front of or behind each one by where its feet are.
+
+function drawWindow(ctx: CanvasRenderingContext2D, x: number, y: number, hour: number): void {
+  const s = sky(hour);
+  rect(ctx, "#ffffff", x, y, 38, 38);
+  rect(ctx, s.color, x + 2, y + 2, 34, 34);
+  if (s.stars) {
+    rect(ctx, "#ffffff", x + 8, y + 8, 1, 1);
+    rect(ctx, "#ffffff", x + 26, y + 13, 1, 1);
+    rect(ctx, "#ffffff", x + 15, y + 27, 1, 1);
+  }
+  rect(ctx, s.body === "sun" ? "#ffe066" : "#f5f0c8", x + 23, y + 8, 7, 7);
+  rect(ctx, "#ffffff", x + 17, y + 2, 3, 34);
+  rect(ctx, "#ffffff", x + 2, y + 17, 34, 3);
+}
+
+const woodFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void => {
+  rect(ctx, "#d9a066", x, y, w, h);
+  for (let row = 0, yy = y; yy < y + h; row++, yy += 9) {
+    rect(ctx, "#c78d52", x, yy, w, 1);
+    for (let xx = x + (row % 2) * 16; xx < x + w; xx += 32) rect(ctx, "#c78d52", xx, yy + 1, 1, Math.min(8, y + h - yy - 1));
+  }
+};
+
+const tileFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void => {
+  rect(ctx, "#e8e0d0", x, y, w, h);
+  for (let xx = x; xx < x + w; xx += 12) rect(ctx, "#cfc5ae", xx, y, 1, h);
+  for (let yy = y; yy < y + h; yy += 12) rect(ctx, "#cfc5ae", x, yy, w, 1);
+};
+
+export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
+  const wall = look.wall !== null && Object.hasOwn(walls, look.wall) ? walls[look.wall as keyof typeof walls] : plainWall;
+  const w = COLS * TILE;
+  const floorTop = WALL_ROWS * TILE;
+  // The walls of all three rooms (the wallpaper colours every room until Decorate mode), with their baseboard.
+  rect(ctx, wall.base, 0, 0, w, floorTop);
+  for (let x = 0; x < w; x += 10) rect(ctx, wall.stripe, x, 0, 5, floorTop);
+  rect(ctx, wall.board, 0, floorTop - 4, w, 4);
+  // The floors: wood in the bedroom and the living room, tiles in the kitchen.
+  for (const r of ROOMS) {
+    const x = r.from * TILE;
+    const width = (r.to - r.from + 1) * TILE;
+    if (r.id === "kitchen") tileFloor(ctx, x, floorTop, width, ROWS * TILE - floorTop);
+    else woodFloor(ctx, x, floorTop, width, ROWS * TILE - floorTop);
+  }
+  drawWindow(ctx, 105, 5, hour); // (a window of the bedroom, between the bed and the dresser)
+  drawWindow(ctx, 418, 5, hour); // (and one of the living room, past the sofa)
+  // The two partitions: a wall from the top to the bottom with a doorway two tiles high, the floor going through it.
+  for (const col of PARTITIONS) {
+    const x = col * TILE;
+    for (let row = 0; row < ROWS; row++) {
+      const y = row * TILE;
+      if (DOOR_ROWS.includes(row)) {
+        woodFloor(ctx, x, y, TILE, TILE);
+        rect(ctx, "#6d4a2a", x, y + (row === DOOR_ROWS[0] ? 0 : TILE - 1), TILE, 1); // the door frame's edges
+        continue;
+      }
+      rect(ctx, wall.board, x, y, TILE, TILE);
+      rect(ctx, wall.base, x + 2, y, TILE - 4, row < WALL_ROWS ? TILE : TILE - 2);
+    }
+    rect(ctx, "#6d4a2a", x + 2, DOOR_ROWS[0] * TILE - 3, TILE - 4, 3); // the lintel above the doorway
+  }
+  // The flat pieces: the rugs, and the Feeding Mat.
+  for (const p of piecesOf(look.layout)) {
+    if (p.solid) continue;
+    const x = p.col * TILE;
+    const y = p.row * TILE;
+    if (p.kind === "rug") {
+      rect(ctx, "#e58aa5", x, y, p.cols * TILE, p.rows * TILE);
+      rect(ctx, "#c85a7c", x + 3, y + 3, p.cols * TILE - 6, p.rows * TILE - 6);
+    } else if (p.kind === "mat" && look.mat) {
+      rect(ctx, "#b98a2c", x + 2, y + 12, p.cols * TILE - 4, 10);
+      rect(ctx, "#f2d27a", x + 3, y + 13, p.cols * TILE - 6, 8);
+    }
+  }
+}
+
+// The solid pieces that `show` picks (the scene draws the ones behind a creature, then the creature, then the ones in front).
+export function drawHomePieces(ctx: CanvasRenderingContext2D, look: Look, show: (p: Piece) => boolean): void {
+  for (const p of piecesOf(look.layout)) {
+    if (!p.solid || !show(p)) continue;
+    const x = p.col * TILE;
+    const y = p.row * TILE;
+    const w = p.cols * TILE;
+    const h = p.rows * TILE;
+    switch (p.kind) {
+      case "bed":
+        drawBed(ctx, look);
+        break;
+      case "dresser":
+        rect(ctx, "#4a2f1c", x + 2, y + 4, w - 4, h - 6);
+        rect(ctx, "#8a5a3a", x + 3, y + 5, w - 6, h - 9);
+        rect(ctx, "#a8734a", x + 3, y + 5, w - 6, 4);
+        for (const dy of [14, 28]) {
+          rect(ctx, "#6d4326", x + 6, y + dy, w - 12, 1);
+          rect(ctx, "#f2d27a", x + w / 2 - 2, y + dy + 4, 4, 2);
+        }
+        break;
+      case "sofa":
+        rect(ctx, "#2f3f78", x + 2, y + 6, w - 4, h - 8);
+        rect(ctx, "#4a6ab0", x + 3, y + 7, w - 6, 18); // the back
+        rect(ctx, "#6a8ae0", x + 8, y + 26, w - 16, 18); // the seat
+        rect(ctx, "#4a6ab0", x + 3, y + 22, 8, 22); // the arms
+        rect(ctx, "#4a6ab0", x + w - 11, y + 22, 8, 22);
+        break;
+      case "table":
+        rect(ctx, "#4a2f1c", x + 3, y + 8, w - 6, 26);
+        rect(ctx, "#c4894f", x + 4, y + 9, w - 8, 18); // the top
+        rect(ctx, "#8a5a3a", x + 5, y + 34, 4, h - 34); // two legs
+        rect(ctx, "#8a5a3a", x + w - 9, y + 34, 4, h - 34);
+        break;
+      case "counter":
+        rect(ctx, "#4a4a5a", x + 1, y + 6, w - 2, h - 8);
+        rect(ctx, "#d8d8e0", x + 2, y + 7, w - 4, 8); // the worktop
+        rect(ctx, "#8a8a9a", x + 2, y + 16, w - 4, h - 19);
+        for (let dx = 24; dx < w - 4; dx += 24) rect(ctx, "#6a6a7a", x + dx, y + 18, 1, h - 22);
+        break;
+      case "fridge":
+        rect(ctx, "#5a5e70", x + 2, y + 2, w - 4, h - 3);
+        rect(ctx, "#c8ccd8", x + 3, y + 3, w - 6, h - 6);
+        rect(ctx, "#8a8ea0", x + 3, y + 18, w - 6, 1); // the door between the freezer and the fridge
+        rect(ctx, "#5a5e70", x + w - 9, y + 8, 2, 8);
+        rect(ctx, "#5a5e70", x + w - 9, y + 24, 2, 12);
+        break;
+      case "bowl":
+        rect(ctx, "#6a7fd1", x + 2, y + 8, 19, 8);
+        rect(ctx, "#8aa0f0", x + 4, y + 8, 15, 3);
+        rect(ctx, "#6a7fd1", x + 7, y + 16, 10, 2);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+// The bed (BED_WIDTH wide: the widest lying creature fits on it), with the same shapes as the old room's, from the bed's left edge and `bedY` in data/home.ts.
+function drawBed(ctx: CanvasRenderingContext2D, look: Look): void {
+  const { left: bed, y } = bedOf((look.layout.bed ?? STARTER.bed) as Placement); // (a layout always has its bed: homeLayout's rule 6)
+  rect(ctx, "#8a5a3a", bed, y + 10, BED_WIDTH, 14); // frame
+  rect(ctx, "#6d86e0", bed + 1, y + 8, BED_WIDTH - 2, 10); // mattress
+  rect(ctx, "#ffffff", bed + 2, y + 6, 10, 6); // pillow
+  if (look.bed) {
+    rect(ctx, "#ffe9f0", bed + 13, y + 7, 8, 5);
+    rect(ctx, "#e0708f", bed + 22, y + 6, BED_WIDTH - 24, 11);
+    rect(ctx, "#f7b3c6", bed + 22, y + 9, BED_WIDTH - 24, 2);
+  }
+  rect(ctx, "#8a5a3a", bed, y + 22, 3, 3);
+  rect(ctx, "#8a5a3a", bed + BED_WIDTH - 3, y + 22, 3, 3);
+}
+
+// The part of the home the Shop's picture shows for an item: a 128 x 128 window (the picture's canvas, unscaled) on the room it belongs to, on the starter layout.
+const previewCrop: Record<RoomId, { x: number; y: number }> = {
+  bedroom: { x: 24, y: 8 }, // the bed and the bedroom's window
+  living: { x: 336, y: 0 }, // the sofa, the window and the wall, which the wallpapers colour
+  kitchen: { x: 560, y: 64 }, // the bowl and the Feeding Mat
+};
+
+export function drawHomePreview(ctx: CanvasRenderingContext2D, hour: number, look: Look, room: RoomId): void {
+  const crop = previewCrop[room];
+  const shown: Look = { ...look, layout: STARTER }; // the crops are fixed on the starter layout, wherever the player has put things
+  ctx.save();
+  ctx.translate(-crop.x, -crop.y);
+  drawHomeBack(ctx, hour, shown);
+  drawHomePieces(ctx, shown, () => true);
+  ctx.restore();
 }

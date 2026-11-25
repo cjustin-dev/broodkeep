@@ -127,7 +127,7 @@ MUTANTS = [
                  "box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.16);")]),
     dict(id="retire-primary-label-unreadable", expect=["btn-look"], kid_only=False,
          what="the yellow answer's label is yellow too",
-         edits=[(CSS, "color: var(--bg); /* dark on yellow: 11.5:1 */", "color: var(--accent);")]),
+         edits=[(CSS, ".btn.retire-btn.primary {\n  color: var(--bg); /* dark on yellow: 11.5:1 */", ".btn.retire-btn.primary {\n  color: var(--accent);")]),
     dict(id="face-slot-narrow", expect=["face-slot"], kid_only=False,
          what="the face slot is 48 px again, so a grown-up's 72 px face spills out of it",
          edits=[(CSS, "  width: 72px;\n  display: flex;\n  justify-content: center;", "  width: 48px;\n  display: flex;\n  justify-content: center;")]),

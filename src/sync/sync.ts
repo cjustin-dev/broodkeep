@@ -44,6 +44,7 @@ export function isUntouched(save: Save): boolean {
     save.hauls.length === 0 &&
     save.owned.length === 0 &&
     save.lastBuy === null &&
+    save.home === undefined &&
     save.log.length <= 1
   );
 }

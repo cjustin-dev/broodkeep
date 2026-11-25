@@ -248,6 +248,7 @@ describe("an untouched egg", () => {
     expect(touched((s) => ((s.inventory as Record<string, number>).wood = 1))).toBe(false);
     expect(touched((s) => (s.log = [...s.log, { at: T0, text: "more" }]))).toBe(false);
     expect(touched((s) => s.hauls.push({} as Save["hauls"][number]))).toBe(false);
+    expect(touched((s) => (s.home = { pieces: { sofa: { col: 13, row: 2 } } }))).toBe(false); // furniture the player moved is theirs
     expect(isUntouched(aliveSave("blip", at(10)))).toBe(false);
   });
 });

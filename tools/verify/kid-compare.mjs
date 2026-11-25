@@ -1,7 +1,7 @@
 // Kid Mode look check: the same Kid save, loaded in the old build (main) and the new build (Retire), must render the same page.
 //
 // Run: node kid-compare.mjs --old http://127.0.0.1:4190 --new http://127.0.0.1:4191 [--selftest] [--dpr 1|2]
-// Exit: 0 when differences=0 and pages>0; 1 when any difference; 2 when the script broke (an ERROR line, a selftest that did not
+// Exit: 0 when differences=0 and pages>0 (and, with --expect-home, missing=0); 1 when any difference (or, with --expect-home, a missing expected one); 2 when the script broke (an ERROR line, a selftest that did not
 // see the injected change, or no page compared). A page that throws or times out prints an ERROR line and the run goes on.
 //
 // Per page: the same save is loaded in a fresh context in each build (service workers blocked, frozen clock 2026-11-22T15:00:00Z,
@@ -13,6 +13,10 @@
 // SUMMARY styles = computed style values dumped from the old build, summed over all pages.
 // --selftest runs the comparison once more with INJECT_CSS added to the NEW build's pages only, and requires differences > 0 on EVERY
 // non-egg page and no ERROR line in that run (an egg page may show none).
+// --expect-home (the Home slice H1, where the room is meant to change in Kid Mode too): a difference listed in expectedHome() is counted as expected=N and is not a
+// difference; every other one is, as before. It also needs the expected ones to be THERE: the stage's centring and the picture's grid cell on every page, the keyboard and touch settings
+// of the room's picture on every room page and, where a creature is in the home, the room's name in its words (missing=N otherwise), so a build that lost the change cannot pass by showing no difference. With --selftest the injected change also
+// pads the stage, which no expected difference covers, and it must be reported on every page.
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
@@ -32,12 +36,13 @@ const IGNORED_PROPS = [];
 
 // The selftest's deliberate Kid-visible change, added to the new build's pages only.
 const INJECT_CSS = ".care{gap:7px !important}\n.dock{padding-left:9px !important}";
+const INJECT_STAGE_CSS = ".stage{padding-left:3px !important}"; // with --expect-home --selftest: a change to the stage that the list of expected differences must not swallow
 
 // Game time 2026-11-22T15:00:00Z (frozen), in ms.
 const T = 1795359600000;
 const SETTLE_MS = 300;
 const PAGE_TIMEOUT_MS = 90_000;
-const MAX_DIFF_LINES = 5;
+const MAX_DIFF_LINES = Number(process.env.KID_MAX_DIFF_LINES ?? 5); // the lines printed per page; KID_MAX_DIFF_LINES=1000 prints all of them
 
 const SAVE_NAMES = ["adult-home", "young-home", "kid-home", "kid-board", "adult-away", "egg"];
 const SIZES = [
@@ -63,6 +68,10 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--selftest") {
       out.selftest = true;
+      continue;
+    }
+    if (a === "--expect-home") {
+      out.expectHome = true;
       continue;
     }
     if (a === "--dpr") {
@@ -147,6 +156,33 @@ function compareDumps(oldDump, newDump, counters) {
   return diffs;
 }
 
+// The differences the home makes in Kid Mode on purpose (docs/home-plan.md section 3.4, CLAUDE.md section 12). What does NOT change, and so is not listed: any element's
+// position or size, any text, any other element or style. `screen` is the page: room, room-feed, habitat or arena.
+const ROOM_SCREENS = ["room", "room-feed"];
+function expectedHome(screen, d) {
+  const stage = d.key.endsWith("|div|stage");
+  const canvas = d.key.endsWith("|canvas|room");
+  // The stage centres its one cell (`place-content: center`) and the picture sits in that cell (`grid-area: 1 / 1`): the values the browser resolves for the tracks and the
+  // cell change on every page, and the rectangles do not (they are compared as before).
+  if (stage) {
+    if (d.prop === "justify-content" || d.prop === "align-content") return d.old === "normal" && d.new === "center";
+    // (one track of a width in pixels each: the old one as wide as the stage, the new one as wide as the picture)
+    if (d.prop === "grid-template-columns" || d.prop === "grid-template-rows") return /^[\d.]+px$/.test(String(d.old)) && /^[\d.]+px$/.test(String(d.new));
+    return false;
+  }
+  if (!canvas) return false;
+  if (d.prop === "grid-row-start" || d.prop === "grid-column-start") return d.old === "auto" && d.new === "1";
+  if (!ROOM_SCREENS.includes(screen)) return false;
+  // The home's picture takes the finger and the keys, and names the room the creature is in.
+  if (d.prop === "touch-action") return d.old === "manipulation" && d.new === "none";
+  if (d.prop === "attr:tabindex") return d.old === undefined && d.new === "0";
+  if (d.prop === "attr:style") return typeof d.old === "string" && d.new === `${d.old} touch-action: none;`;
+  if (d.prop === "attr:aria-label") {
+    return typeof d.old === "string" && typeof d.new === "string" && d.new.startsWith(`${d.old} In the `) && /^(bedroom|living room|kitchen)\.$/.test(d.new.slice(d.old.length + " In the ".length));
+  }
+  return false;
+}
+
 // ---------- page functions (serialized into the browser: self-contained) ----------
 
 // Writes the save into IndexedDB (db "broodkeep", store "kv", key "save"), as the app reads it.
@@ -201,7 +237,7 @@ function dumpPage() {
 
 // ---------- one page in one build ----------
 
-async function loadPage(browser, base, save, [w, h], screen, inject) {
+async function loadPage(browser, base, save, [w, h], screen, inject, expectHome = false) {
   const context = await browser.newContext({
     viewport: { width: w, height: h },
     deviceScaleFactor: DPR,
@@ -229,7 +265,7 @@ async function loadPage(browser, base, save, [w, h], screen, inject) {
       const label = await page.locator('[role="img"][aria-label]').first().getAttribute("aria-label");
       if (!label || !label.includes(wanted)) throw new Error(`the seeded save was not loaded: the room's picture says "${label}", expected it to name ${wanted}`);
     }
-    if (inject) await page.addStyleTag({ content: INJECT_CSS });
+    if (inject) await page.addStyleTag({ content: INJECT_CSS + (expectHome ? `\n${INJECT_STAGE_CSS}` : "") });
     if (screen === "room-feed") {
       await page.locator('button[aria-label="Feed"]').click();
       await page.locator('.tray[aria-label="Choose food"]').waitFor({ state: "visible", timeout: 5000 });
@@ -253,7 +289,7 @@ async function loadPage(browser, base, save, [w, h], screen, inject) {
 // ---------- the comparison over every page ----------
 
 async function runComparison(browser, cfg, print) {
-  const tot = { pages: 0, elements: 0, styles: 0, differences: 0, ignored: 0, errors: 0, zeroDiffPages: [] };
+  const tot = { pages: 0, elements: 0, styles: 0, differences: 0, ignored: 0, errors: 0, zeroDiffPages: [], expected: 0, missing: 0, stageUnswallowed: 0 };
   const counters = { ignored: 0 };
   const out = (line) => {
     if (print) console.log(line);
@@ -266,7 +302,7 @@ async function runComparison(browser, cfg, print) {
         const id = `${name} ${screen} ${sizeText}`;
         try {
           const oldSide = await withTimeout(loadPage(browser, cfg.old, save, size, screen, false), PAGE_TIMEOUT_MS, `old ${id}`);
-          const newSide = await withTimeout(loadPage(browser, cfg.new, save, size, screen, cfg.inject), PAGE_TIMEOUT_MS, `new ${id}`);
+          const newSide = await withTimeout(loadPage(browser, cfg.new, save, size, screen, cfg.inject, cfg.expectHome), PAGE_TIMEOUT_MS, `new ${id}`);
           for (const m of oldSide.pageErrors) {
             tot.errors++;
             console.log(`ERROR ${id} old pageerror: ${m}`);
@@ -275,7 +311,32 @@ async function runComparison(browser, cfg, print) {
             tot.errors++;
             console.log(`ERROR ${id} new pageerror: ${m}`);
           }
-          const diffs = compareDumps(oldSide.dump, newSide.dump, counters);
+          const all = compareDumps(oldSide.dump, newSide.dump, counters);
+          // With --expect-home the differences the home makes on purpose are set aside (and counted); the rest are the differences.
+          const diffs = cfg.expectHome ? all.filter((d) => !expectedHome(screen, d)) : all;
+          const expected = all.length - diffs.length;
+          if (cfg.expectHome && !cfg.inject) {
+            // ... and they must all be there: on every page the stage centres its cell (both axes, and the track width) and the picture takes cell 1 / 1; on every room page
+            // the picture takes the keys and the finger, and, when a creature is in the home (not away on a job, not an egg), its words name the room. (The stage's row
+            // track is left out: on 4 of the 60 pages it was already as tall as the picture.)
+            const there = (prop) => all.some((d) => d.prop === prop && expectedHome(screen, d));
+            const inHome = save.phase === "alive" && save.creature != null && save.creature.job == null;
+            const need = [
+              "justify-content",
+              "align-content",
+              "grid-template-columns",
+              "grid-row-start",
+              "grid-column-start",
+              ...(ROOM_SCREENS.includes(screen) ? ["attr:tabindex", "touch-action", "attr:style", ...(inHome ? ["attr:aria-label"] : [])] : []),
+            ];
+            const lost = need.filter((prop) => !there(prop));
+            if (lost.length > 0) {
+              tot.missing++;
+              out(`MISSING ${name} ${screen} ${sizeText} the expected difference(s) ${lost.join(", ")} are not there`);
+            }
+          }
+          if (cfg.expectHome && cfg.inject && diffs.some((d) => d.key.endsWith("|div|stage") && d.prop === "padding-left")) tot.stageUnswallowed++;
+          tot.expected += expected;
           if (diffs.length === 0 && save.phase !== "egg") tot.zeroDiffPages.push(id); // the selftest needs every non-egg page to show its injected change
           for (const d of diffs.slice(0, MAX_DIFF_LINES)) {
             out(`DIFF ${name} ${screen} ${sizeText} ${d.key} ${d.prop} old=${fmt(d.old)} new=${fmt(d.new)}`);
@@ -285,7 +346,7 @@ async function runComparison(browser, cfg, print) {
           }
           const elements = oldSide.dump.length;
           const styles = oldSide.dump.reduce((sum, e) => sum + Object.keys(e.styles).length, 0);
-          out(`PAGE ${name} ${screen} ${sizeText} elements=${elements} styles=${styles} diffs=${diffs.length}`);
+          out(`PAGE ${name} ${screen} ${sizeText} elements=${elements} styles=${styles} diffs=${diffs.length}${cfg.expectHome ? ` expected=${expected}` : ""}`);
           tot.pages++;
           tot.elements += elements;
           tot.styles += styles;
@@ -310,20 +371,21 @@ async function main() {
   try {
     let selftestOk = true;
     if (args.selftest) {
-      const st = await runComparison(browser, { old: args.old, new: args.new, inject: true }, false);
+      const st = await runComparison(browser, { old: args.old, new: args.new, inject: true, expectHome: args.expectHome }, false);
       // The injected CSS (.care gap, .dock padding) must show on EVERY page that is not an egg, and the selftest run must have no ERROR.
-      if (st.differences > 0 && st.zeroDiffPages.length === 0 && st.errors === 0) {
-        console.log(`SELFTEST ok: ${st.differences} differences found, on all ${st.pages} pages compared (egg pages may show none)`);
+      const stageOk = !args.expectHome || st.stageUnswallowed === st.pages; // every page, an egg's too: the stage is padded on all of them
+      if (st.differences > 0 && st.zeroDiffPages.length === 0 && st.errors === 0 && stageOk) {
+        console.log(`SELFTEST ok: ${st.differences} differences found, on all ${st.pages} pages compared (egg pages may show none)${args.expectHome ? `; the stage's padding reported on ${st.stageUnswallowed} of ${st.pages}` : ""}`);
       } else {
         selftestOk = false;
-        console.log(`SELFTEST FAILED: ${st.differences} differences, ${st.errors} ERROR line(s), pages with no difference: ${st.zeroDiffPages.join("; ") || "none"}`);
+        console.log(`SELFTEST FAILED: ${st.differences} differences, ${st.errors} ERROR line(s), pages with no difference: ${st.zeroDiffPages.join("; ") || "none"}${args.expectHome ? `, the stage's padding reported on ${st.stageUnswallowed} of ${st.pages}` : ""}`);
       }
     }
-    const tot = await runComparison(browser, { old: args.old, new: args.new, inject: false }, true);
-    console.log(`SUMMARY pages=${tot.pages} elements=${tot.elements} styles=${tot.styles} differences=${tot.differences} ignored=${tot.ignored}`);
+    const tot = await runComparison(browser, { old: args.old, new: args.new, inject: false, expectHome: args.expectHome }, true);
+    console.log(`SUMMARY pages=${tot.pages} elements=${tot.elements} styles=${tot.styles} differences=${tot.differences} ignored=${tot.ignored}${args.expectHome ? ` expected=${tot.expected} missing=${tot.missing}` : ""}`);
     if (tot.errors > 0 || !selftestOk) code = 2;
     else if (tot.pages === 0) code = 2;
-    else if (tot.differences > 0) code = 1;
+    else if (tot.differences > 0 || tot.missing > 0) code = 1;
   } finally {
     await browser.close().catch(() => {});
   }
