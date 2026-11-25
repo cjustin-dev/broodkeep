@@ -8,6 +8,8 @@ import type { Creature, Save } from "../game/state";
 import { hourOf } from "../game/time";
 import { stageOrder } from "../game/types";
 import { faceSprite, isWide, pickFace } from "./face";
+import { hatOf } from "./hat";
+import type { HatId } from "../data/shop";
 import { frameOf, poseOffsets } from "./idle";
 import type { View } from "./idle";
 import { ROOM } from "./layout";
@@ -113,14 +115,14 @@ export function isLocked(c: Creature, id: SpotId): boolean {
   return stageOrder.indexOf(getForm(c.formId).stage) < stageOrder.indexOf(spots[id].minStage);
 }
 
-function drawCreature(ctx: CanvasRenderingContext2D, c: Creature, view: View, centerX: number, feetY: number, working: boolean): void {
+function drawCreature(ctx: CanvasRenderingContext2D, c: Creature, view: View, centerX: number, feetY: number, working: boolean, hat: HatId | null): void {
   const form = getForm(c.formId);
   const size = form.idle.length;
   const kind = pickFace(view, false, false);
   const frame = isWide(kind) ? 0 : frameOf(view);
-  const picture = faceSprite(form, kind, frame);
+  const picture = faceSprite(form, kind, frame, hat);
   const tint = c.sick ? { color: "#7bdc6a", amount: 0.4 } : undefined;
-  const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}`, tint);
+  const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}${hat ? `:${hat}` : ""}`, tint);
   const off = poseOffsets(view);
   // A working creature hops in place, a little at a time.
   const bob = working && Math.floor(view.clock * 6) % 2 === 1 ? -1 : 0;
@@ -150,7 +152,7 @@ export function drawHabitat(ctx: CanvasRenderingContext2D, save: Save, view: Vie
     const b = SPOT_BOXES[job.spot];
     const progress = Math.min(1, Math.max(0, (gameNowMs - job.startedAt) / (job.endsAt - job.startedAt)));
     const place = workingPlace(job.spot, getForm(c.formId).idle.length);
-    drawCreature(ctx, c, view, place.centerX, place.feetY, true);
+    drawCreature(ctx, c, view, place.centerX, place.feetY, true, hatOf(save));
     // The progress bar goes on top, because a big creature covers the whole spot.
     rect(ctx, "#1a1020", b.x, b.y - 4, b.w, 4);
     rect(ctx, "#ffd25a", b.x + 1, b.y - 3, Math.round((b.w - 2) * progress), 2);
@@ -161,7 +163,7 @@ export function drawHabitat(ctx: CanvasRenderingContext2D, save: Save, view: Vie
     // Out in a field: the habitat is empty too, with a bubble that says where it is.
     drawBubble(ctx, placeIcon[c.place], HOME.centerX - 6, 80);
   } else {
-    drawCreature(ctx, c, view, HOME.centerX, HOME.feetY, false);
+    drawCreature(ctx, c, view, HOME.centerX, HOME.feetY, false, hatOf(save));
   }
 
   if (sky(hour).stars) rect(ctx, "rgba(15, 10, 50, 0.35)", 0, 0, ROOM.w, ROOM.h); // night

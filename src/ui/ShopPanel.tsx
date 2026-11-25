@@ -1,14 +1,17 @@
 // The Shop (Adult Mode): what the coins and materials buy. A preview of the room with the chosen item, the wallet, a 10 second undo after a buy, and
 // a card for each item. A second tab, Requests, is the request board (ui/RequestsTab.tsx), beside the shop (the nav row has no room for a fifth button). The rules are in game/shop.ts; the list and the prices in data/shop.ts. The plan is docs/adult-a2-plan.md, section 9.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { faceSprite } from "../art/face";
 import { drawHomePreview, lookOf } from "../art/room";
+import { drawSprite, spriteCanvas } from "../art/pixel";
 import type { RoomId } from "../data/home";
 import type { Look } from "../art/room";
 import { ROOM } from "../art/layout";
 import { materialIds, materials } from "../data/habitat";
+import { getForm } from "../data/forms";
 import { itemIds, items } from "../data/shop";
-import type { ItemId } from "../data/shop";
-import { buy, buyRefusal, poorText, undoBuy, undoLeftMs, useWall } from "../game/shop";
+import type { HatId, ItemId } from "../data/shop";
+import { buy, buyRefusal, poorText, undoBuy, undoLeftMs, useHat, useWall } from "../game/shop";
 import { hourOf } from "../game/time";
 import type { Save } from "../game/state";
 import { useSecond } from "./AdultHud";
@@ -26,16 +29,28 @@ function lookWith(save: Save, id: ItemId): Look {
 
 // The room an item belongs to, which is the part of the home the picture shows (docs/home-plan.md question 6): the bed in the bedroom, the mat and the foods in the
 // kitchen, a wallpaper in the living room.
-const roomOfItem = (id: ItemId): RoomId => (id === "comfy-bed" ? "bedroom" : items[id].kind === "wallpaper" ? "living" : "kitchen");
+const roomOfItem = (id: ItemId): RoomId => (id === "comfy-bed" ? "bedroom" : items[id].kind === "wallpaper" || items[id].kind === "hat" ? "living" : "kitchen");
 
-function Preview({ look, hour, room, label }: { look: Look; hour: number; room: RoomId; label: string }) {
+// A hat shown on the creature in the preview: standing in the middle of the room, its feet near the bottom of the picture (the floor starts at y 48 in the living room crop).
+const PREVIEW_FEET = 120;
+interface Wearing {
+  formId: string;
+  hat: HatId;
+}
+
+function Preview({ look, hour, room, label, wearing }: { look: Look; hour: number; room: RoomId; label: string; wearing: Wearing | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const ctx = ref.current?.getContext("2d");
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     drawHomePreview(ctx, hour, look, room);
-  }, [look.walls[room], look.bed, look.mat, hour, room]);
+    if (wearing) {
+      const form = getForm(wearing.formId);
+      const sprite = spriteCanvas(faceSprite(form, "open", 0, wearing.hat), `form:${form.id}:open:0:${wearing.hat}`);
+      drawSprite(ctx, sprite, Math.round((ROOM.w - sprite.width) / 2), PREVIEW_FEET - form.idle.length);
+    }
+  }, [look.walls[room], look.bed, look.mat, hour, room, wearing?.formId, wearing?.hat]);
   return <canvas ref={ref} class="shop-preview" width={ROOM.w} height={ROOM.h} role="img" aria-label={label} />;
 }
 
@@ -75,6 +90,7 @@ function ItemCard({ id, game, selected, onPick }: { id: ItemId; game: Game; sele
   const owned = save.owned.includes(id);
   const refusal = owned ? null : buyRefusal(save, id);
   const onWall = save.wall === id;
+  const worn = save.hat === id;
   return (
     <li class="shop-card" data-selected={selected ? "true" : "false"} data-owned={owned ? "true" : "false"}>
       <button class="shop-pick" aria-pressed={selected} aria-label={`${item.name}. ${item.effect} Preview it in the room.`} onClick={onPick}>
@@ -87,6 +103,10 @@ function ItemCard({ id, game, selected, onPick }: { id: ItemId; game: Game; sele
         item.kind === "wallpaper" ? (
           <button class="btn card-btn" aria-pressed={onWall} onClick={() => game.act((s) => useWall(s, onWall ? null : id))}>
             {onWall ? "Stop using" : "Use"}
+          </button>
+        ) : item.kind === "hat" ? (
+          <button class="btn card-btn" aria-pressed={worn} onClick={() => game.act((s) => useHat(s, worn ? null : id))}>
+            {worn ? "Take off" : "Wear"}
           </button>
         ) : (
           <p class="shop-owned">{item.kind === "food" ? "Owned: find it under Feed" : "Owned"}</p>
@@ -116,6 +136,9 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
   const left = undoLeftMs(save, now);
   const last = save.lastBuy && left !== null ? items[save.lastBuy.item as ItemId] : null;
   const seconds = left === null ? 0 : Math.ceil(left / 1000);
+  const c = save.phase === "alive" ? save.creature : null;
+  const pickedHat = items[picked].kind === "hat";
+  const wearing: Wearing | null = pickedHat && c ? { formId: c.formId, hat: picked as HatId } : null;
   // The undo is on both tabs: a purchase that counts toward a request can be undone from either one while its 10 seconds last.
   const undoBar = last && (
     <div class="shop-undo" role="status">
@@ -158,8 +181,14 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
           </div>
           {tab === "items" && (
             <>
-              <Preview look={lookWith(save, picked)} hour={hourOf(now)} room={roomOfItem(picked)} label={`Your room with ${items[picked].name}`} />
-              <p class="shop-hint">Tap an item to see it in the room.</p>
+              <Preview
+                look={lookWith(save, picked)}
+                hour={hourOf(now)}
+                room={roomOfItem(picked)}
+                label={pickedHat ? `Your creature wearing ${items[picked].name}` : `Your room with ${items[picked].name}`}
+                wearing={wearing}
+              />
+              <p class="shop-hint">{pickedHat && !c ? "Your creature will wear it." : "Tap an item to see it in the room."}</p>
             </>
           )}
           {undoBar}

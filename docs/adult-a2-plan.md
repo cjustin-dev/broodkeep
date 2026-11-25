@@ -446,6 +446,7 @@ Four hats join the Shop as items 10 to 13 (thirteen in all). A bought hat is in 
 5. **Size:** a small hat for baby and kid (7 wide), a large one for young and adult (13 wide), chosen by the form's stage. The grids are stored finished (outline included, the bottom row has no outline because it sits on the head).
 6. **Colours:** a hat has its own letters, the digits 1 (outline) to 5, in the picture's palette (copied, never changed in place), so no form's letter is ever replaced.
 7. The hatless picture stays in the cache untouched: a hat is made from a copy.
+8. **No jump between a form's two standing drawings (found on the real code, 2026-11-25):** for the second drawing the crown row and the centre are held within 2 rows and 2 columns of where the rule puts them on the first drawing. Without this one form (droopstar, whose second drawing lifts a claw above the head) carried the hat 10 rows up and 5 columns across every time it swapped drawings while walking; the other 64 forms move at most 2. Generic, no per-form data.
 
 ### Decisions (mine, changeable)
 
@@ -507,13 +508,13 @@ Screen ((b), real clicks, frozen clock, 320 / 360 / 390 at pixel ratio 1 and 2):
 Added after the plan review (findings 9, 10, 11, 13):
 27. `isHatId` directly: true for the four ids; false for a wallpaper, a food, `"constructor"`, `"toString"`, `""`, a number, null and undefined.
 28. Evolving while wearing a hat: `save.hat` is unchanged, and the picture's hat is the small one for a kid and the large one for a young (the size follows the new form's stage).
-29. The hat does not hop between looks: for each of the 65 forms the hat's top row and left column are the same in the six standing looks (open, closed, half, up, happy, yawn) of one frame, because only the face changes; between the two frames and between `lie0` and `lie1` it may move with the picture's own bob, and the bound is written from the measurement (a form that moves more is listed in known-issues, not hidden).
+29. The hat does not hop between looks: for each of the 65 forms the hat's top row and left column are the same in the six standing looks (open, closed, half, up, happy, yawn) of one frame, because only the face changes; between the two drawings it moves at most 2 rows and 2 columns (rule 8; without the rule one form moved 10 and 5), and between `lie0` and `lie1` at most 1 row and 2 columns (the breath, measured over all 65 forms and all four hats).
 30. Each hat card shows its words (decision 6) and the card's `aria-label` has them; the four words are literals in the test.
 
 ### Mutation targets (each must fail its named check)
 
 Rule: threshold fraction 0.4 to 0.5 and to 0.3; the floor of 3; the first row that qualifies replaced by the last; centre taken from the first filled row instead of the crown row; hat's last row one row up and one row down; the move-down at row 0 removed (negative row written); left edge not clipped (wraps); the bottom outline row dropped; the small and large hats swapped by stage; the palette changed in place; the rows changed in place; the cache key without the hat (picture and canvas); the blanket read from the hatted picture (only if edge 22's measurement keeps it); a hat letter equal to a form letter.
-Rules and save: `useHat` accepts a not-owned id; accepts a wallpaper; wearing the worn hat returns true; null with no hat returns true; `buy` wears the hat; `undoBuy` leaves a worn hat on; `undoBuy` takes the other hat off; migrate keeps a not-owned hat; migrate keeps a non-hat id; `isHatId` accepts `"constructor"`; the list order; a price; a hat given a `dish`; `isHatId` written with `in` instead of an own-key check (edge 27); a hat's `effect` changed (edge 30); the hat size chosen by the wrong stage boundary (edge 28).
+Rules and save: `useHat` accepts a not-owned id; accepts a wallpaper; wearing the worn hat returns true; null with no hat returns true; `buy` wears the hat; `undoBuy` leaves a worn hat on; `undoBuy` takes the other hat off; migrate keeps a not-owned hat; migrate keeps a non-hat id; `isHatId` accepts `"constructor"`; the list order; a price; a hat given a `dish`; `isHatId` written with `in` instead of an own-key check (edge 27); a hat's `effect` changed (edge 30); the hat size chosen by the wrong stage boundary (edge 28); the hold on the second drawing removed or set to 3 (edge 29).
 Screen: "Wear" does nothing; "Take off" does nothing; the scene draws the hat on a dead creature; the habitat ignores the hat; the preview ignores the hat; the preview draws the hat with no creature; the preview's effect does not depend on the hat (a pick does not redraw); the room's canvas key without the hat; `roomOfItem` sends a hat to the kitchen.
 
 ### Verification plan

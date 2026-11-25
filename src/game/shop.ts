@@ -1,11 +1,11 @@
 // The shop's rules (adult track A2.2a, docs/adult-a2-plan.md section 9): buying with coins and materials, the 10 second undo, and which wallpaper is
-// on the wall. What an item does to the care rules is in perks.ts; the list and the prices are in data/shop.ts. Like the other actions, each of
+// on the wall and which hat is worn (A2.4). What an item does to the care rules is in perks.ts; the list and the prices are in data/shop.ts. Like the other actions, each of
 // these catches the save up to "now" first (a job that ended before now has paid by then). `nowMs` is game time.
 
 import { materialIds, materials } from "../data/habitat";
 import { withoutWall } from "../data/home";
 import type { MaterialId } from "../data/habitat";
-import { isItemId, isWallId, items } from "../data/shop";
+import { isHatId, isItemId, isWallId, items } from "../data/shop";
 import type { ItemId } from "../data/shop";
 import { tuning } from "../data/tuning";
 import { simulateTo } from "./sim";
@@ -100,6 +100,7 @@ export function undoBuy(save: Save, nowMs: number): UndoResult {
   }
   save.owned = save.owned.filter((id) => id !== item.id);
   if (save.wall === item.id) save.wall = last.wall;
+  if (save.hat === item.id) save.hat = null; // (buying a hat never put it on, so there is no hat to give back)
   const home = withoutWall(save.home, item.id); // (a room that shows it loses it: it is not owned any more)
   if (home) save.home = home;
   logEvent(save, nowMs, `Undid ${item.name}`);
@@ -111,5 +112,13 @@ export function useWall(save: Save, id: string | null): boolean {
   if (id !== null && !(isWallId(id) && save.owned.includes(id))) return false;
   if (save.wall === id) return false;
   save.wall = id;
+  return true;
+}
+
+// Put an owned hat on, or null to take it off. Returns whether the hat changed.
+export function useHat(save: Save, id: string | null): boolean {
+  if (id !== null && !(isHatId(id) && save.owned.includes(id))) return false;
+  if (save.hat === id) return false;
+  save.hat = id;
   return true;
 }

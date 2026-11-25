@@ -6,7 +6,7 @@ import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
 import { coerceHome, ownedWalls } from "../data/home";
 import type { HomeSave } from "../data/home";
-import { isItemId, isWallId } from "../data/shop";
+import { isHatId, isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
 import { freshBoard, migrateBoard } from "./board";
 import type { Board } from "./board";
@@ -122,6 +122,7 @@ export interface Save {
   retired: RetiredLife[]; // completed lives, oldest first (game/retire.ts); no cap, a record is 73 characters
   owned: string[]; // what the player bought in the shop (data/shop.ts ids), in the order bought, no duplicates (game/shop.ts)
   wall: string | null; // the wallpaper shown in the room: an owned wallpaper, or null for the plain wall
+  hat: string | null; // the hat the creature wears: an owned hat (data/shop.ts), or null for none
   lastBuy: LastBuy | null; // the purchase that can still be undone, for `tuning.shop.undoSeconds`
   board: Board; // the request board (game/requests.ts): up to 3 requests and the slots of the finished ones; empty until Adult Mode has dealt it
   home?: HomeSave; // where the player put the furniture (data/home.ts); missing means the starter layout. A change replaces this object, never edits it
@@ -166,6 +167,7 @@ export function newSave(nowMs: number, seed: number): Save {
     retired: [],
     owned: [],
     wall: null,
+    hat: null,
     lastBuy: null,
     board: freshBoard(),
   };
@@ -227,6 +229,7 @@ export function migrateSave(value: unknown): Save | null {
   // version added, is dropped), none twice; the wall must be an owned wallpaper; the undo must name something owned.
   value.owned = Array.isArray(value.owned) ? [...new Set(value.owned.filter(isItemId))] : [];
   value.wall = isWallId(value.wall) && value.owned.includes(value.wall) ? value.wall : null;
+  value.hat = isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : null; // (a save from before the hats has none)
   value.lastBuy =
     isLastBuy(value.lastBuy) && value.owned.includes(value.lastBuy.item)
       ? {

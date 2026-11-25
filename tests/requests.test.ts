@@ -84,9 +84,10 @@ const SPOTS: Record<string, string[]> = {
   adult: ["meadow", "herbs", "trees", "pond", "rocks"],
 };
 // Items whose materials a baby, a kid or the special can gather (Fiber and Herbs only), then a young (plus Wood and Fish), then an adult (plus Stone).
-const BUY_LOW = ["feeding-mat", "wall-meadow", "green-bowl", "sweet-bowl"];
-const BUY_YOUNG = [...BUY_LOW, "comfy-bed", "hearty-bowl"];
-const BUY_ADULT = ["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk", "hearty-bowl", "green-bowl", "sweet-bowl", "stew", "garden-mix"];
+// (the hats cost Fiber, Wood, Fish and Stone: the Knit Cap at every stage, the Acorn Cap and the Fisher Hat from a young, the Stone Crown at an adult)
+const BUY_LOW = ["feeding-mat", "wall-meadow", "green-bowl", "sweet-bowl", "hat-knit"];
+const BUY_YOUNG = [...BUY_LOW, "comfy-bed", "hearty-bowl", "hat-acorn", "hat-fisher"];
+const BUY_ADULT = ["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk", "hearty-bowl", "green-bowl", "sweet-bowl", "stew", "garden-mix", "hat-knit", "hat-acorn", "hat-fisher", "hat-crown"];
 const BUY_BY_STAGE: Record<string, string[]> = { baby: BUY_LOW, kid: BUY_LOW, young: BUY_YOUNG, adult: BUY_ADULT };
 
 describe("drawing (edges 1 to 6)", () => {

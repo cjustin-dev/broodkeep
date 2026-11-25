@@ -15,6 +15,7 @@ import { drawSprite, spriteCanvas } from "./pixel";
 import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
 import { drawField } from "./field";
+import { hatOf } from "./hat";
 import { isBehind } from "./home";
 import { drawMomentOver, drawMomentUnder, fillScreen } from "./moment";
 import { drawHomeBack, drawHomePieces, drawRoom, lookOf } from "./room";
@@ -124,8 +125,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       const size = form.idle.length;
       // Only a standing creature has two drawings to swap between (the slumped and lying ones come from the first).
       const frame = isWide(kind) ? 0 : frameOf(view);
-      const picture = faceSprite(form, kind, frame);
-      const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}`, tint);
+      const hat = dead ? null : hatOf(save); // (a dead creature is drawn without it)
+      const picture = faceSprite(form, kind, frame, hat);
+      const sprite = spriteCanvas(picture, `form:${form.id}:${kind}:${frame}${hat ? `:${hat}` : ""}`, tint);
       const onBed = inBed && !dead;
       const bed = spots.bed(size);
       const grave = spots.dead(size);
@@ -136,7 +138,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       const drawX = x - (sprite.width - size) / 2;
       drawSprite(ctx, sprite, drawX, y, { flipX: flip, height: sprite.height - (lying ? 0 : off.squash) });
 
-      if (onBed) drawBlanket(ctx, picture, drawX, y, flip);
+      if (onBed) drawBlanket(ctx, faceSprite(form, kind, frame), drawX, y, flip); // (the blanket is fitted to the hatless picture)
       if (view.pose === "rumble" && !lying) drawRumble(ctx, x, y, size, view.poseTime);
 
       if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);

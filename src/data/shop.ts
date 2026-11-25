@@ -1,15 +1,26 @@
-// What the shop sells (adult track A2.2). Nine items: two for the room's care rules (A2.2a), two wallpapers (A2.2a) and five foods (A2.2b). Prices were
+// What the shop sells (adult track A2.2, A2.4). Thirteen items: two for the room's care rules (A2.2a), two wallpapers (A2.2a), five foods (A2.2b) and four hats (A2.4). Prices were
 // set from a measured day of play (tools/verify/run-income.sh, docs/adult-a2-plan.md sections 9 and 10): a day is the three-visit player's 12 coins.
-// All of them are `[tune]`. What an item does is in game/perks.ts (the care rules), game/dishes.ts (the foods) and art/room.ts (the picture); this
-// file is only the list, the prices and the words.
+// All of them are `[tune]`. What an item does is in game/perks.ts (the care rules), game/dishes.ts (the foods), art/room.ts (the picture) and art/hat.ts (the hats);
+// this file is only the list, the prices and the words.
 
 import { fieldIds, fields } from "./fields";
 import { foods } from "./foods";
 import { tuning } from "./tuning";
 import type { MaterialId } from "./habitat";
 
-export type ItemId = "comfy-bed" | "feeding-mat" | "wall-meadow" | "wall-dusk" | "hearty-bowl" | "green-bowl" | "sweet-bowl" | "stew" | "garden-mix";
-export type ItemKind = "furniture" | "wallpaper" | "food";
+export type HatId = "hat-knit" | "hat-acorn" | "hat-fisher" | "hat-crown";
+export type ItemId =
+  | "comfy-bed"
+  | "feeding-mat"
+  | "wall-meadow"
+  | "wall-dusk"
+  | "hearty-bowl"
+  | "green-bowl"
+  | "sweet-bowl"
+  | "stew"
+  | "garden-mix"
+  | HatId;
+export type ItemKind = "furniture" | "wallpaper" | "food" | "hat";
 
 // Which of a field's three foods (the order of `plan.foods` in data/fields.ts): the filling one, the light one, the sweet one.
 export type FoodKind = 0 | 1 | 2;
@@ -125,12 +136,42 @@ export const items: Record<ItemId, Item> = {
     price: { coins: 35, materials: { fish: 2, stone: 2 } },
     dish: { food: 1, also: 2 },
   },
+  // The hats are for looks only (art/hat.ts draws them): a cosmetic is about one day of the measured income, as the wallpapers are.
+  "hat-knit": {
+    id: "hat-knit",
+    name: "Knit Cap",
+    kind: "hat",
+    effect: "A red knit cap with a pom-pom. For looks only.",
+    price: { coins: 12, materials: { fiber: 2 } },
+  },
+  "hat-acorn": {
+    id: "hat-acorn",
+    name: "Acorn Cap",
+    kind: "hat",
+    effect: "A brown acorn cap. For looks only.",
+    price: { coins: 12, materials: { wood: 2 } },
+  },
+  "hat-fisher": {
+    id: "hat-fisher",
+    name: "Fisher Hat",
+    kind: "hat",
+    effect: "A yellow fisher's hat with a brim. For looks only.",
+    price: { coins: 12, materials: { fish: 2 } },
+  },
+  "hat-crown": {
+    id: "hat-crown",
+    name: "Stone Crown",
+    kind: "hat",
+    effect: "A grey crown with three points. For looks only.",
+    price: { coins: 12, materials: { stone: 2 } },
+  },
 };
 export const itemIds = Object.keys(items) as ItemId[];
 
 // An id read from a save or the screen: only the shop's own (so "constructor" and the like are not items).
 export const isItemId = (id: unknown): id is ItemId => typeof id === "string" && Object.hasOwn(items, id);
 export const isWallId = (id: unknown): id is ItemId => isItemId(id) && items[id].kind === "wallpaper";
+export const isHatId = (id: unknown): id is HatId => isItemId(id) && items[id].kind === "hat";
 
 // The wall colours: the plain wall (the room's own), and each wallpaper's base, stripe and baseboard.
 export interface Wall {
