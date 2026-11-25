@@ -8,8 +8,9 @@ import { layoutOf } from "../art/homeLayout";
 import { createView, reseat } from "../art/idle";
 import { shownOf } from "../art/moment";
 import type { View } from "../art/idle";
-import { homeOf } from "../data/home";
-import type { Layout, PieceKind } from "../data/home";
+import { homeOf, wallOfRoom } from "../data/home";
+import type { Layout, PieceKind, RoomId } from "../data/home";
+import { isWallId } from "../data/shop";
 import { endFight, startFight } from "../game/actions";
 import type { StartFightResult } from "../game/actions";
 import { playRound } from "../game/combat/battle";
@@ -25,9 +26,11 @@ import { writeSave } from "../sync/local";
 
 export type Screen = "room" | "habitat" | "arena";
 
-// Decorate mode (docs/home-plan.md section 12): view state, never saved. `selected` is the piece the tray's bin and the arrow keys act on.
+// Decorate mode (docs/home-plan.md section 12): view state, never saved. `selected` is the piece the tray's bin and the arrow keys act on; `wall` is the room whose wall is
+// selected (the dock then offers wallpapers, section 14). A piece and a wall are never selected together.
 export interface Decor {
   selected: PieceKind | null;
+  wall: RoomId | null;
 }
 
 const NOTE_MS = 6000; // how long a note stays over the room
@@ -111,7 +114,7 @@ export class Game {
   // Decorate mode on. Only on the home's picture (the room screen, in the home) and not while a hatch or evolve scene plays. Says whether it started.
   startDecor(): boolean {
     if (this.decor || this.screen !== "room" || this.view.world !== "home" || this.view.moment !== null) return false;
-    this.decor = { selected: null };
+    this.decor = { selected: null, wall: null };
     this.view.still = true;
     reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)
     this.listeners.forEach((listener) => listener());
@@ -136,16 +139,39 @@ export class Game {
     return kind !== null && layoutOf(this.save.home)[kind] !== null ? kind : null;
   }
 
+  // Select a piece, or nothing (which lets go of a selected wall too).
   select(kind: PieceKind | null): void {
-    if (!this.decor || this.decor.selected === kind) return;
+    if (!this.decor || (this.decor.selected === kind && this.decor.wall === null)) return;
     this.decor.selected = kind;
+    this.decor.wall = null;
     this.listeners.forEach((listener) => listener());
+  }
+
+  // The room whose wall is selected, while Decorate mode is on.
+  get selectedWall(): RoomId | null {
+    return this.decor?.wall ?? null;
+  }
+
+  selectWall(room: RoomId): void {
+    if (!this.decor || (this.decor.wall === room && this.decor.selected === null)) return;
+    this.decor.wall = room;
+    this.decor.selected = null;
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // Give a room a wallpaper (an owned one, or null for the plain wall). False when Decorate mode is off, the wallpaper is not owned, or the room already shows it.
+  setWall(room: RoomId, id: string | null): boolean {
+    if (!this.decor || (id !== null && !(isWallId(id) && this.save.owned.includes(id))) || wallOfRoom(this.save.wall, this.save.home, room) === id) return false;
+    this.act((save) => {
+      save.home = homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });
+    });
+    return true;
   }
 
   // Put a layout the rules allowed into the save (the game is saved, and sent to the account, as for any other change).
   setLayout(layout: Layout): void {
     this.act((save) => {
-      save.home = homeOf(layout);
+      save.home = homeOf(layout, save.home?.walls); // (the rooms' walls stay)
     });
   }
 

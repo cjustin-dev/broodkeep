@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Mutation runner for the SCREEN side of Decorate mode (Broodkeep, Home slice H2b, docs/home-plan.md section 12): the button, the tray, selecting, carrying a piece, the keys,
-the Feeding Mat, the creature standing still.
+"""Mutation runner for the SCREEN side of Decorate mode (Broodkeep, Home slices H2b and H2c, docs/home-plan.md sections 12 and 14): the button, the tray, selecting, carrying a piece, the
+keys, the Feeding Mat, the creature standing still, and the wallpaper of each room (selecting a wall, its outline, the swatches, the wall of each room and of the partitions).
 
 Works only on a copy of the repo at $VERIFY_OUT/decorate-ui-copy (never the real repo).
 Each mutant is one or more exact text replaces in the copy. The copy is rebuilt, served by
@@ -50,7 +50,7 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-mouse"]
+ALL_IDS = ["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-mouse", "decorate-walls"]
 
 STAGE = "src/ui/Stage.tsx"
 BAR = "src/ui/DecorateBar.tsx"
@@ -59,6 +59,7 @@ EDIT = "src/art/homeEdit.ts"
 IDLE = "src/art/idle.ts"
 ROOM = "src/art/room.ts"
 CSS = "src/ui/app.css"
+DATA = "src/data/home.ts"
 
 
 # edits: (file, old, new), applied in order. `old` must occur exactly once in that file of the copy.
@@ -97,7 +98,7 @@ MUTANTS = [
     M("outline-one-line", ["decorate-select"], "an outline has one coloured line, not two",
       [(ROOM, '[["#1a1020", 0], [color, 1], [color, 2]] as const', '[["#1a1020", 0], [color, 1]] as const')]),
     M("tap-on-floor-keeps-the-selection", ["decorate-select"], "a tap on bare floor does not let go of the piece",
-      [(STAGE, "if (result.tap) game.select(null); // a tap on bare floor lets go of the piece", "if (result.tap && false) game.select(null);")]),
+      [(STAGE, "          if (room) game.selectWall(room);\n          else game.select(null);", "          if (room) game.selectWall(room);")]),
     M("escape-does-not-let-go", ["decorate-select", "decorate-tray"], "Escape does not let go of the piece",
       [(STAGE, "        e.preventDefault();\n        game.select(null);\n        return;", "        e.preventDefault();\n        return;")]),
     M("bin-enabled-for-the-bed-kid", ["decorate-select"], "Kid Mode: the bin is not disabled with the bed selected",
@@ -124,7 +125,7 @@ MUTANTS = [
     M("picture-pans-under-a-carried-piece", ["decorate-move"], "the picture also pans under a finger that carries a piece",
       [(STAGE, "      return; // (the finger carries a piece: the home does not pan under it)\n", "")]),
     M("layout-never-written", ["decorate-move", "decorate-tray"], "the layout is never put into the save",
-      [(GAME, "save.home = homeOf(layout);", "void homeOf(layout);")]),
+      [(GAME, "save.home = homeOf(layout, save.home?.walls);", "void homeOf(layout, save.home?.walls);")]),
     # the tray, and the keys
     M("tray-reversed", ["decorate-tray"], "the tray lists the pieces back to front",
       [(EDIT, "KINDS.filter((kind) => layout[kind] === null", "[...KINDS].reverse().filter((kind) => layout[kind] === null")]),
@@ -172,6 +173,78 @@ MUTANTS = [
       [(GAME, "    this.view.still = true;\n", "")]),
     M("sleepy-creature-walks-to-bed", ["decorate-still"], "a sleepy creature walks to its bed in Decorate mode",
       [(IDLE, "      if (!stay) sleepHome(view, dt);", "      sleepHome(view, dt);")]),
+
+    # a wallpaper for each room (H2c)
+    M("wall-tap-selects-nothing", ["decorate-walls"], "a tap on a room's bare wall lets go instead of selecting the wall",
+      [(STAGE, "          if (room) game.selectWall(room);\n          else game.select(null);", "          game.select(null);")]),
+    M("floor-tap-keeps-the-wall", ["decorate-walls"], "a tap on bare floor does not let go of a selected wall",
+      [(STAGE, "          if (room) game.selectWall(room);\n          else game.select(null);", "          if (room) game.selectWall(room);\n          else if (!game.selectedWall) game.select(null);")]),
+    M("partition-tap-goes-right", ["decorate-walls"], "a wall tile of a partition belongs to the room on its right",
+      [(DATA, "return (ROOMS.filter((r) => r.to < col).pop() as RoomSpan).id;", "return (ROOMS.find((r) => r.from > col) as RoomSpan).id;")]),
+    M("wall-words-say-nothing", ["decorate-walls"], "the picture's words do not name a selected wall",
+      [(STAGE, ": wall ? `The ${roomNames[wall]} wall is selected. Pick a wallpaper below.` : \"Nothing is selected.\"}`;", ": \"Nothing is selected.\"}`;")]),
+    M("wall-outline-never-drawn", ["decorate-walls"], "a selected wall has no outline",
+      [(STAGE, "        else if (game.selectedWall) drawWallOutline(c, game.selectedWall, VALID_COLOR);\n", "")]),
+    M("wall-outline-in-the-living-room", ["decorate-walls"], "the outline is always round the living room's wall",
+      [(STAGE, "drawWallOutline(c, game.selectedWall, VALID_COLOR)", "drawWallOutline(c, \"living\", VALID_COLOR)")]),
+    M("wall-outline-red", ["decorate-walls"], "a selected wall's outline is the red of a refused spot",
+      [(STAGE, "drawWallOutline(c, game.selectedWall, VALID_COLOR)", "drawWallOutline(c, game.selectedWall, INVALID_COLOR)")]),
+    M("wall-outline-a-tile-short", ["decorate-walls"], "a selected wall's outline stops a tile before the end of the wall",
+      [(ROOM, "outlineRect(ctx, span.x0, 0, span.x1 - span.x0, WALL_ROWS * TILE, color);", "outlineRect(ctx, span.x0, 0, span.x1 - span.x0 - TILE, WALL_ROWS * TILE, color);")]),
+    M("select-wall-keeps-the-piece", ["decorate-walls"], "a tap on a wall leaves the piece selected too",
+      [(GAME, "    this.decor.wall = room;\n    this.decor.selected = null;\n", "    this.decor.wall = room;\n")]),
+    M("select-piece-keeps-the-wall", ["decorate-walls"], "a tap on a piece leaves the wall selected too",
+      [(GAME, "    this.decor.selected = kind;\n    this.decor.wall = null;\n", "    this.decor.selected = kind;\n")]),
+    M("swatches-keep-the-furniture-tray", ["decorate-walls"], "with a wall selected the dock shows the furniture tray instead of the wallpapers",
+      [(BAR, "{room === null && tray.length > 0 && (", "{tray.length > 0 && (")]),
+    M("swatches-without-the-plain-wall", ["decorate-walls"], "there is no swatch for the plain wall",
+      [(BAR, "[null, ...save.owned.filter(isWallId)]", "[...save.owned.filter(isWallId)]")]),
+    M("swatches-offer-the-unowned", ["decorate-walls"], "the swatches offer every wallpaper, owned or not",
+      [(BAR, "[null, ...save.owned.filter(isWallId)]", "[null, ...(Object.keys(walls) as string[])]")]),
+    M("swatch-names-the-living-room", ["decorate-walls"], "every swatch says it is for the living room's wall",
+      [(BAR, "on the ${roomNames[room]} wall`}", "on the ${roomNames.living} wall`}")]),
+    M("swatch-never-pressed", ["decorate-walls"], "no swatch is marked as the wall the room shows",
+      [(BAR, "aria-pressed={wallOfRoom(save.wall, save.home, room) === id}", "aria-pressed={false}")]),
+    M("swatch-pressed-by-own-entry-only", ["decorate-walls"], "a room with no entry of its own shows the plain swatch as pressed, even when the whole home has a wallpaper",
+      [(BAR, "aria-pressed={wallOfRoom(save.wall, save.home, room) === id}", "aria-pressed={(save.home?.walls?.[room] ?? null) === id}")]),
+    M("swatch-does-nothing", ["decorate-walls"], "a swatch does not give the room the wallpaper",
+      [(BAR, "                game.setWall(room, id);\n", "")]),
+    M("swatch-keeps-the-focus", ["decorate-walls"], "the keyboard focus stays on the swatch, so Escape does not let go of the wall",
+      [(BAR, "                focusPicture(); // (Escape lets go of the wall)\n", "")]),
+    M("swatch-always-plain", ["decorate-walls"], "every swatch is drawn in the plain wall's colours",
+      [(BAR, "const c = id !== null && Object.hasOwn(walls, id) ? walls[id as keyof typeof walls] : plainWall;", "const c = plainWall;")]),
+    M("swatch-colours-swapped", ["decorate-walls"], "a swatch draws the stripe colour as the wall and the wall colour as the stripe",
+      [(BAR, '"--wall-base": c.base, "--wall-stripe": c.stripe, "--wall-board": c.board', '"--wall-base": c.stripe, "--wall-stripe": c.base, "--wall-board": c.board')]),
+    M("swatch-baseboard-is-the-wall", ["decorate-walls"], "a swatch's baseboard is the wall's colour",
+      [(BAR, '"--wall-board": c.board', '"--wall-board": c.base')]),
+    M("bin-enabled-with-a-wall-kid", ["decorate-walls"], "Kid Mode: the bin is not disabled while a wall is selected",
+      [(BAR, 'disabled={adult ? undefined : selected === null || selected === "bed"}', 'disabled={adult ? undefined : (selected === null && room === null) || selected === "bed"}')], kid_only=True),
+    M("bin-enabled-with-a-wall-adult", ["decorate-walls"], "Adult Mode: the bin is not aria-disabled while a wall is selected",
+      [(BAR, 'aria-disabled={adult && (selected === null || selected === "bed") ? true : undefined}', 'aria-disabled={adult && ((selected === null && room === null) || selected === "bed") ? true : undefined}')]),
+    M("wall-paints-the-living-room-everywhere", ["decorate-walls"], "every room's wall is painted in the living room's wallpaper",
+      [(ROOM, "const wall = wallColours(look.walls[span.id]);", "const wall = wallColours(look.walls.living);")]),
+    M("wall-paint-not-clipped", ["decorate-walls"], "each room's wall is painted across the whole home, so the last room covers the others",
+      [(ROOM, "    ctx.clip();\n", "")]),
+    M("partition-in-the-room-on-the-right", ["decorate-walls"], "a partition is drawn in the wallpaper of the room on its right",
+      [(ROOM, "look.walls[wallRoomOf(col, 0) as RoomId]", "look.walls[wallRoomOf(col + 1, 0) as RoomId]")]),
+    M("wall-is-never-written", ["decorate-walls"], "a swatch changes nothing in the save",
+      [(GAME, "      save.home = homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });\n", "      void homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });\n")]),
+    M("wall-forgets-the-other-rooms", ["decorate-walls"], "a new wall replaces the walls of the other rooms",
+      [(GAME, "{ ...save.home?.walls, [room]: id }", "{ [room]: id }")]),
+    M("moving-a-piece-forgets-the-walls", ["decorate-walls"], "a piece put away takes the rooms' walls out of the save",
+      [(GAME, "save.home = homeOf(layout, save.home?.walls);", "save.home = homeOf(layout);")]),
+    M("reload-forgets-the-walls", ["decorate-walls"], "a saved game read back from the device has no walls",
+      [(DATA, "return walls ? { pieces, walls } : { pieces };", "return { pieces };")]),
+    M("select-piece-keeps-the-wall-on-a-tap", ["decorate-walls"], "a tap on a piece leaves a selected wall selected (only letting go of everything clears it), so the dock shows swatches, not the tray",
+      [(GAME, "    this.decor.selected = kind;\n    this.decor.wall = null;\n", "    this.decor.selected = kind;\n    if (kind === null) this.decor.wall = null;\n")]),
+    M("wall-outline-starts-a-tile-late", ["decorate-walls"], "a selected wall's outline starts a tile after the start of the wall",
+      [(ROOM, "outlineRect(ctx, span.x0, 0, span.x1 - span.x0, WALL_ROWS * TILE, color);", "outlineRect(ctx, span.x0 + TILE, 0, span.x1 - span.x0 - TILE, WALL_ROWS * TILE, color);")]),
+    M("swatch-on-a-shown-wall-writes", ["decorate-walls"], "a swatch for the wallpaper the room already shows is written into the save",
+      [(GAME, "|| wallOfRoom(this.save.wall, this.save.home, room) === id) return false;", ") return false;")]),
+    M("rooms-do-not-follow-the-whole-wall", ["decorate-walls"], "a room with no wallpaper of its own shows the plain wall, not the whole home's",
+      [(DATA, "? (home.walls[room] ?? null) : whole);", "? (home.walls[room] ?? null) : null);")]),
+    M("reload-forgets-the-plain-wall", ["decorate-walls"], "a saved game read back has lost the rooms with the plain wall (they follow the whole home)",
+      [(DATA, "id === null || owned.includes(id)", "id !== null && owned.includes(id)")]),
 ]
 
 class Infra(Exception):

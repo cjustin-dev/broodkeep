@@ -4,7 +4,7 @@
 import { lineageOf } from "../data/book";
 import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
-import { coerceHome } from "../data/home";
+import { coerceHome, ownedWalls } from "../data/home";
 import type { HomeSave } from "../data/home";
 import { isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
@@ -239,8 +239,9 @@ export function migrateSave(value: unknown): Save | null {
   value.board = migrateBoard(value.board);
   // A save from before Decorate mode has no `home`. Only a well-formed one is kept (a bad one from storage or the cloud means the starter layout; whether the pieces are in
   // allowed places is `layoutOf`'s rule, art/homeLayout.ts), and this must never throw.
+  // A room's wallpaper must be one the player owns, like `wall` (an entry for another is dropped, the pieces are kept).
   const home = coerceHome(value.home);
-  if (home) value.home = home;
+  if (home) value.home = ownedWalls(home, value.owned);
   else delete value.home;
   return value;
 }

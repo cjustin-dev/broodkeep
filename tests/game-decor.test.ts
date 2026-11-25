@@ -42,7 +42,7 @@ describe("starting and ending Decorate mode", () => {
   it("starts on the home's picture: nothing selected, the creature told to stand still, the screens woken", () => {
     start();
     expect(game.startDecor()).toBe(true);
-    expect(game.decor).toEqual({ selected: null });
+    expect(game.decor).toEqual({ selected: null, wall: null });
     expect(game.view.still).toBe(true);
     expect(woken).toBe(1);
   });

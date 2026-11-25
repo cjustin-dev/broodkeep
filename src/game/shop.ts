@@ -3,6 +3,7 @@
 // these catches the save up to "now" first (a job that ended before now has paid by then). `nowMs` is game time.
 
 import { materialIds, materials } from "../data/habitat";
+import { withoutWall } from "../data/home";
 import type { MaterialId } from "../data/habitat";
 import { isItemId, isWallId, items } from "../data/shop";
 import type { ItemId } from "../data/shop";
@@ -99,6 +100,8 @@ export function undoBuy(save: Save, nowMs: number): UndoResult {
   }
   save.owned = save.owned.filter((id) => id !== item.id);
   if (save.wall === item.id) save.wall = last.wall;
+  const home = withoutWall(save.home, item.id); // (a room that shows it loses it: it is not owned any more)
+  if (home) save.home = home;
   logEvent(save, nowMs, `Undid ${item.name}`);
   return "undone";
 }
