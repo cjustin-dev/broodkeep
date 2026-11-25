@@ -78,9 +78,10 @@ describe("footprints and positions", () => {
   });
 
   it("never reads past the last column of the widest home as the next row's first tile: column 43 is not floor, and a creature two tiles wide is refused at the Playroom's last column", () => {
-    // by hand: the floor is one array of 43 columns per row, so a read at column 43 of row 3 would land on column 0 of row 4, which is bare floor in the starter layout (the first value)
+    // by hand: the floor is one array of 43 columns per row, so a read at column 43 of row 3 would land on column 0 of row 4, which is bare floor in the starter layout (the first value); every row is swept
     withLayout(STARTER, () => {
-      expect([isFloor(0, 4), isFloor(42, 3), fits(42, 3, 1), fits(42, 3, 2), isFloor(43, 3)]).toEqual([true, true, true, false, false]);
+      expect([isFloor(0, 4), isFloor(42, 3), fits(42, 3, 1), fits(42, 3, 2)]).toEqual([true, true, true, false]);
+      expect(Array.from({ length: ROWS }, (_, row) => isFloor(COLS, row))).toEqual(Array(ROWS).fill(false));
     }, 4);
   });
 
