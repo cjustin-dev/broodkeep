@@ -21,7 +21,7 @@ const ADULT = "gravelhorn";
 type Bag = Partial<Record<"fiber" | "herb" | "wood" | "fish" | "stone", number>>;
 
 // A living adult at home at T, well fed and rested, with the given wallet and shop state.
-function living(mode: Mode, wallet: { coins: number; bag: Bag }, shop: Partial<Pick<Save, "owned" | "wall" | "lastBuy">> = {}, formId = ADULT): Save {
+function living(mode: Mode, wallet: { coins: number; bag: Bag }, shop: Partial<Pick<Save, "owned" | "wall" | "lastBuy" | "hat">> = {}, formId = ADULT): Save {
   const save = newSave(T, 1234);
   if (mode === "adult") save.settings.adultMode = true;
   const creature = makeCreature(formId, BORN, save.egg!.pattern);
@@ -52,7 +52,7 @@ const scenarios: Record<string, (mode: Mode) => Save> = {
   "just-bought": (mode) => living(mode, { coins: 65, bag: { fiber: 2, herb: 5, wood: 3, fish: 5, stone: 5 } }, { owned: ["comfy-bed"], wall: null, lastBuy: { item: "comfy-bed", at: T - 3 * SECOND, wall: null } }),
 };
 
-// The hats (A2.4): all four owned and the wallet nearly empty; the same wearing the Knit Cap; one that has a creature out in the land field; one at work in the habitat; a dead one
+// The hats (A2.4): all four owned and the wallet nearly empty; the same wearing the Knit Cap; one that has a creature out in the land field; one at work in the habitat; a sick one; a dead one
 // wearing it; and a save that can pay for exactly the Knit Cap (12 coins, 2 Fiber).
 Object.assign(scenarios, {
   "hats-owned": (mode: Mode) => living(mode, { coins: 5, bag: {} }, { owned: [...HATS] }),
@@ -60,6 +60,12 @@ Object.assign(scenarios, {
   "hat-field": (mode: Mode) => {
     const save = living(mode, { coins: 5, bag: {} }, { owned: [...HATS], hat: "hat-knit" });
     save.creature!.place = "land";
+    return save;
+  },
+  // Sick, wearing the Knit Cap: the room's picture tints the whole creature green, the cap with it.
+  "hat-sick": (mode: Mode) => {
+    const save = living(mode, { coins: 5, bag: {} }, { owned: [...HATS], hat: "hat-knit" });
+    save.creature!.sick = true;
     return save;
   },
   "hat-dead": (mode: Mode) => {

@@ -13,8 +13,8 @@ OUT = os.environ.get("VERIFY_OUT") or os.path.join(tempfile.gettempdir(), "brood
 SHEETS = os.path.join(OUT, "sheets-shop")
 SIZES = ["320x568", "360x640", "390x844"]
 GROUPS = {
-    "rooms": ["room-plain", "room-longname", "room-switch-standin", "room-all-owned", "room-kid-owned", "room-kid-plain"],
-    "panels": ["shop-rich", "shop-rich-dusk", "shop-rich-bed", "shop-rich-mat", "shop-poor", "shop-mixed", "shop-owned-walls", "shop-owned-all", "shop-just-bought", "shop-after-buy"],
+    "rooms": ["room-plain", "room-longname", "room-switch-standin", "room-all-owned", "room-kid-owned", "room-kid-plain", "room-hat-worn", "room-hat-kid"],
+    "panels": ["shop-rich", "shop-rich-dusk", "shop-rich-bed", "shop-rich-mat", "shop-rich-knit", "shop-rich-crown", "shop-longname-fisher", "shop-hats-owned", "shop-hat-worn", "shop-poor", "shop-mixed", "shop-owned-walls", "shop-owned-all", "shop-just-bought", "shop-after-buy"],
 }
 PER_ROW = 4
 LABEL_H = 22

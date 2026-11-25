@@ -46,7 +46,7 @@ const PRICES = {
 } as const;
 
 describe("the catalogue", () => {
-  it("has thirteen items at these prices and with these words (the four of A2.2a, the five foods of A2.2b, then the four hats of A2.4)", () => {
+  it("has thirteen items at these prices, in this order, with the care items' words (the four of A2.2a, the five foods of A2.2b, then the four hats of A2.4; the hats' words are tests/hats.test.ts edge 30)", () => {
     expect(itemIds).toEqual([
       "comfy-bed",
       "feeding-mat",

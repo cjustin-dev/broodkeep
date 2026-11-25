@@ -71,6 +71,7 @@ CARE = "src/game/care.ts"
 STATE = "src/game/state.ts"
 CSS = "src/ui/app.css"
 HABITAT = "src/art/habitat.ts"
+ARENA = "src/art/arena.ts"
 
 # edits: (file, old, new), applied in order. `old` must occur exactly once in that file of the copy.
 # expect: check ids that must FAIL for the mutant to count as caught. kid_only: the checker runs --modes kid.
@@ -223,6 +224,15 @@ MUTANTS = [
     dict(id="hat-blanket-from-the-hatted-picture", expect=["hat-bed"], kid_only=False,
          what="the sleeper's blanket is fitted to its picture with the hat on",
          edits=[(SCENE, "drawBlanket(ctx, faceSprite(form, kind, frame), drawX, y, flip);", "drawBlanket(ctx, picture, drawX, y, flip);")]),
+    dict(id="hat-sick-tint-removed", expect=["hat-places"], kid_only=False,
+         what="a sick creature is not tinted (so its cap keeps its plain colour)",
+         edits=[(SCENE, ': c.sick\n          ? { color: "#7bdc6a", amount: 0.4 }\n          : undefined;', ": undefined;")]),
+    dict(id="hat-in-the-arena", expect=["hat-places"], kid_only=False,
+         what="the arena draws a Knit Cap on its fighters",
+         edits=[(ARENA, "spriteCanvas(faceSprite(form, kind, frame), `form:${form.id}:${kind}:${frame}`, tint);", "spriteCanvas(faceSprite(form, kind, frame, \"hat-knit\"), `form:${form.id}:${kind}:${frame}`, tint);")]),
+    dict(id="hat-buy-puts-it-on", expect=["hat-wear"], kid_only=False,
+         what="buying a hat puts it on",
+         edits=[(RULES, 'if (item.kind === "wallpaper") save.wall = item.id;', 'if (item.kind === "wallpaper") save.wall = item.id;\n  if (item.kind === "hat") save.hat = item.id;')]),
     dict(id="hat-hidden-in-kid-mode", expect=["hat-kid"], kid_only=True,
          what="Kid Mode draws no hat",
          edits=[(SCENE, "const hat = dead ? null : hatOf(save);", "const hat = dead || !save.settings.adultMode ? null : hatOf(save);")]),

@@ -428,21 +428,18 @@ describe("a saved hat (edges 14, 15, 16, 17, 28)", () => {
     expect([dead.hat, dead.owned, dead.wall]).toEqual(["hat-knit", ["hat-knit", "wall-meadow"], "wall-meadow"]);
   });
 
-  it("edge 17: a save from the device that bought and wore the hat, saved after an older one without it, is the one that is kept (one document, no double spend)", () => {
+  it("edge 17: the hat, the purchase and the coins it cost are fields of the one saved document, so a stored save carries all three or none (which save wins is the sync's own rule, tests/cloud-sync.test.ts)", () => {
     const older = clone(aliveSave("gravelhorn", DAY));
     older.coins = 12;
     older.inventory = { fiber: 2 };
     const newer = clone(older);
     buy(newer, "hat-knit", DAY + 1000);
     useHat(newer, "hat-knit");
-    // The idle device saves its older copy first, then the device in use saves: what is stored is the newer document as it is.
-    const stored = clone(newer);
-    expect(stored.hat).toBe("hat-knit");
-    expect(stored.coins).toBe(0);
-    expect(stored.owned).toEqual(["hat-knit"]);
-    expect(older.owned).toEqual([]);
-    expect(hatOf(stored)).toBe("hat-knit");
-    expect(hatOf(older)).toBeNull();
+    // What is stored and read back is the document as it was written: the newer one has the hat, the cap in `owned` and the 12 coins gone; the older one has none of the three.
+    const storedNewer = migrateSave(clone(newer))!;
+    const storedOlder = migrateSave(clone(older))!;
+    expect([storedNewer.hat, storedNewer.owned, storedNewer.coins, storedNewer.inventory.fiber]).toEqual(["hat-knit", ["hat-knit"], 0, 0]);
+    expect([storedOlder.hat, storedOlder.owned, storedOlder.coins, storedOlder.inventory.fiber]).toEqual([null, [], 12, 2]);
   });
 
   it("edge 28: evolving while wearing a hat keeps it, and the size follows the new form's stage (kid small, young large)", () => {
@@ -455,8 +452,8 @@ describe("a saved hat (edges 14, 15, 16, 17, 28)", () => {
     evolveTo(save, bigger.id, DAY + 1000);
     expect(save.hat).toBe("hat-knit");
     const after = faceSprite(getForm(save.creature!.formId), "open", 0, hatOf(save)).rows.map((row) => row.replace(/[^1-5]/g, "").length);
-    expect(Math.max(...before)).toBeLessThanOrEqual(7);
-    expect(Math.max(...after)).toBeGreaterThan(7);
+    expect(Math.max(...before)).toBe(7); // the Knit Cap's widest row, small
+    expect(Math.max(...after)).toBe(13); // and large
   });
 });
 

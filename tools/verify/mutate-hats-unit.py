@@ -5,7 +5,7 @@
 # habitat and the shop preview, and the screen's buttons, are the UI runner's (mutate-shop-ui.py: the checks hat-wear, hat-preview, hat-places, hat-bed).
 #
 # It works on a COPY of the repo (hats-unit-copy/), never on the real tree. Each mutant is one exact text replace whose `old` must occur exactly once in its file. Only the two test
-# files run per mutant (tests/hats and tests/shop): a mutant counts only when ITS named test fails, so the rest of the suite cannot change the verdict. A mutant is CAUGHT only when
+# files run per mutant (tests/hats, tests/shop and tests/requests): a mutant counts only when ITS named test fails, so the rest of the suite cannot change the verdict. A mutant is CAUGHT only when
 # the test named in `expect` (a substring of its full name, in `expect_file`) fails.
 #
 #   python3 mutate-hats-unit.py --list   checks each `old` occurs once in the real files, prints the table, runs no tests
@@ -31,7 +31,8 @@ ORIG = os.path.join(VERIFY_OUT, "hats-unit-orig")
 OUT = os.path.join(VERIFY_OUT, "hats-unit-out")
 T_HATS = "tests/hats.test.ts"
 T_SHOP = "tests/shop.test.ts"
-VITEST = ["npx", "vitest", "run", T_HATS, T_SHOP, "--cache=false", "--fsModuleCache=false", "--reporter=json"]
+T_REQ = "tests/requests.test.ts"
+VITEST = ["npx", "vitest", "run", T_HATS, T_SHOP, T_REQ, "--cache=false", "--fsModuleCache=false", "--reporter=json"]
 TEST_FILE = T_HATS
 TIMEOUT_S = 600
 
@@ -41,6 +42,7 @@ F_DATA = "src/data/shop.ts"
 F_SHOP = "src/game/shop.ts"
 F_STATE = "src/game/state.ts"
 F_SKY = "src/data/forms/sky.ts"
+F_REQ = "src/game/requests.ts"
 
 
 def mut(id, file, old, new, expect, test=T_HATS):
@@ -73,9 +75,12 @@ MIG_NONE = "edge 14: a save with no hat field reads as none; an owned hat is kep
 MIG_BAD = "edge 14: a hat that is not owned, a wallpaper, an unknown id, a prototype name, a number and an object all read as none"
 FRESH = "edge 15: a fresh save wears none"
 EVOLVE = "edge 28: evolving while wearing a hat keeps it, and the size follows the new form's stage"
-THIRTEEN = "has thirteen items at these prices and with these words"
+THIRTEEN = "has thirteen items at these prices, in this order, with the care items' words"
+SAVED_DOC = "edge 17: the hat, the purchase and the coins it cost are fields of the one saved document"
+POOL_HATS = "with only the four hats left to own, a buy request names a hat the creature can pay for and a reward is a hat"
+REWARD_HAT = "a hat paid as the item arrives owned and not worn"
 
-# Not mutated (each argued from the code, and the first two applied by hand once with the test files passing):
+# Not mutated (each argued from the code, and each applied by hand once with the three test files passing, 2026-11-25):
 #  - removing `col >= 0` in withHat: a negative column writes a property on the `cells` array, which `join("")` ignores, so the row is the same (JavaScript arrays do not wrap).
 #  - `if (widest === 0) return null;` in crownRow: with no filled cell `need` is 3 and no span qualifies, so `findIndex` gives -1 and the function returns null anyway.
 #  - `isHatId` written with `in` or without the own-key check: it ends in `items[id].kind === "hat"`, and no member every object has (constructor, toString, ...) has a `kind`, so it
@@ -139,6 +144,11 @@ MUTANTS = [
     mut("migrate-keeps-any-owned-id", F_STATE, "isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : null", "value.owned.includes(value.hat) ? value.hat : null", MIG_BAD),
     mut("migrate-no-default", F_STATE, "isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : null", "isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : value.hat", MIG_NONE),
     mut("new-save-wears-a-hat", F_STATE, "    hat: null,", '    hat: "hat-knit",', FRESH),
+    mut("migrate-forgets-the-hat", F_STATE, "isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : null", "null", SAVED_DOC),
+    # the request board (a hat can be asked for and paid as a reward; a reward is owned and not worn)
+    mut("buy-request-pool-without-hats", F_REQ, "pool = itemIds.filter((id) => !save.owned.includes(id) && !carried.has(id) && payable(save, c, id));", 'pool = itemIds.filter((id) => !save.owned.includes(id) && !carried.has(id) && payable(save, c, id) && !id.startsWith("hat-"));', POOL_HATS, T_REQ),
+    mut("reward-pool-without-hats", F_REQ, "const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id));", 'const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id) && !id.startsWith("hat-"));', POOL_HATS, T_REQ),
+    mut("reward-wears-the-hat", F_REQ, "save.owned.push(r.item);", 'save.owned.push(r.item);\n    if (r.item.startsWith("hat-")) save.hat = r.item;', REWARD_HAT, T_REQ),
 ]
 
 

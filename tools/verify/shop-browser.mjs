@@ -676,7 +676,16 @@ const checks = {
     expectEq((await savedGame(page)).hat, null, "the saved hat after Take off");
     await closeShop(page);
     mustBe(await roomCount(page, CROWN), "the room after Take off", true);
-    return `Wear puts the Knit Cap on (${worn} of its pixels in the room), another hat replaces it, Take off removes it; the buttons, aria-pressed and the saved hat follow each step`;
+    // Buying a hat pays in one step and does not put it on: the card then offers Wear (a save with exactly 12 coins and 2 Fiber).
+    const exact = await open("hat-exact");
+    await openShop(exact.page);
+    await buyButton(exact.page, "Knit Cap").click({ timeout: 5000 });
+    const paid = await savedGame(exact.page);
+    expectEq([paid.coins, paid.inventory.fiber, paid.owned, paid.hat], [0, 0, ["hat-knit"], null], "the saved game after buying the Knit Cap (coins, Fiber, owned, hat)");
+    expectEq(trimAll(await hatCard(exact.page, "Knit Cap").locator("button.card-btn").allTextContents()), ["Wear"], "the Knit Cap's button after the buy");
+    await closeShop(exact.page);
+    mustBe(await roomCount(exact.page, KNIT), "the room after buying the Knit Cap", true);
+    return `Wear puts the Knit Cap on (${worn} of its pixels in the room), another hat replaces it, Take off removes it; the buttons, aria-pressed and the saved hat follow each step; buying a hat does not put it on`;
   },
 
   "hat-preview": async (open) => {
@@ -685,6 +694,8 @@ const checks = {
     await pick(page, "Knit Cap");
     const knit = mustBe(await previewCount(page, KNIT), "the preview with the Knit Cap chosen");
     expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your creature wearing Knit Cap", "the picture's label");
+    // The room behind the creature is the living room: its wall stripe (#e4d3f0) at the preview's point (4, 10), where the kitchen's wall is [207, 197, 174].
+    expectEq(await page.evaluate(pixelOf, [".shop-preview", 4, 10]), [228, 211, 240], "the living room's wall in a hat's preview");
     expectEq(trimAll(await page.locator(".shop-hint").allTextContents()), ["Tap an item to see it in the room."], "the hint under a hat's preview");
     await pick(page, "Stone Crown");
     mustBe(await previewCount(page, CROWN), "the preview with the Stone Crown chosen");
@@ -704,6 +715,17 @@ const checks = {
     await navButton(worn.page, "Habitat").click({ timeout: 5000 });
     await worn.page.waitForTimeout(300);
     const habitat = mustBe(await roomCount(worn.page, KNIT), "the habitat with the Knit Cap on");
+    // The arena is the one place (with the hatch scenes) where the creature is drawn without its hat, by choice (the plan's question 1): its picture says whose it is, no cap shows.
+    await navButton(worn.page, "Arena").click({ timeout: 5000 });
+    await worn.page.waitForTimeout(500);
+    expectEq(await worn.page.locator("canvas.room").getAttribute("aria-label"), "The arena. Gravelhorn is ready to fight.", "the arena's picture, so the count below is of the arena");
+    mustBe(await roomCount(worn.page, KNIT), "the arena's picture with the Knit Cap worn", true);
+    // A sick creature is tinted green all over (scene.ts: 40% of #7bdc6a), the cap too: none of its plain colour is left, and the tinted colour is there.
+    const sick = await open("hat-sick");
+    const SICK_KNIT = KNIT.map((v, i) => Math.round(v * 0.6 + [123, 220, 106][i] * 0.4));
+    mustBe(await roomCount(sick.page, KNIT), "the sick creature's cap in its plain colour", true);
+    const tinted = await sick.page.evaluate(firstRowOfColour, ["canvas.room", SICK_KNIT, 2]);
+    mustBe(tinted.n, `the sick creature's cap tinted to ${SICK_KNIT}`);
     const working = await open("hat-working");
     await navButton(working.page, "Habitat").click({ timeout: 5000 });
     await working.page.waitForTimeout(300);
@@ -712,7 +734,7 @@ const checks = {
     const inField = mustBe(await roomCount(field.page, KNIT), "the field picture with the Knit Cap on");
     const dead = await open("hat-dead");
     mustBe(await roomCount(dead.page, KNIT), "a dead creature's picture", true);
-    return `the Knit Cap shows in the home (${home} pixels), the habitat (${habitat}), a creature at work in the habitat (${atWork}) and the field picture (${inField}), and not on a dead creature`;
+    return `the Knit Cap shows in the home (${home} pixels), the habitat (${habitat}), a creature at work in the habitat (${atWork}) and the field picture (${inField}), tinted green on a sick creature (${tinted.n} pixels), and not on a dead creature or in the arena`;
   },
 
   "hat-reload": async (open) => {
