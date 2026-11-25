@@ -1,6 +1,6 @@
 // The home's floor plan (src/art/home.ts, src/data/home.ts; docs/home-plan.md slice H1): the numbers are worked out by hand from the layout in data/home.ts.
 import { describe, expect, it } from "vitest";
-import { COLS, DEAD_TILE, EGG_TILE, PIECES, POOP_TILES, ROWS } from "../src/data/home";
+import { COLS, DEAD_TILE, EGG_TILE, PIECES, POOP_TILES, ROWS, STARTER } from "../src/data/home";
 import {
   HOME,
   anchorOf,
@@ -21,6 +21,7 @@ import {
   roomOf,
   startAnchor,
   wanderPath,
+  withLayout,
 } from "../src/art/home";
 
 const allFloor = (): Array<{ col: number; row: number }> => {
@@ -74,6 +75,13 @@ describe("footprints and positions", () => {
 
   it("fits a 2-wide footprint through a doorway column and not against furniture", () => {
     expect([fits(9, 4, 2), fits(10, 4, 2), fits(10, 3, 2), fits(0, 2, 2), fits(30, 3, 2), fits(31, 3, 2)]).toEqual([true, true, false, false, true, false]);
+  });
+
+  it("never reads past the last column of the widest home as the next row's first tile: column 43 is not floor, and a creature two tiles wide is refused at the Playroom's last column", () => {
+    // by hand: the floor is one array of 43 columns per row, so a read at column 43 of row 3 would land on column 0 of row 4, which is bare floor in the starter layout (the first value)
+    withLayout(STARTER, () => {
+      expect([isFloor(0, 4), isFloor(42, 3), fits(42, 3, 1), fits(42, 3, 2), isFloor(43, 3)]).toEqual([true, true, true, false, false]);
+    }, 4);
   });
 
   it("reads a position back to the anchor it was made from, for every size", () => {

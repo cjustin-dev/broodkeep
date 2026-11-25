@@ -59,6 +59,7 @@ SOLID = "takes the floor under every solid piece and none under a rug or a mat"
 FOOT = "is 1 tile wide up to a kid"
 CENTRE = "centres a picture on its footprint"
 FITS = "fits a 2-wide footprint through a doorway column and not against furniture"
+FITS_WRAP = "never reads past the last column of the widest home as the next row's first tile"  # (H3: with the stride 43, FITS no longer reaches the wrap)
 BACK = "reads a position back to the anchor it was made from"
 NEAREST = "moves a position that is on furniture to the nearest free anchor"
 NEAREST_EDGE = "starts from the nearest tile inside the home when the position is off the edge"
@@ -181,7 +182,7 @@ MUTANTS = [
     mut("floor-furniture-one-short", F_HOME, "col < p.col + p.cols && row >= p.row && row < p.row + p.rows", "col < p.col + p.cols - 1 && row >= p.row && row < p.row + p.rows", SOLID, T_HOME),
     mut("footprint-floor", F_HOME, "Math.ceil(size / TILE)", "Math.floor(size / TILE)", FOOT, T_HOME),
     mut("fits-first-tile-only", F_HOME, "for (let i = 0; i < f; i++) if", "for (let i = 0; i < 1; i++) if", FITS, T_HOME),
-    mut("fits-past-the-right-wall", F_HOME, "col < COLS && row >= 0", "col <= COLS && row >= 0", FITS, T_HOME),
+    mut("fits-past-the-right-wall", F_HOME, "col < COLS && row >= 0", "col <= COLS && row >= 0", FITS_WRAP, T_HOME),
     mut("anchor-not-centred", F_HOME, "x: a.col * TILE + (footprintOf(size) * TILE - size) / 2,", "x: a.col * TILE,", CENTRE, T_HOME),
     mut("anchor-feet-at-top", F_HOME, "y: (a.row + 1) * TILE };", "y: a.row * TILE };", CENTRE, T_HOME),
     mut("nearest-not-clamped", F_HOME, "const start = { col: Math.max(0, Math.min(colsOf(ROOMS_BUILT) - 1, col)), row: Math.max(0, Math.min(ROWS - 1, row)) };", "const start = { col, row };", NEAREST_EDGE, T_HOME),
