@@ -4,12 +4,13 @@ import { useEffect, useRef } from "preact/hooks";
 import { trayOf } from "../art/homeEdit";
 import { layoutOf } from "../art/homeLayout";
 import { drawPiece, plainLook } from "../art/room";
-import { COLS, PIECE_NAMES, SHAPES, TILE } from "../data/home";
+import { COLS, PIECE_NAMES, SHAPES, TILE, wallOfRoom } from "../data/home";
 import type { PieceKind } from "../data/home";
+import { isWallId, items, plainWall, walls } from "../data/shop";
 import { isAdultMode } from "../game/hud";
 import type { Game } from "./game";
 import { Icon, Word } from "./Icon";
-import { focusPicture } from "./Stage";
+import { focusPicture, roomNames } from "./Stage";
 
 const thumbLook = { ...plainLook, mat: true }; // (the Feeding Mat is only in the tray once it is owned, so its picture is always the real one)
 
@@ -26,11 +27,21 @@ function PieceThumb({ kind }: { kind: PieceKind }) {
   return <canvas ref={canvas} class="piece-thumb" width={cols * TILE} height={rows * TILE} aria-hidden="true" />;
 }
 
+// A wallpaper's own colours as a small picture of the wall (the stripes and the baseboard), for the swatch buttons.
+function Swatch({ id }: { id: string | null }) {
+  const c = id !== null && Object.hasOwn(walls, id) ? walls[id as keyof typeof walls] : plainWall;
+  return <span class="swatch" aria-hidden="true" style={{ "--wall-base": c.base, "--wall-stripe": c.stripe, "--wall-board": c.board }} />;
+}
+
+const wallpaperName = (id: string | null): string => (id === null ? "plain" : items[id as keyof typeof items].name.replace("Wallpaper: ", "").toLowerCase());
+
 export function DecorateBar({ game }: { game: Game }) {
   const save = game.save;
   const adult = isAdultMode(save);
   const tray = trayOf(layoutOf(save.home), save.owned.includes("feeding-mat"));
   const selected = game.selectedPiece;
+  const room = game.selectedWall;
+  const swatches: Array<string | null> = [null, ...save.owned.filter(isWallId)]; // (the plain wall, then every wallpaper the player owns)
 
   // A piece lands near the middle of what the picture shows (the Stage keeps that tile on the game, as it keeps the creature's looks).
   const onBringOut = (kind: PieceKind): void => {
@@ -48,7 +59,24 @@ export function DecorateBar({ game }: { game: Game }) {
 
   return (
     <div class="actions decorate">
-      {tray.length > 0 && (
+      {room !== null && (
+        <div class="tray pieces" role="group" aria-label="Wallpapers">
+          {swatches.map((id) => (
+            <button
+              class="btn piece"
+              aria-label={`Put the ${wallpaperName(id)} wallpaper on the ${roomNames[room]} wall`}
+              aria-pressed={wallOfRoom(save.wall, save.home, room) === id}
+              onClick={() => {
+                game.setWall(room, id);
+                focusPicture(); // (Escape lets go of the wall)
+              }}
+            >
+              <Swatch id={id} />
+            </button>
+          ))}
+        </div>
+      )}
+      {room === null && tray.length > 0 && (
         <div class="tray pieces" role="group" aria-label="Furniture put away">
           {tray.map((kind) => (
             <button class="btn piece" aria-label={`Put out the ${PIECE_NAMES[kind].toLowerCase()}`} onClick={() => onBringOut(kind)}>

@@ -360,6 +360,8 @@ function expectStill(a, b, what) {
 SAVE_OF.mat = (mode) => load("adult-home-mat", mode);
 SAVE_OF.trayed = (mode) => load("adult-home-trayed", mode);
 SAVE_OF.allTrayed = (mode) => load("adult-home-alltrayed", mode);
+SAVE_OF.walls = (mode) => load("adult-home-walls", mode);
+SAVE_OF.wallsSet = (mode) => load("adult-home-walls-set", mode);
 
 const CHECK_MODES = {
   "decorate-open": ["adult", "kid"],
@@ -371,6 +373,7 @@ const CHECK_MODES = {
   "decorate-fit": ["adult", "kid"],
   "decorate-gestures": ["adult", "kid"],
   "decorate-mouse": ["adult", "kid"],
+  "decorate-walls": ["adult", "kid"],
 };
 const ALL_IDS = Object.keys(CHECK_MODES);
 const ALL_MODES = ["kid", "adult"];
@@ -384,8 +387,9 @@ const CHECK_SIZES = {
   "decorate-fit": PHONES,
   "decorate-gestures": PHONES,
   "decorate-mouse": DESKTOPS,
+  "decorate-walls": PHONES,
 };
-const TOUCH_CHECKS = new Set(["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures"]);
+const TOUCH_CHECKS = new Set(["decorate-open", "decorate-still", "decorate-select", "decorate-move", "decorate-tray", "decorate-mat", "decorate-fit", "decorate-gestures", "decorate-walls"]);
 
 // The nine pieces at the start, in the order the game saves them (src/data/home.ts KINDS): a saved `home` lists every piece, a put-away one as null.
 const START = {
@@ -454,6 +458,66 @@ const decorateButton = (page) => page.getByRole("button", { name: "Decorate the 
 const doneButton = (page) => page.getByRole("button", { name: "Done decorating" });
 const binButton = (page) => page.getByRole("button", { name: /^Put (the .* away|away the selected piece)$/ });
 const trayNames = (page) => page.locator(".tray.pieces button").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")));
+
+// The three wall colours (src/data/shop.ts), as the picture draws them: the stripe, the wall and the baseboard.
+const WALLS = {
+  plain: { stripe: 0xe4d3f0, base: 0xefe3f7, board: 0x8a6bd1 },
+  meadow: { stripe: 0xcde6bd, base: 0xdff0d2, board: 0x4f8a3f },
+  dusk: { stripe: 0x827eb8, base: 0x8e8ac4, board: 0x3b3570 },
+};
+const rgb = (v) => `rgb(${v >> 16}, ${(v >> 8) & 255}, ${v & 255})`;
+
+// A room's wall at world column x0 (a multiple of 10: the stripes are 5 wide every 10 pixels from 0): the stripe at x0 + 2, the wall at x0 + 7 (both in the top row of tiles, above every
+// piece) and the baseboard at x0 + 2, y 44 (the baseboard is y 44 to 47; a selected wall's outline takes 45 to 47, so y 44 is the one row of it that the outline never covers).
+async function wallAt(page, g, camera, x0, wall, what) {
+  await probe(page, g, camera, [x0 + 2, 10], wall.stripe, `${what}: the stripe`);
+  await probe(page, g, camera, [x0 + 7, 10], wall.base, `${what}: the wall`);
+  await probe(page, g, camera, [x0 + 2, 44], wall.board, `${what}: the baseboard`);
+}
+
+// The outline round a room's wall, on its top edge (world y 0 to 2) at world x: a dark pixel and two of `color`.
+async function topRing(page, g, camera, x, color, what) {
+  await probe(page, g, camera, [x, 0], DARK, `${what}: the outline's edge`);
+  await probe(page, g, camera, [x, 1], color, `${what}: the outline's first line`);
+  await probe(page, g, camera, [x, 2], color, `${what}: the outline's second line`);
+}
+
+async function noTopRing(page, g, camera, x, what) {
+  const [px, py] = dev(g, camera, [x, 1]);
+  const got = await page.evaluate(pixelAt, [px, py]);
+  if (got === WHITE) throw new Error(`${what}: an outline is still drawn at world (${x}, 1)`);
+}
+
+// The arrow keys with the picture focused: the picture pans (nothing, or a wall, is selected, so they do not move a piece).
+async function pan(page, key, times) {
+  await page.locator("canvas.room").focus();
+  for (let i = 0; i < times; i++) {
+    await page.keyboard.press(key);
+    await frame(page, 40);
+  }
+}
+
+const swatchNames = (page) => trayNames(page);
+const swatchPressed = (page) => page.locator(".tray.pieces button").evaluateAll((els) => els.map((el) => el.getAttribute("aria-pressed")));
+const swatchLooks = (page) =>
+  page.locator(".tray.pieces button .swatch").evaluateAll((els) =>
+    els.map((el) => {
+      const style = getComputedStyle(el);
+      return { board: style.borderBottomColor, image: style.backgroundImage };
+    }),
+  );
+
+// The swatches in the dock are the named wallpapers, in this order: each has its wallpaper's baseboard under its stripes (the wall colour first, then the stripe colour).
+async function expectSwatches(page, names, what) {
+  const got = await swatchLooks(page);
+  expectEq(got.map((s) => s.board), names.map((n) => rgb(WALLS[n].board)), `${what}: the baseboard colours`);
+  got.forEach((s, i) => {
+    const wall = WALLS[names[i]];
+    const base = s.image.indexOf(rgb(wall.base));
+    const stripe = s.image.indexOf(rgb(wall.stripe));
+    if (!(s.image.startsWith("repeating-linear-gradient(") && base > 0 && stripe > base)) throw new Error(`${what}: swatch ${i} (${names[i]}) is drawn as ${s.image}, expected the wall ${rgb(wall.base)} then the stripe ${rgb(wall.stripe)}`);
+  });
+}
 
 async function enter(env, page) {
   await press(env, decorateButton(page));
@@ -827,6 +891,155 @@ const checks = {
     await enter(env, notOwned);
     expectEq(await trayNames(notOwned), ["Put out the dresser"], "the tray when the Feeding Mat is not owned");
     return `the owned mat is taken by a tap on its end tile and the bowl over its middle tile; unowned, the same tap finds nothing; the tray lists the mat only when owned (dresser and mat, then the dresser alone)`;
+  },
+
+  // A wallpaper for each room (H2c, docs/home-plan.md section 14): a tap on a room's bare wall selects it (an outline round the wall, swatches in the dock in place of the furniture
+  // tray), a swatch gives that room the wallpaper and no other, a tap on the floor, on a piece or Escape lets go of the wall, a partition belongs to the room on its left, a room with no
+  // wallpaper of its own follows the whole home's, and what was chosen is saved and still there after a reload. Colours are read from the picture (see wallAt).
+  "decorate-walls": async (open, env) => {
+    const { page, cdp } = await open(SAVE_OF.walls(env.mode));
+    const g = await geometry(env, page);
+    const step = Math.round(g.vp / 5);
+    const eastCamera = [384 + step / g.z, 96]; // (one ArrowRight from the opening view: the partition at column 21 is on the picture)
+    const kitchenCamera = [768 - g.vp / (2 * g.z), 96];
+    const bedCamera = [g.vp / (2 * g.z), 96];
+    const tap = async (camera, world) => touchTap(page, cdp, await worldPoint(page, g, env, camera, world));
+    const label = (room) => `Decorating the home. The ${room} wall is selected. Pick a wallpaper below.`;
+    const swatch = (name, room) => page.getByRole("button", { name: `Put the ${name} wallpaper on the ${room} wall` });
+    const names = (room, kinds) => kinds.map((k) => `Put the ${k} wallpaper on the ${room} wall`);
+    const bin = binButton(page);
+    const saved = async () => (await savedGame(page)).home;
+    await enter(env, page);
+
+    // the living room, in the opening view: plain, then selected
+    await wallAt(page, g, OPEN_CAMERA, 300, WALLS.plain, "the living room's wall before any change");
+    await tap(OPEN_CAMERA, [300, 12]);
+    expectEq(await pictureLabel(page), label("living room"), "the picture's label after a tap on the living room's bare wall");
+    await topRing(page, g, OPEN_CAMERA, 350, WHITE, "the selected living room wall");
+    expectEq(await swatchNames(page), names("living room", ["plain", "meadow", "dusk"]), "the swatches for the living room wall");
+    expectEq(await swatchPressed(page), ["true", "false", "false"], "the swatch on the wall (plain)");
+    await expectSwatches(page, ["plain", "meadow", "dusk"], "the swatches for the living room wall");
+    for (const b of (await dockBox(page)).buttons) if (b.w < 44 || b.h < 44) throw new Error(`${b.name} is ${b.w} x ${b.h} CSS pixels, under 44`);
+    if (env.mode === "kid") expectEq(await bin.isDisabled(), true, "the bin with a wall selected (Kid Mode: disabled)");
+    else expectEq(await bin.getAttribute("aria-disabled"), "true", "the bin with a wall selected (Adult Mode: aria-disabled)");
+    expectEq((await savedGame(page)).home, undefined, "the saved layout after a wall was only selected");
+
+    // Meadow on the living room wall: the swatch on the wall changes, the other rooms do not, and Escape lets go at once (the focus is back on the picture)
+    await press(env, swatch("meadow", "living room"));
+    await frame(page);
+    await wallAt(page, g, OPEN_CAMERA, 300, WALLS.meadow, "the living room's wall after Meadow");
+    expectEq(await pictureLabel(page), label("living room"), "the picture's label after a swatch (the wall stays selected)");
+    expectEq(await swatchPressed(page), ["false", "true", "false"], "the swatch on the wall (Meadow)");
+    expectEq(await saved(), { ...homeWith({}), walls: { living: "wall-meadow" } }, "the saved home after Meadow on the living room (the nine pieces, and the wall)");
+    await page.keyboard.press("Escape");
+    await frame(page);
+    expectEq(await pictureLabel(page), NOTHING_LABEL, "the picture's label after Escape, straight after a swatch");
+    await noTopRing(page, g, OPEN_CAMERA, 350, "after Escape");
+
+    // a tap on bare floor lets go; a tap on a piece selects the piece (the sofa stands on the wall), and a tap on the bare wall then takes the selection from the piece
+    await tap(OPEN_CAMERA, [300, 12]);
+    expectEq(await pictureLabel(page), label("living room"), "the picture's label after a tap on the bare wall again");
+    await tap(OPEN_CAMERA, [300, 132]);
+    expectEq(await pictureLabel(page), NOTHING_LABEL, "the picture's label after a tap on bare floor");
+    await noTopRing(page, g, OPEN_CAMERA, 350, "after a tap on bare floor");
+    expectEq(await page.locator(".tray.pieces").count(), 0, "tray rows with nothing selected and nothing put away");
+    await tap(OPEN_CAMERA, [348, 36]);
+    expectEq(await pictureLabel(page), SELECTED_LABEL("sofa"), "the picture's label after a tap on the sofa");
+    await noTopRing(page, g, OPEN_CAMERA, 350, "with the sofa selected");
+    await tap(OPEN_CAMERA, [300, 12]);
+    expectEq(await pictureLabel(page), label("living room"), "the picture's label after a tap on the bare wall beside the sofa");
+    await noRing(page, g, OPEN_CAMERA, [13, 1, 2], "the sofa once the wall is selected");
+
+    // the sofa put away: with the wall selected the dock offers the wallpapers only, not the sofa in the tray
+    await tap(OPEN_CAMERA, [348, 36]);
+    expectEq(await pictureLabel(page), SELECTED_LABEL("sofa"), "the picture's label after a tap on the sofa with the wall selected before it");
+    expectEq(await page.locator(".tray.pieces").count(), 0, "the dock with the sofa selected after a wall (no swatches, and nothing put away: no tray)");
+    await press(env, bin);
+    await frame(page);
+    expectEq(await trayNames(page), ["Put out the sofa"], "the tray with the sofa put away and nothing selected");
+    await tap(OPEN_CAMERA, [300, 12]);
+    expectEq(await swatchNames(page), names("living room", ["plain", "meadow", "dusk"]), "the dock with the wall selected and the sofa in the tray (the wallpapers only)");
+    expectEq(await saved(), { ...homeWith({ sofa: null }), walls: { living: "wall-meadow" } }, "the saved home after the sofa was put away (the wall stays)");
+
+    // the partition at column 21 belongs to the living room: its wall and its edges are Meadow, the outline of the living room's wall runs to its far edge, and a tap on it selects it
+    await pan(page, "ArrowRight", 1);
+    await probe(page, g, eastCamera, [516, 10], WALLS.meadow.base, "the partition at column 21 (the living room's wall)");
+    await probe(page, g, eastCamera, [505, 10], WALLS.meadow.board, "the partition's edge");
+    await probe(page, g, eastCamera, [525, 24], WHITE, "the living room wall's outline, its second line at the partition");
+    await probe(page, g, eastCamera, [526, 24], WHITE, "the living room wall's outline, its first line at the partition");
+    await page.keyboard.press("Escape");
+    await frame(page);
+    await tap(eastCamera, [516, 12]);
+    expectEq(await pictureLabel(page), label("living room"), "the picture's label after a tap on the partition (it belongs to the room on its left)");
+    await page.keyboard.press("Escape");
+    await frame(page);
+
+    // the kitchen: Dusk, then the plain wall (written as null), then Dusk again; the living room keeps Meadow
+    await pan(page, "ArrowRight", 8);
+    await wallAt(page, g, kitchenCamera, 700, WALLS.plain, "the kitchen's wall before any change");
+    await tap(kitchenCamera, [620, 12]);
+    expectEq(await pictureLabel(page), label("kitchen"), "the picture's label after a tap on the kitchen's bare wall");
+    await topRing(page, g, kitchenCamera, 620, WHITE, "the selected kitchen wall");
+    expectEq(await swatchNames(page), names("kitchen", ["plain", "meadow", "dusk"]), "the swatches for the kitchen wall");
+    await press(env, swatch("dusk", "kitchen"));
+    await frame(page);
+    await wallAt(page, g, kitchenCamera, 700, WALLS.dusk, "the kitchen's wall after Dusk");
+    expectEq(await saved(), { ...homeWith({ sofa: null }), walls: { living: "wall-meadow", kitchen: "wall-dusk" } }, "the saved home after Dusk on the kitchen");
+    await press(env, swatch("plain", "kitchen"));
+    await frame(page);
+    await wallAt(page, g, kitchenCamera, 700, WALLS.plain, "the kitchen's wall after the plain wall");
+    expectEq(await saved(), { ...homeWith({ sofa: null }), walls: { living: "wall-meadow", kitchen: null } }, "the saved home after the plain wall on the kitchen (null is saved)");
+    await press(env, swatch("dusk", "kitchen"));
+    await frame(page);
+    await wallAt(page, g, kitchenCamera, 700, WALLS.dusk, "the kitchen's wall after Dusk again");
+
+    // the bedroom was never touched: plain, and the plain swatch on it does nothing
+    await pan(page, "ArrowLeft", 16);
+    await wallAt(page, g, bedCamera, 0, WALLS.plain, "the bedroom's wall, never changed");
+    await tap(bedCamera, [60, 12]);
+    expectEq(await pictureLabel(page), label("bedroom"), "the picture's label after a tap on the bedroom's bare wall");
+    await topRing(page, g, bedCamera, 60, WHITE, "the selected bedroom wall");
+    await probe(page, g, bedCamera, [0, 24], DARK, "the bedroom wall's outline, its edge at the left end of the home");
+    await probe(page, g, bedCamera, [1, 24], WHITE, "the bedroom wall's outline, its first line at the left end");
+    expectEq(await swatchPressed(page), ["true", "false", "false"], "the swatch on the bedroom's wall (plain)");
+    await press(env, swatch("plain", "bedroom"));
+    await frame(page);
+    expectEq(await saved(), { ...homeWith({ sofa: null }), walls: { living: "wall-meadow", kitchen: "wall-dusk" } }, "the saved home after the plain swatch on a room that was plain (nothing changes)");
+
+    // after a reload: Decorate mode is off and every wall is as it was left
+    await page.goto(`${env.base}/`);
+    await page.locator("canvas.room").waitFor({ timeout: 20000 });
+    await frame(page, 100);
+    await page.waitForTimeout(100);
+    expectEq(await decorateButton(page).count(), 1, "Decorate buttons after a reload (the mode is not kept)");
+    await wallAt(page, g, OPEN_CAMERA, 300, WALLS.meadow, "the living room's wall after a reload");
+    await pan(page, "ArrowRight", 8);
+    await wallAt(page, g, kitchenCamera, 700, WALLS.dusk, "the kitchen's wall after a reload");
+
+    // a home that was saved with a whole-home wall (Dusk), Meadow in the bedroom and the plain wall in the kitchen: the living room, with no wall of its own, follows Dusk
+    // (Decorate mode, to read which swatch is on each wall: the one the room shows, whether it is the room's own entry or the whole home's wall)
+    const { page: set, cdp: setCdp } = await open(SAVE_OF.wallsSet(env.mode));
+    const setTap = async (camera, world) => touchTap(set, setCdp, await worldPoint(set, g, env, camera, world));
+    await wallAt(set, g, OPEN_CAMERA, 300, WALLS.dusk, "the living room's wall (no wall of its own: the whole home's Dusk)");
+    await enter(env, set);
+    await setTap(OPEN_CAMERA, [300, 12]);
+    expectEq(await swatchPressed(set), ["false", "false", "true"], "the swatch on the living room's wall (it follows the whole home's Dusk)");
+    await pan(set, "ArrowLeft", 8);
+    await wallAt(set, g, bedCamera, 0, WALLS.meadow, "the bedroom's wall (its own Meadow)");
+    await setTap(bedCamera, [60, 12]);
+    expectEq(await swatchPressed(set), ["false", "true", "false"], "the swatch on the bedroom's wall (its own Meadow)");
+    await pan(set, "ArrowRight", 16);
+    await wallAt(set, g, kitchenCamera, 700, WALLS.plain, "the kitchen's wall (its own plain wall, over the whole home's Dusk)");
+    await setTap(kitchenCamera, [620, 12]);
+    expectEq(await swatchPressed(set), ["true", "false", "false"], "the swatch on the kitchen's wall (its own plain wall, over the whole home's Dusk)");
+
+    // no wallpaper owned: the wall can be selected and offers only the plain wall
+    const { page: none, cdp: noneCdp } = await open(SAVE_OF.awake(env.mode));
+    await enter(env, none);
+    await touchTap(none, noneCdp, await worldPoint(none, g, env, OPEN_CAMERA, [300, 12]));
+    expectEq(await swatchNames(none), names("living room", ["plain"]), "the swatches with no wallpaper owned");
+    expectEq(await swatchPressed(none), ["true"], "the swatch on the wall with no wallpaper owned");
+    return `a tap on a room's bare wall selects it (outline, swatches in place of the furniture tray: the plain wall and each owned wallpaper, bin off); a swatch changes that room only (living room Meadow, kitchen Dusk, plain written as null, the bedroom never touched) and is saved with the nine pieces; the floor, a piece and Escape let go; the partition at column 21 is the living room's; a reload keeps it; a home with a whole-home Dusk, Meadow in the bedroom and plain in the kitchen shows each room's own wall; with no wallpaper owned only the plain swatch is offered`;
   },
 
   // Everything put away: eight pieces in the tray, two rows, all inside the window, every button at least 44 pixels.

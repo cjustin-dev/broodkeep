@@ -20,7 +20,7 @@ import { RequestsTab } from "./RequestsTab";
 function lookWith(save: Save, id: ItemId): Look {
   const look = lookOf(save);
   const item = items[id];
-  if (item.kind === "wallpaper") return { ...look, wall: id };
+  if (item.kind === "wallpaper") return { ...look, walls: { ...look.walls, living: id } }; // (the living room is the room its picture shows)
   return { ...look, bed: look.bed || id === "comfy-bed", mat: look.mat || id === "feeding-mat" };
 }
 
@@ -35,7 +35,7 @@ function Preview({ look, hour, room, label }: { look: Look; hour: number; room: 
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     drawHomePreview(ctx, hour, look, room);
-  }, [look.wall, look.bed, look.mat, hour, room]);
+  }, [look.walls[room], look.bed, look.mat, hour, room]);
   return <canvas ref={ref} class="shop-preview" width={ROOM.w} height={ROOM.h} role="img" aria-label={label} />;
 }
 

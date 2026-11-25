@@ -124,6 +124,20 @@ const scenarios: Record<string, (mode: Mode) => Save> = {
     save.owned = ["feeding-mat"];
     return save;
   },
+  // A wallpaper for each room (H2c): both wallpapers owned and none on a wall...
+  "adult-home-walls": (mode) => {
+    const save = living(mode, ADULT);
+    save.owned = ["wall-meadow", "wall-dusk"];
+    return save;
+  },
+  // ...and one where Dusk is the whole home's wall, the bedroom has Meadow and the kitchen the plain wall (the living room has no entry, so it follows Dusk).
+  "adult-home-walls-set": (mode) => {
+    const save = withHome(mode, {}, {});
+    save.owned = ["wall-meadow", "wall-dusk"];
+    save.wall = "wall-dusk";
+    save.home = { pieces: {}, walls: { bedroom: "wall-meadow", kitchen: null } };
+    return save;
+  },
   "adult-fight": (mode) => living(mode, ADULT), // the browser check starts the fight through the Arena screen
   egg: (mode) => base(mode), // a new game: phase egg, no creature
   "adult-home-lives": (mode) => {

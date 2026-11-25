@@ -327,6 +327,17 @@ input:focus-visible {
   background: var(--panel-hi);
 }
 
+/* A wallpaper's swatch in the tray (Decorate mode, a selected wall): the wall's stripes over its baseboard, in the wallpaper's own colours. */
+.swatch {
+  display: block;
+  width: 100%;
+  height: 44px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border-bottom: 8px solid var(--wall-board);
+  background: repeating-linear-gradient(90deg, var(--wall-base) 0 5px, var(--wall-stripe) 5px 10px);
+}
+
 .piece-thumb {
   display: block;
   max-width: 100%;

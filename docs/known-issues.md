@@ -550,3 +550,12 @@ Found while planning and reviewing A1.2, in the game as it is (none are new, non
 - **The fourth cheap-model review's fixes were not reviewed again** (they were its own suggestions: label checks and a tile-middle point in the contact sheet, an exact assertion at the tall window in `decorate-fit`, one more mutant).
 - **Design hook:** `.fc-confidence`'s `border-left` in `app.css` (the Growth Forecast, A1.2) is flagged by the design hook; it is older code outside this slice and was left as it is. Offered as scope: restyle it.
 - **The habitat check race** (H2a section above) is still there; not touched.
+
+## A wallpaper for each room, H2c (2026-11-25)
+
+- **The Shop's wallpaper preview shows the wallpaper in the living room even when the living room has its own wallpaper** (`lookWith` in `ShopPanel.tsx`, found by the first cheap-model review). Buying sets the whole-home default only, so the living room keeps its own; the bedroom and kitchen (if they follow the default) take the new one. Left as it is (decisions.md "Home H2c", pick 3); listed under Open for the owner.
+- **With six to eight pieces in the tray, selecting a wall swaps the tray's two rows for one row of swatches,** so the dock gets shorter and, on a tall phone, the picture moves down (H2b's known issue the other way round: the same 62 CSS px of dock height that H2b measured, half of it on the picture at 390 x 844@3). Worked out from H2b's figures; not measured again for the swatch row.
+- **No hint when no wallpaper is owned:** the dock offers only the plain swatch, which is on the wall already. Unchanged on purpose.
+- **A wall cannot be selected from the keyboard** (the arrow keys pan or move a piece; there is no key that selects a wall), the same as for pieces.
+- **Fractional zoom:** not checked. The picture's zoom is a whole number of device pixels per game pixel, so the clip between two rooms' walls should fall on whole pixels; a pinch that ends between two zooms was not looked at.
+- **Four mutants of `mutate-home-ui.py` are stale since H2a/H2b** (`find-button-small`, `solid-pieces-at-the-starter-place`, `flat-pieces-at-the-starter-place`, `bed-art-at-the-starter-place`: their `old` text no longer occurs once). They fail the same way on `home-h2b`; they were not part of this slice and were left. Offered as scope: repair them.

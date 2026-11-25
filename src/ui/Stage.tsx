@@ -18,7 +18,7 @@ import { addHeart, addSparkles, reseat, triggerPose, updateView } from "../art/i
 import { ROOM } from "../art/layout";
 import { stepMoment } from "../art/moment";
 import { drawHabitat } from "../art/habitat";
-import { drawOutline, drawPiece, lookOf } from "../art/room";
+import { drawOutline, drawPiece, drawWallOutline, lookOf } from "../art/room";
 import { drawScene, moodOf, sizeOf } from "../art/scene";
 import { spotsOf } from "../art/spots";
 import type { World } from "../art/spots";
@@ -29,7 +29,7 @@ import type { IconName } from "../art/sprites";
 import { fields } from "../data/fields";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
-import { PIECE_NAMES, TILE } from "../data/home";
+import { PIECE_NAMES, TILE, wallRoomOf } from "../data/home";
 import { tapEgg, touch } from "../game/actions";
 import { isAdultMode } from "../game/hud";
 import type { CallKind, Save } from "../game/state";
@@ -47,7 +47,8 @@ const callWords: Record<CallKind, string> = {
 function describe(save: Save, game: Game): string {
   if (game.decor && game.view.world === "home") {
     const piece = game.selectedPiece;
-    return `Decorating the home. ${piece ? `The ${PIECE_NAMES[piece].toLowerCase()} is selected. The arrow keys move it.` : "Nothing is selected."}`;
+    const wall = game.selectedWall;
+    return `Decorating the home. ${piece ? `The ${PIECE_NAMES[piece].toLowerCase()} is selected. The arrow keys move it.` : wall ? `The ${roomNames[wall]} wall is selected. Pick a wallpaper below.` : "Nothing is selected."}`;
   }
   if (save.phase === "egg") return "An egg. Tap it to help it hatch.";
   if (!save.creature) return "";
@@ -72,7 +73,7 @@ function describe(save: Save, game: Game): string {
   return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`) + room;
 }
 
-const roomNames = { bedroom: "bedroom", living: "living room", kitchen: "kitchen" } as const;
+export const roomNames = { bedroom: "bedroom", living: "living room", kitchen: "kitchen" } as const;
 
 // Which space the picture is in: the home, or the old one-line picture (a field, the habitat, the arena).
 function worldOf(game: Game): World {
@@ -251,6 +252,7 @@ export function Stage({ game }: { game: Game }) {
           drawPiece(c, lookOf(game.save), carried.kind, carried.at);
           drawOutline(c, carried.kind, carried.at, carried.valid ? VALID_COLOR : INVALID_COLOR);
         } else if (selected && layout[selected]) drawOutline(c, selected, layout[selected], VALID_COLOR);
+        else if (game.selectedWall) drawWallOutline(c, game.selectedWall, VALID_COLOR);
       }
       const wanted: IconName | null = inView(cam, boxOf(targetBox()), vp) ? null : game.save.creature?.call && !game.save.creature.job ? findIcons[game.save.creature.call] : "happiness";
       if (wanted !== findNow.current) setFind(wanted);
@@ -439,7 +441,13 @@ export function Stage({ game }: { game: Game }) {
       }
       act(result.actions, scale);
       if (game.decor) {
-        if (result.tap) game.select(null); // a tap on bare floor lets go of the piece
+        if (result.tap) {
+          // A tap on a room's bare wall selects that wall (the dock offers wallpapers); a tap anywhere else lets go of the piece or the wall.
+          const tile = tileUnder(e);
+          const room = tile ? wallRoomOf(tile.col, tile.row) : null;
+          if (room) game.selectWall(room);
+          else game.select(null);
+        }
         return;
       }
       if (hold.current?.id !== e.pointerId) return;

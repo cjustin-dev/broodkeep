@@ -159,7 +159,7 @@ MUTANTS = [
       [(IDLE, "followPath(view, 20 * dt)", "followPath(view, 2 * dt)")]),
     # the layout in the save (H2a): what is drawn and where the creature walks and lies follow `save.home`
     M("layout-not-drawn", ["home-layout"], "the picture is made from the starter layout whatever the save holds",
-      [(ROOM, "layout: layoutOf(save.home) });", "layout: STARTER });")]),
+      [(ROOM, "  layout: layoutOf(save.home),\n});", "  layout: STARTER,\n});")]),
     M("solid-pieces-at-the-starter-place", ["home-layout"], "the sofa, bed and other solid pieces are drawn where the starter home has them",
       [(ROOM, "show: (p: Piece) => boolean): void {\n  for (const p of piecesOf(look.layout)) {", "show: (p: Piece) => boolean): void {\n  for (const p of piecesOf(STARTER)) {")]),
     M("flat-pieces-at-the-starter-place", ["home-layout"], "the rug and the Feeding Mat are drawn where the starter home has them",
@@ -177,7 +177,7 @@ MUTANTS = [
     M("sleeper-lies-beside-the-moved-bed", ["home-layout"], "a sleeper that has walked to the moved bed is drawn lying 60 pixels to its left, still in the picture",
       [(HOME, "({ x: bedNow().left + BED_WIDTH / 2 - size / 2, y:", "({ x: bedNow().left + BED_WIDTH / 2 - size / 2 - 60, y:")]),
     M("saved-layout-dropped-on-load", ["home-layout"], "a save's home is thrown away when the game loads it",
-      [(STATE, "  if (home) value.home = home;\n  else delete value.home;", "  delete value.home;")]),
+      [(STATE, "  if (home) value.home = ownedWalls(home, value.owned);\n  else delete value.home;", "  delete value.home;")]),
     # what is drawn
     M("void-colour-changed", ["home-open"], "outside the home the picture is black, not the void colour",
       [(STAGE, 'c.fillStyle = "#120c20";', 'c.fillStyle = "#000000";')]),

@@ -2,9 +2,10 @@
 // a bed, a food bowl and a rug. PLACEHOLDER ART made from simple rectangles.
 // Phase 4 replaces this with a room you can decorate.
 
-import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, SHAPES, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
+import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, SHAPES, STARTER, TILE, WALL_ROWS, bedOf, piecesOf, wallOfRoom, wallRoomOf } from "../data/home";
 import type { Layout, Piece, PieceKind, Placement, RoomId } from "../data/home";
 import { plainWall, walls } from "../data/shop";
+import type { Wall } from "../data/shop";
 import type { Save } from "../game/state";
 import { layoutOf } from "./homeLayout";
 import { BED_WIDTH, ROOM } from "./layout";
@@ -22,22 +23,29 @@ export function sky(hour: number): { color: string; body: "sun" | "moon"; stars:
   return { color: "#1d2b53", body: "moon", stars: true };
 }
 
-// What the shop changed in the room (data/shop.ts): the wallpaper on the wall (null: the plain wall), and whether the Comfy Bed and the Feeding Mat are in; and, in the home, where
-// the furniture stands (the old one-line room ignores that).
+// What the shop changed in the room (data/shop.ts): the wallpaper on each room's wall (null: the plain wall; the old one-line room shows the living room's), and whether the Comfy
+// Bed and the Feeding Mat are in; and, in the home, where the furniture stands (the old one-line room ignores that).
 export interface Look {
-  wall: string | null;
+  walls: Record<RoomId, string | null>;
   bed: boolean;
   mat: boolean;
   layout: Layout;
 }
 
-export const plainLook: Look = { wall: null, bed: false, mat: false, layout: STARTER };
+export const plainLook: Look = { walls: { bedroom: null, living: null, kitchen: null }, bed: false, mat: false, layout: STARTER };
 
-export const lookOf = (save: Save): Look => ({ wall: save.wall, bed: save.owned.includes("comfy-bed"), mat: save.owned.includes("feeding-mat"), layout: layoutOf(save.home) });
+const wallColours = (id: string | null): Wall => (id !== null && Object.hasOwn(walls, id) ? walls[id as keyof typeof walls] : plainWall);
+
+export const lookOf = (save: Save): Look => ({
+  walls: { bedroom: wallOfRoom(save.wall, save.home, "bedroom"), living: wallOfRoom(save.wall, save.home, "living"), kitchen: wallOfRoom(save.wall, save.home, "kitchen") },
+  bed: save.owned.includes("comfy-bed"),
+  mat: save.owned.includes("feeding-mat"),
+  layout: layoutOf(save.home),
+});
 
 export function drawRoom(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
   // Wall with soft stripes (a wallpaper changes the three colours).
-  const wall = look.wall !== null && Object.hasOwn(walls, look.wall) ? walls[look.wall as keyof typeof walls] : plainWall;
+  const wall = wallColours(look.walls.living);
   rect(ctx, wall.base, 0, 0, ROOM.w, ROOM.floorTop);
   for (let x = 0; x < ROOM.w; x += 10) rect(ctx, wall.stripe, x, 0, 5, ROOM.floorTop);
   rect(ctx, wall.board, 0, ROOM.floorTop - 4, ROOM.w, 4); // baseboard
@@ -125,14 +133,28 @@ const tileFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   for (let yy = y; yy < y + h; yy += 12) rect(ctx, "#cfc5ae", x, yy, w, 1);
 };
 
+// The columns of each room's wall, in pixels: a partition belongs to the room on its left (data/home.ts wallRoomOf), so the bedroom's wall runs to the end of column 10.
+const WALL_SPANS = ROOMS.map((r) => {
+  const cols = Array.from({ length: COLS }, (_, col) => col).filter((col) => wallRoomOf(col, 0) === r.id);
+  return { id: r.id, x0: (cols[0] as number) * TILE, x1: ((cols[cols.length - 1] as number) + 1) * TILE };
+});
+
 export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
-  const wall = look.wall !== null && Object.hasOwn(walls, look.wall) ? walls[look.wall as keyof typeof walls] : plainWall;
   const w = COLS * TILE;
   const floorTop = WALL_ROWS * TILE;
-  // The walls of all three rooms (the wallpaper colours every room until Decorate mode), with their baseboard.
-  rect(ctx, wall.base, 0, 0, w, floorTop);
-  for (let x = 0; x < w; x += 10) rect(ctx, wall.stripe, x, 0, 5, floorTop);
-  rect(ctx, wall.board, 0, floorTop - 4, w, 4);
+  // The wall of each room, with its baseboard: the whole wall is painted in the room's own wallpaper inside a clip of the room's columns, so rooms with the same wallpaper
+  // draw exactly what one wall across the home drew.
+  for (const span of WALL_SPANS) {
+    const wall = wallColours(look.walls[span.id]);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(span.x0, 0, span.x1 - span.x0, floorTop);
+    ctx.clip();
+    rect(ctx, wall.base, 0, 0, w, floorTop);
+    for (let x = 0; x < w; x += 10) rect(ctx, wall.stripe, x, 0, 5, floorTop);
+    rect(ctx, wall.board, 0, floorTop - 4, w, 4);
+    ctx.restore();
+  }
   // The floors: wood in the bedroom and the living room, tiles in the kitchen.
   for (const r of ROOMS) {
     const x = r.from * TILE;
@@ -144,6 +166,7 @@ export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: 
   drawWindow(ctx, 418, 5, hour); // (and one of the living room, past the sofa)
   // The two partitions: a wall from the top to the bottom with a doorway two tiles high, the floor going through it.
   for (const col of PARTITIONS) {
+    const wall = wallColours(look.walls[wallRoomOf(col, 0) as RoomId]);
     const x = col * TILE;
     for (let row = 0; row < ROWS; row++) {
       const y = row * TILE;
@@ -190,10 +213,16 @@ export function drawPiece(ctx: CanvasRenderingContext2D, look: Look, kind: Piece
 // The outline round a piece's tiles: a dark edge and two pixels of `color` inside it.
 export function drawOutline(ctx: CanvasRenderingContext2D, kind: PieceKind, at: Placement, color: string): void {
   const { cols, rows } = SHAPES[kind];
-  const x = at.col * TILE;
-  const y = at.row * TILE;
-  const w = cols * TILE;
-  const h = rows * TILE;
+  outlineRect(ctx, at.col * TILE, at.row * TILE, cols * TILE, rows * TILE, color);
+}
+
+// The same outline round a room's wall (its two rows of tiles, and the partition on its right if it has one).
+export function drawWallOutline(ctx: CanvasRenderingContext2D, room: RoomId, color: string): void {
+  const span = WALL_SPANS.find((s) => s.id === room) as { x0: number; x1: number };
+  outlineRect(ctx, span.x0, 0, span.x1 - span.x0, WALL_ROWS * TILE, color);
+}
+
+function outlineRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
   for (const [ring, inset] of [["#1a1020", 0], [color, 1], [color, 2]] as const) {
     rect(ctx, ring, x + inset, y + inset, w - 2 * inset, 1);
     rect(ctx, ring, x + inset, y + h - 1 - inset, w - 2 * inset, 1);

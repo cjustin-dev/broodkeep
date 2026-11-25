@@ -4,6 +4,8 @@
 // The starter layout is data; what the player has moved (Decorate mode, docs/home-plan.md section 12) is saved as `Save.home` and read back through `layoutOf`
 // (art/homeLayout.ts), which checks it against the rules and falls back to the starter layout.
 
+import { isWallId } from "./shop";
+
 export const TILE = 24;
 export const COLS = 32;
 export const ROWS = 8;
@@ -100,9 +102,29 @@ export const PIECE_NAMES: Record<PieceKind, string> = {
   bowl: "Bowl",
 };
 
-// What is saved in `Save.home`: the pieces the player has moved or put away (null). A kind that is missing is at its starter place.
+// What is saved in `Save.home`: the pieces the player has moved or put away (null). A kind that is missing is at its starter place. `walls` is the wallpaper a room has been given in
+// Decorate mode (an owned wallpaper's id, or null for the plain wall); a room that is not in it shows the wall of the whole home, `Save.wall` (the Shop sets that one).
 export interface HomeSave {
   pieces: Partial<Record<PieceKind, Placement | null>>;
+  walls?: Partial<Record<RoomId, string | null>>;
+}
+
+// The wallpaper a room shows: its own entry when it has one, else `whole`, the wall of the whole home.
+export const wallOfRoom = (whole: string | null, home: HomeSave | undefined, room: RoomId): string | null => (home?.walls && Object.hasOwn(home.walls, room) ? (home.walls[room] ?? null) : whole);
+
+// The room whose wall a tile belongs to, or null when it is not a wall tile (the wall is the top WALL_ROWS rows). A partition belongs to the room on its left.
+export function wallRoomOf(col: number, row: number): RoomId | null {
+  if (row < 0 || row >= WALL_ROWS || col < 0 || col >= COLS) return null;
+  const room = ROOMS.find((r) => col >= r.from && col <= r.to);
+  if (room) return room.id;
+  return (ROOMS.filter((r) => r.to < col).pop() as RoomSpan).id;
+}
+
+// The home without the room entries that name wallpaper `id` (it is no longer owned). Gives the very same object when there is nothing to drop.
+export function withoutWall(home: HomeSave | undefined, id: string): HomeSave | undefined {
+  if (!home?.walls || !Object.values(home.walls).includes(id)) return home;
+  const walls = Object.fromEntries(Object.entries(home.walls).filter(([, v]) => v !== id)) as NonNullable<HomeSave["walls"]>;
+  return Object.keys(walls).length > 0 ? { pieces: home.pieces, walls } : { pieces: home.pieces };
 }
 
 // The bed's art (room.ts draws it from these) for a bed at `at`: the left edge, and `y`, the top of a 16 pixel creature lying on it (a lying creature is centred on it), and
@@ -132,9 +154,16 @@ export const isProtected = (col: number, row: number): boolean =>
   POOP_TILES.some((t) => t.col === col && t.row === row) ||
   (col >= MEMORIAL.col && col < MEMORIAL.col + MEMORIAL.cols && row >= MEMORIAL.row && row < MEMORIAL.row + MEMORIAL.rows);
 
-// The saved form of a layout: every piece's place, or null for a put-away one (a saved `home` is read back by `layoutOf`, art/homeLayout.ts).
-export const homeOf = (layout: Layout): HomeSave => ({
+// The home with only the room entries a player can still show: a wallpaper that is not owned (it was undone, or the save is damaged) is dropped; null (the plain wall) is kept.
+export function ownedWalls(home: HomeSave, owned: readonly string[]): HomeSave {
+  const walls = Object.fromEntries(Object.entries(home.walls ?? {}).filter(([, id]) => id === null || owned.includes(id))) as NonNullable<HomeSave["walls"]>;
+  return Object.keys(walls).length > 0 ? { pieces: home.pieces, walls } : { pieces: home.pieces };
+}
+
+// The saved form of a layout: every piece's place, or null for a put-away one (a saved `home` is read back by `layoutOf`, art/homeLayout.ts). The rooms' walls are carried over.
+export const homeOf = (layout: Layout, walls?: HomeSave["walls"]): HomeSave => ({
   pieces: Object.fromEntries(KINDS.map((kind) => [kind, layout[kind] ? { col: layout[kind].col, row: layout[kind].row } : null])),
+  ...(walls && Object.keys(walls).length > 0 ? { walls: { ...walls } } : {}),
 });
 
 const isPlacement = (value: unknown): value is Placement =>
@@ -154,5 +183,18 @@ export function coerceHome(value: unknown): HomeSave | undefined {
     else if (isPlacement(at)) pieces[kind] = { col: at.col, row: at.row };
     else return undefined;
   }
-  return { pieces };
+  const walls = coerceWalls((value as { walls?: unknown }).walls);
+  return walls ? { pieces, walls } : { pieces };
+}
+
+// The rooms' wallpapers of a saved `home`: an object whose keys are room ids and whose values are null or a wallpaper id. Anything else is no walls at all (the pieces are kept).
+function coerceWalls(value: unknown): HomeSave["walls"] | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const walls: NonNullable<HomeSave["walls"]> = {};
+  for (const [key, id] of Object.entries(value)) {
+    const room = ROOMS.find((r) => r.id === key);
+    if (!room || !(id === null || isWallId(id))) return undefined;
+    walls[room.id] = id;
+  }
+  return Object.keys(walls).length > 0 ? walls : undefined;
 }
