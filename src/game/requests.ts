@@ -104,7 +104,8 @@ function deal(save: Save, c: Creature, live: number, t: number): boolean {
   if (board.drawn % requestTuning.itemEvery === requestTuning.itemEvery - 1) {
     // The item is one the player does not own and no open buy request names, so a reward never finishes a purchase request for nothing.
     const named = new Set([...board.open.filter((r) => r.type === "buy").map((r) => r.target), type === "buy" ? target : null]);
-    const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id));
+    // (a room is never a gift: it is worth days of coins)
+    const pool = itemIds.filter((id) => items[id].kind !== "room" && !save.owned.includes(id) && !named.has(id));
     if (pool.length > 0) item = rng.pick(pool);
   }
   board.open.push({ id: board.drawn, type, target, have: 0, item, drewAt: t });

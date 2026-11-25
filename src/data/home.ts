@@ -1,31 +1,50 @@
 // The home (docs/home-plan.md, slice H1): three rooms in a row on a grid of 24 pixel tiles, a bedroom, a living room and a kitchen, and what stands in them
 // from the start. Rooms are 10 tiles wide, with a one-tile partition (a wall with a doorway two tiles high) between them: 32 x 8 tiles, 768 x 192 game pixels.
+// Slice H3 (section 16) lets the house grow: a fourth room, the Playroom, is built to the right of the kitchen when the Shop's item for it is owned, which makes the home 43 tiles wide.
+// `COLS` is the width of the widest home and the stride of every grid array; `colsOf(rooms)` is the width of the home with that many rooms built.
 // The top two rows of every room are its wall, the other six its floor. Furniture that is `solid` takes the floor tiles it covers; a rug or a mat does not.
 // The starter layout is data; what the player has moved (Decorate mode, docs/home-plan.md section 12) is saved as `Save.home` and read back through `layoutOf`
 // (art/homeLayout.ts), which checks it against the rules and falls back to the starter layout.
 
 import { isWallId } from "./shop";
+import type { ItemId } from "./shop";
 
 export const TILE = 24;
-export const COLS = 32;
+export const COLS = 43;
 export const ROWS = 8;
 export const WALL_ROWS = 2;
 
-export type RoomId = "bedroom" | "living" | "kitchen";
+export type RoomId = "bedroom" | "living" | "kitchen" | "playroom";
 
 export interface RoomSpan {
   id: RoomId;
   from: number; // first column
   to: number; // last column
+  item?: ItemId; // the shop item that builds the room (the first three rooms are always built)
 }
 
 export const ROOMS: RoomSpan[] = [
   { id: "bedroom", from: 0, to: 9 },
   { id: "living", from: 11, to: 20 },
   { id: "kitchen", from: 22, to: 31 },
+  { id: "playroom", from: 33, to: 42, item: "room-play" },
 ];
 
-export const PARTITIONS = [10, 21]; // the columns of the two partitions
+export const BASE_ROOMS = 3; // the rooms every home has
+export const PARTITIONS = [10, 21, 32]; // the columns of the partitions (the last one is there once the Playroom is built)
+
+// How many rooms are built: the three base rooms, and each later room whose item is owned (in order: a room is built only after the one before it).
+export function roomsBuilt(owned: readonly string[]): number {
+  let n = BASE_ROOMS;
+  while (n < ROOMS.length && owned.includes(ROOMS[n]?.item as string)) n++;
+  return n;
+}
+
+// The columns of a home with that many rooms built (32 for three, 43 for four).
+export const colsOf = (rooms: number): number => (ROOMS[Math.min(ROOMS.length, Math.max(BASE_ROOMS, rooms)) - 1] as RoomSpan).to + 1;
+
+// Whether a room is built, for the rooms a save owns.
+export const isBuilt = (room: RoomId, owned: readonly string[]): boolean => ROOMS.findIndex((r) => r.id === room) < roomsBuilt(owned);
 export const DOOR_ROWS = [4, 5]; // the rows of the doorway in each partition
 
 export type PieceKind = "bed" | "dresser" | "sofa" | "rug" | "table" | "counter" | "fridge" | "bowl" | "mat";
@@ -112,9 +131,10 @@ export interface HomeSave {
 // The wallpaper a room shows: its own entry when it has one, else `whole`, the wall of the whole home.
 export const wallOfRoom = (whole: string | null, home: HomeSave | undefined, room: RoomId): string | null => (home?.walls && Object.hasOwn(home.walls, room) ? (home.walls[room] ?? null) : whole);
 
-// The room whose wall a tile belongs to, or null when it is not a wall tile (the wall is the top WALL_ROWS rows). A partition belongs to the room on its left.
-export function wallRoomOf(col: number, row: number): RoomId | null {
-  if (row < 0 || row >= WALL_ROWS || col < 0 || col >= COLS) return null;
+// The room whose wall a tile belongs to, or null when it is not a wall tile (the wall is the top WALL_ROWS rows) or lies beyond the rooms built (`rooms`: the three base rooms unless said). A
+// partition belongs to the room on its left.
+export function wallRoomOf(col: number, row: number, rooms: number = BASE_ROOMS): RoomId | null {
+  if (row < 0 || row >= WALL_ROWS || col < 0 || col >= colsOf(rooms)) return null;
   const room = ROOMS.find((r) => col >= r.from && col <= r.to);
   if (room) return room.id;
   return (ROOMS.filter((r) => r.to < col).pop() as RoomSpan).id;
@@ -125,6 +145,22 @@ export function withoutWall(home: HomeSave | undefined, id: string): HomeSave | 
   if (!home?.walls || !Object.values(home.walls).includes(id)) return home;
   const walls = Object.fromEntries(Object.entries(home.walls).filter(([, v]) => v !== id)) as NonNullable<HomeSave["walls"]>;
   return Object.keys(walls).length > 0 ? { pieces: home.pieces, walls } : { pieces: home.pieces };
+}
+
+// The home without a room that is no longer owned (the Shop's undo): every piece the save has inside it is put away (`null`: a missing key would put it back on its starter place) and its
+// wallpaper entry is dropped. Gives the very same object when there is nothing to change.
+export function withoutRoom(home: HomeSave | undefined, id: RoomId): HomeSave | undefined {
+  const room = ROOMS.find((r) => r.id === id);
+  if (!home || !room) return home;
+  const inside = KINDS.filter((kind) => {
+    const at = home.pieces[kind];
+    return at !== undefined && at !== null && at.col >= room.from;
+  });
+  const hasWall = home.walls !== undefined && Object.hasOwn(home.walls, id);
+  if (inside.length === 0 && !hasWall) return home;
+  const pieces = { ...home.pieces, ...Object.fromEntries(inside.map((kind) => [kind, null])) };
+  const walls = Object.fromEntries(Object.entries(home.walls ?? {}).filter(([key]) => key !== id)) as NonNullable<HomeSave["walls"]>;
+  return Object.keys(walls).length > 0 ? { pieces, walls } : { pieces };
 }
 
 // The bed's art (room.ts draws it from these) for a bed at `at`: the left edge, and `y`, the top of a 16 pixel creature lying on it (a lying creature is centred on it), and

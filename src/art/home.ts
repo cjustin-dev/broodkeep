@@ -5,7 +5,7 @@
 // (footprintOf: 1 for an egg, baby or kid, 2 for a young or adult) and one tile deep: the body above the feet overlaps the tiles behind, as in any three-quarter
 // view. Walking is from anchor to neighbouring anchor.
 
-import { COLS, DEAD_TILE, DOOR_ROWS, EGG_TILE, PARTITIONS, POOP_TILES, ROOMS, ROWS, START_TILE, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
+import { BASE_ROOMS, COLS, DEAD_TILE, DOOR_ROWS, EGG_TILE, PARTITIONS, POOP_TILES, ROOMS, ROWS, START_TILE, STARTER, TILE, WALL_ROWS, bedOf, colsOf, piecesOf } from "../data/home";
 import type { Layout, Piece, Placement, RoomId } from "../data/home";
 import { BED_WIDTH } from "./layout";
 
@@ -14,38 +14,47 @@ export interface Anchor {
   row: number;
 }
 
-export const HOME = { w: COLS * TILE, h: ROWS * TILE };
+// The size of the home in force: its width follows the rooms built (`useLayout`), so it is the one object every reader holds and `w` is changed in place.
+export const HOME = { w: colsOf(BASE_ROOMS) * TILE, h: ROWS * TILE };
 
-// Which floor tiles are free for a layout: inside the home, below the wall rows, not on a partition (except in its doorway), and not under a solid piece of furniture.
-const floorOf = (layout: Layout): boolean[] => {
+// Which floor tiles are free for a layout and a number of rooms built: inside the rooms built, below the wall rows, not on a partition (except in its doorway), and not under a solid
+// piece of furniture.
+const floorOf = (layout: Layout, rooms: number): boolean[] => {
   const solid = piecesOf(layout).filter((p) => p.solid);
+  const cols = colsOf(rooms);
   return Array.from({ length: COLS * ROWS }, (_, i) => {
     const col = i % COLS;
     const row = Math.floor(i / COLS);
-    if (row < WALL_ROWS) return false;
+    if (col >= cols || row < WALL_ROWS) return false;
     if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;
     return !solid.some((p) => col >= p.col && col < p.col + p.cols && row >= p.row && row < p.row + p.rows);
   });
 };
 
-// The layout the walking is done on (docs/home-plan.md section 12): the starter one until the Stage calls `useLayout` with the saved one. Every function below that reads the
-// floor or the bed reads this, so a layout is tried out with `withLayout` (art/homeLayout.ts) and put back.
+// The layout and the number of rooms the walking is done on (docs/home-plan.md sections 12 and 16): the starter layout with three rooms until the Stage calls `useLayout` with the
+// saved ones. Every function below that reads the floor or the bed reads these, so a layout is tried out with `withLayout` (art/homeLayout.ts) and put back.
 let LAYOUT: Layout = STARTER;
-let FLOOR: boolean[] = floorOf(LAYOUT);
+let ROOMS_BUILT = BASE_ROOMS;
+let FLOOR: boolean[] = floorOf(LAYOUT, ROOMS_BUILT);
 
 export const layoutInForce = (): Layout => LAYOUT;
-export function useLayout(layout: Layout): void {
-  if (layout === LAYOUT) return;
+export const roomsInForce = (): number => ROOMS_BUILT;
+// A profile that has never moved anything has the very same starter layout at three rooms and at four, so the layout alone cannot say that the floor changed: both are compared.
+export function useLayout(layout: Layout, rooms: number = BASE_ROOMS): void {
+  if (layout === LAYOUT && rooms === ROOMS_BUILT) return;
   LAYOUT = layout;
-  FLOOR = floorOf(layout);
+  ROOMS_BUILT = rooms;
+  FLOOR = floorOf(layout, rooms);
+  HOME.w = colsOf(rooms) * TILE;
 }
-export function withLayout<T>(layout: Layout, fn: () => T): T {
+export function withLayout<T>(layout: Layout, fn: () => T, rooms: number = ROOMS_BUILT): T {
   const before = LAYOUT;
-  useLayout(layout);
+  const roomsBefore = ROOMS_BUILT;
+  useLayout(layout, rooms);
   try {
     return fn();
   } finally {
-    useLayout(before);
+    useLayout(before, roomsBefore);
   }
 }
 
@@ -73,7 +82,7 @@ const neighbours = [
 
 // The closest anchor (by tiles walked, ignoring furniture) where a footprint of f tiles fits, starting from (col, row); ties go to the first found in a fixed order.
 export function nearestFree(col: number, row: number, f: number): Anchor {
-  const start = { col: Math.max(0, Math.min(COLS - 1, col)), row: Math.max(0, Math.min(ROWS - 1, row)) };
+  const start = { col: Math.max(0, Math.min(colsOf(ROOMS_BUILT) - 1, col)), row: Math.max(0, Math.min(ROWS - 1, row)) };
   const seen = new Set<number>([start.row * COLS + start.col]);
   const queue: Anchor[] = [start];
   for (let head = 0; head < queue.length; head++) {

@@ -2,9 +2,9 @@
 // piece away) and Done. Icons only, as the care buttons are; Adult Mode adds a word under the bin and Done and says why the bin did nothing (the bed cannot be put away).
 import { useEffect, useRef } from "preact/hooks";
 import { trayOf } from "../art/homeEdit";
-import { layoutOf } from "../art/homeLayout";
+import { layoutOfSave } from "../art/homeLayout";
 import { drawPiece, plainLook } from "../art/room";
-import { COLS, PIECE_NAMES, SHAPES, TILE, wallOfRoom } from "../data/home";
+import { PIECE_NAMES, SHAPES, TILE, colsOf, roomsBuilt, wallOfRoom } from "../data/home";
 import type { PieceKind } from "../data/home";
 import { isWallId, items, plainWall, walls } from "../data/shop";
 import { isAdultMode } from "../game/hud";
@@ -38,14 +38,14 @@ const wallpaperName = (id: string | null): string => (id === null ? "plain" : it
 export function DecorateBar({ game }: { game: Game }) {
   const save = game.save;
   const adult = isAdultMode(save);
-  const tray = trayOf(layoutOf(save.home), save.owned.includes("feeding-mat"));
+  const tray = trayOf(layoutOfSave(save), save.owned.includes("feeding-mat"));
   const selected = game.selectedPiece;
   const room = game.selectedWall;
   const swatches: Array<string | null> = [null, ...save.owned.filter(isWallId)]; // (the plain wall, then every wallpaper the player owns)
 
   // A piece lands near the middle of what the picture shows (the Stage keeps that tile on the game, as it keeps the creature's looks).
   const onBringOut = (kind: PieceKind): void => {
-    game.bringOut(kind, game.viewMiddle ?? { col: COLS / 2, row: 4 });
+    game.bringOut(kind, game.viewMiddle ?? { col: colsOf(roomsBuilt(save.owned)) / 2, row: 4 });
     focusPicture(); // (the arrow keys move the piece that was just put out)
   };
 

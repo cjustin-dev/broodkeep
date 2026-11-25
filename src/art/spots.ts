@@ -32,7 +32,9 @@ const line: Spots = {
 };
 
 const home: Spots = {
-  w: HOME.w,
+  get w() {
+    return HOME.w; // (the width of the home built now)
+  },
   egg: eggSpot(),
   poop: poopSpot,
   bed: bedLying,

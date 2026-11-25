@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { faceSprite } from "../art/face";
 import { drawHomePreview, lookOf } from "../art/room";
 import { drawSprite, spriteCanvas } from "../art/pixel";
+import { ROOMS } from "../data/home";
 import type { RoomId } from "../data/home";
 import type { Look } from "../art/room";
 import { ROOM } from "../art/layout";
@@ -24,12 +25,14 @@ function lookWith(save: Save, id: ItemId): Look {
   const look = lookOf(save);
   const item = items[id];
   if (item.kind === "wallpaper") return { ...look, walls: { ...look.walls, living: id } }; // (the living room is the room its picture shows)
+  if (item.kind === "room") return { ...look, rooms: Math.max(look.rooms, ROOMS.length) }; // (the picture is the room itself, built or not)
   return { ...look, bed: look.bed || id === "comfy-bed", mat: look.mat || id === "feeding-mat" };
 }
 
 // The room an item belongs to, which is the part of the home the picture shows (docs/home-plan.md question 6): the bed in the bedroom, the mat and the foods in the
-// kitchen, a wallpaper in the living room.
-const roomOfItem = (id: ItemId): RoomId => (id === "comfy-bed" ? "bedroom" : items[id].kind === "wallpaper" || items[id].kind === "hat" ? "living" : "kitchen");
+// kitchen, a wallpaper in the living room, the Playroom itself.
+const roomOfItem = (id: ItemId): RoomId =>
+  id === "comfy-bed" ? "bedroom" : items[id].kind === "room" ? "playroom" : items[id].kind === "wallpaper" || items[id].kind === "hat" ? "living" : "kitchen";
 
 // A hat shown on the creature in the preview: standing in the middle of the room, its feet near the bottom of the picture (the floor starts at y 48 in the living room crop).
 const PREVIEW_FEET = 120;
@@ -50,7 +53,7 @@ function Preview({ look, hour, room, label, wearing }: { look: Look; hour: numbe
       const sprite = spriteCanvas(faceSprite(form, "open", 0, wearing.hat), `form:${form.id}:open:0:${wearing.hat}`);
       drawSprite(ctx, sprite, Math.round((ROOM.w - sprite.width) / 2), PREVIEW_FEET - form.idle.length);
     }
-  }, [look.walls[room], look.bed, look.mat, hour, room, wearing?.formId, wearing?.hat]);
+  }, [look.walls[room], look.bed, look.mat, look.rooms, hour, room, wearing?.formId, wearing?.hat]);
   return <canvas ref={ref} class="shop-preview" width={ROOM.w} height={ROOM.h} role="img" aria-label={label} />;
 }
 
@@ -109,7 +112,7 @@ function ItemCard({ id, game, selected, onPick }: { id: ItemId; game: Game; sele
             {worn ? "Take off" : "Wear"}
           </button>
         ) : (
-          <p class="shop-owned">{item.kind === "food" ? "Owned: find it under Feed" : "Owned"}</p>
+          <p class="shop-owned">{item.kind === "food" ? "Owned: find it under Feed" : item.kind === "room" ? "Built" : "Owned"}</p>
         )
       ) : (
         <button

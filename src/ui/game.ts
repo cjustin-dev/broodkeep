@@ -4,11 +4,11 @@
 import { playback } from "../art/arena";
 import type { Playback } from "../art/arena";
 import { moved, nearestSpot } from "../art/homeEdit";
-import { layoutOf } from "../art/homeLayout";
+import { layoutOfSave } from "../art/homeLayout";
 import { createView, reseat } from "../art/idle";
 import { shownOf } from "../art/moment";
 import type { View } from "../art/idle";
-import { homeOf, wallOfRoom } from "../data/home";
+import { homeOf, isBuilt, roomsBuilt, wallOfRoom } from "../data/home";
 import type { Layout, PieceKind, RoomId } from "../data/home";
 import { isWallId } from "../data/shop";
 import { endFight, startFight } from "../game/actions";
@@ -136,7 +136,7 @@ export class Game {
   // The piece the tray's bin and the arrow keys act on: the selected one, while it is put out in the home.
   get selectedPiece(): PieceKind | null {
     const kind = this.decor?.selected ?? null;
-    return kind !== null && layoutOf(this.save.home)[kind] !== null ? kind : null;
+    return kind !== null && layoutOfSave(this.save)[kind] !== null ? kind : null;
   }
 
   // Select a piece, or nothing (which lets go of a selected wall too).
@@ -149,11 +149,12 @@ export class Game {
 
   // The room whose wall is selected, while Decorate mode is on.
   get selectedWall(): RoomId | null {
-    return this.decor?.wall ?? null;
+    const room = this.decor?.wall ?? null;
+    return room !== null && isBuilt(room, this.save.owned) ? room : null; // (a room that was given back, by the Shop's undo, has no wall to select)
   }
 
   selectWall(room: RoomId): void {
-    if (!this.decor || (this.decor.wall === room && this.decor.selected === null)) return;
+    if (!this.decor || !isBuilt(room, this.save.owned) || (this.decor.wall === room && this.decor.selected === null)) return;
     this.decor.wall = room;
     this.decor.selected = null;
     this.listeners.forEach((listener) => listener());
@@ -161,9 +162,9 @@ export class Game {
 
   // Give a room a wallpaper (an owned one, or null for the plain wall). False when Decorate mode is off, the wallpaper is not owned, or the room already shows it.
   setWall(room: RoomId, id: string | null): boolean {
-    if (!this.decor || (id !== null && !(isWallId(id) && this.save.owned.includes(id))) || wallOfRoom(this.save.wall, this.save.home, room) === id) return false;
+    if (!this.decor || !isBuilt(room, this.save.owned) || (id !== null && !(isWallId(id) && this.save.owned.includes(id))) || wallOfRoom(this.save.wall, this.save.home, room) === id) return false;
     this.act((save) => {
-      save.home = homeOf(layoutOf(save.home), { ...save.home?.walls, [room]: id });
+      save.home = homeOf(layoutOfSave(save), { ...save.home?.walls, [room]: id });
     });
     return true;
   }
@@ -177,8 +178,8 @@ export class Game {
 
   // A piece out of the tray goes on the allowed spot nearest `near` (a tile: the middle of the view) and is selected. False when there is no spot.
   bringOut(kind: PieceKind, near: { col: number; row: number }): boolean {
-    const layout = layoutOf(this.save.home);
-    const at = this.decor && layout[kind] === null && (kind !== "mat" || this.save.owned.includes("feeding-mat")) ? nearestSpot(layout, kind, near) : null;
+    const layout = layoutOfSave(this.save);
+    const at = this.decor && layout[kind] === null && (kind !== "mat" || this.save.owned.includes("feeding-mat")) ? nearestSpot(layout, kind, near, roomsBuilt(this.save.owned)) : null;
     if (!at) return false;
     this.setLayout({ ...layout, [kind]: at });
     this.select(kind);
@@ -188,7 +189,7 @@ export class Game {
   // The selected piece goes into the tray. False when nothing is selected, and for the bed (a sleepy creature walks to it).
   putAway(): boolean {
     const kind = this.selectedPiece;
-    const next = kind ? moved(layoutOf(this.save.home), kind, null) : null;
+    const next = kind ? moved(layoutOfSave(this.save), kind, null, roomsBuilt(this.save.owned)) : null;
     if (!kind || !next) return false;
     this.setLayout(next);
     this.select(null);
@@ -198,9 +199,9 @@ export class Game {
   // The selected piece one tile over (the arrow keys). False when nothing is selected or the rules do not allow it.
   nudge(dcol: number, drow: number): boolean {
     const kind = this.selectedPiece;
-    const layout = layoutOf(this.save.home);
+    const layout = layoutOfSave(this.save);
     const from = kind ? layout[kind] : null;
-    const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }) : null;
+    const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }, roomsBuilt(this.save.owned)) : null;
     if (!next) return false;
     this.setLayout(next);
     return true;

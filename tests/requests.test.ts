@@ -87,7 +87,7 @@ const SPOTS: Record<string, string[]> = {
 // (the hats cost Fiber, Wood, Fish and Stone: the Knit Cap at every stage, the Acorn Cap and the Fisher Hat from a young, the Stone Crown at an adult)
 const BUY_LOW = ["feeding-mat", "wall-meadow", "green-bowl", "sweet-bowl", "hat-knit"];
 const BUY_YOUNG = [...BUY_LOW, "comfy-bed", "hearty-bowl", "hat-acorn", "hat-fisher"];
-const BUY_ADULT = ["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk", "hearty-bowl", "green-bowl", "sweet-bowl", "stew", "garden-mix", "hat-knit", "hat-acorn", "hat-fisher", "hat-crown"];
+const BUY_ADULT = ["comfy-bed", "feeding-mat", "wall-meadow", "wall-dusk", "hearty-bowl", "green-bowl", "sweet-bowl", "stew", "garden-mix", "hat-knit", "hat-acorn", "hat-fisher", "hat-crown", "room-play"]; // (the Playroom needs Wood and Stone: an adult)
 const BUY_BY_STAGE: Record<string, string[]> = { baby: BUY_LOW, kid: BUY_LOW, young: BUY_YOUNG, adult: BUY_ADULT };
 
 describe("drawing (edges 1 to 6)", () => {
@@ -293,6 +293,16 @@ describe("drawing (edges 1 to 6)", () => {
     expect(rewards.length).toBeGreaterThan(5);
     expect(bought.every((id) => hats.includes(id))).toBe(true);
     expect(rewards.every((id) => hats.includes(id))).toBe(true);
+  });
+
+  it("a buy request may name the Playroom, and a reward is never the Playroom, owning nothing at all (home plan section 16, G11)", () => {
+    const save = adultSave("gravelhorn");
+    save.owned = [];
+    expect(targetsFor(save, save.creature!, "buy")).toContain("room-play"); // (an adult can gather Wood and Stone)
+    const rewards = drawMany(save, 60).flat().filter((r) => r.item !== null).map((r) => r.item as string);
+    expect(rewards.length).toBeGreaterThan(5); // a run with no reward would pass for nothing
+    expect(rewards).not.toContain("room-play");
+    expect(new Set(rewards).size).toBeGreaterThan(3); // (the other items still come)
   });
 
   it("a field request can always be drawn: three fields and at most two other open requests (edge 3)", () => {

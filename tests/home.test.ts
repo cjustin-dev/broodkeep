@@ -31,8 +31,8 @@ const allFloor = (): Array<{ col: number; row: number }> => {
 const adjacent = (a: { col: number; row: number }, b: { col: number; row: number }): boolean => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
 
 describe("the grid", () => {
-  it("is 32 x 8 tiles of 24 pixels, 768 x 192 game pixels", () => {
-    expect([COLS, ROWS, HOME.w, HOME.h]).toEqual([32, 8, 768, 192]);
+  it("is 43 x 8 tiles at the widest (four rooms), and 768 x 192 game pixels with the three base rooms built", () => {
+    expect([COLS, ROWS, HOME.w, HOME.h]).toEqual([43, 8, 768, 192]);
   });
 
   it("has 162 free floor tiles: 180 in the rooms, 4 in the two doorways, 22 under furniture", () => {
