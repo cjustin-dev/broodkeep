@@ -8,8 +8,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { drawArena } from "../art/arena";
 import { clampCamera, clampZoom, defaultZoom, frameOn, inView, panBy, snapZoom, stepCamera, toGame, zoomAbout } from "../art/camera";
 import type { Box, Camera, Point } from "../art/camera";
-import { HOME, roomOf } from "../art/home";
-import { addHeart, addSparkles, triggerPose, updateView } from "../art/idle";
+import { HOME, layoutInForce, roomOf, useLayout } from "../art/home";
+import { layoutOf } from "../art/homeLayout";
+import { addHeart, addSparkles, reseat, triggerPose, updateView } from "../art/idle";
 import { ROOM } from "../art/layout";
 import { stepMoment } from "../art/moment";
 import { drawHabitat } from "../art/habitat";
@@ -154,6 +155,11 @@ export function Stage({ game }: { game: Game }) {
       last = now;
       const world = worldOf(game);
       game.view.world = world;
+      const layout = layoutOf(game.save.home); // (the furniture was moved: the walking is done on the new floor, and the creature is put on a free tile)
+      if (layout !== layoutInForce()) {
+        useLayout(layout);
+        reseat(game.view);
+      }
       stepMoment(game.view, game.save, dt);
       updateView(game.view, dt, moodOf(game.save), Math.random, sizeOf(game.save), world);
       ctx.imageSmoothingEnabled = false;

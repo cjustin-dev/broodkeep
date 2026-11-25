@@ -8,6 +8,8 @@ import { migrateBoard } from "../../src/game/board";
 import { discover } from "../../src/game/book";
 import { makeCreature } from "../../src/game/sim";
 import { newSave } from "../../src/game/state";
+import { layoutOf, problemWith } from "../../src/art/homeLayout";
+import type { HomeSave } from "../../src/data/home";
 import type { RetiredLife, Save } from "../../src/game/state";
 
 type Mode = "kid" | "adult";
@@ -39,6 +41,21 @@ function living(mode: Mode, formId: string): Save {
   save.phase = "alive";
   discover(save, formId, BORN);
   save.lastSimulatedAt = T;
+  return save;
+}
+
+// A living adult whose save holds a moved home layout (H2a). The layout is checked here against the game's own rules and kept as written: a save the page would throw away
+// (layoutOf falls back to the starter layout) would make the browser check compare the starter home with itself.
+function withHome(mode: Mode, pieces: HomeSave["pieces"], moved: Record<string, { col: number; row: number }>): Save {
+  const save = living(mode, ADULT);
+  save.home = { pieces };
+  const layout = layoutOf(save.home);
+  const problem = problemWith(layout);
+  if (problem !== null) throw new Error(`withHome: the layout breaks a rule: ${problem}`);
+  for (const [kind, at] of Object.entries(moved)) {
+    const got = layout[kind as keyof typeof layout];
+    if (!got || got.col !== at.col || got.row !== at.row) throw new Error(`withHome: ${kind} is not at (${at.col}, ${at.row}) after layoutOf, the page would not show the layout`);
+  }
   return save;
 }
 
@@ -85,6 +102,10 @@ const scenarios: Record<string, (mode: Mode) => Save> = {
     save.creature!.job = { spot: "meadow", startedAt: T - 3 * MINUTE, endsAt: T + 3 * MINUTE };
     return save;
   },
+  // The sofa two tiles right of its starter place (13 to 15) and the rug two tiles left (13 to 11): home-browser.mjs's home-layout reads their pixels.
+  "adult-home-moved": (mode) => withHome(mode, { sofa: { col: 15, row: 1 }, rug: { col: 11, row: 4 } }, { sofa: { col: 15, row: 1 }, rug: { col: 11, row: 4 } }),
+  // The bed moved out of the bedroom into the living room, next to the sofa (columns 17 to 19, rows 1 and 2): a sleeping creature walks there and lies down.
+  "adult-home-bedmoved": (mode) => withHome(mode, { bed: { col: 17, row: 1 } }, { bed: { col: 17, row: 1 } }),
   "adult-fight": (mode) => living(mode, ADULT), // the browser check starts the fight through the Arena screen
   egg: (mode) => base(mode), // a new game: phase egg, no creature
   "adult-home-lives": (mode) => {

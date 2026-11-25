@@ -47,9 +47,12 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["home-open", "home-pan", "home-pinch", "home-find", "home-pet", "home-asleep", "home-keys", "home-mouse"]
+ALL_IDS = ["home-open", "home-pan", "home-pinch", "home-find", "home-pet", "home-asleep", "home-layout", "home-keys", "home-mouse"]
 
 STAGE = "src/ui/Stage.tsx"
+ROOM = "src/art/room.ts"
+HOME = "src/art/home.ts"
+STATE = "src/game/state.ts"
 CAM = "src/art/camera.ts"
 GES = "src/ui/gesture.ts"
 IDLE = "src/art/idle.ts"
@@ -154,6 +157,27 @@ MUTANTS = [
       [(IDLE, "    view.y = at.y;\n    setPose(view, \"sleep\");\n  }\n}", "    view.y = at.y;\n    setPose(view, \"idle\");\n  }\n}")]),
     M("walk-to-bed-too-slow", ["home-asleep"], "a sleeping creature walks to bed at 2 pixels a second, not 20",
       [(IDLE, "followPath(view, 20 * dt)", "followPath(view, 2 * dt)")]),
+    # the layout in the save (H2a): what is drawn and where the creature walks and lies follow `save.home`
+    M("layout-not-drawn", ["home-layout"], "the picture is made from the starter layout whatever the save holds",
+      [(ROOM, "layout: layoutOf(save.home) });", "layout: STARTER });")]),
+    M("solid-pieces-at-the-starter-place", ["home-layout"], "the sofa, bed and other solid pieces are drawn where the starter home has them",
+      [(ROOM, "show: (p: Piece) => boolean): void {\n  for (const p of piecesOf(look.layout)) {", "show: (p: Piece) => boolean): void {\n  for (const p of piecesOf(STARTER)) {")]),
+    M("flat-pieces-at-the-starter-place", ["home-layout"], "the rug and the Feeding Mat are drawn where the starter home has them",
+      [(ROOM, "// The flat pieces: the rugs, and the Feeding Mat.\n  for (const p of piecesOf(look.layout)) {", "// The flat pieces: the rugs, and the Feeding Mat.\n  for (const p of piecesOf(STARTER)) {")]),
+    M("bed-art-at-the-starter-place", ["home-layout"], "the bed's own picture is drawn at the starter bed's place",
+      [(ROOM, "bedOf((look.layout.bed ?? STARTER.bed) as Placement);", "bedOf(STARTER.bed as Placement);")]),
+    M("layout-never-put-in-force", ["home-layout"], "the walk keeps the starter layout in force: the creature walks to the starter bed",
+      [(STAGE, "if (layout !== layoutInForce()) {", "if (false) {")]),
+    M("sleeper-walks-to-the-starter-bed", ["home-layout"], "the tile a sleeper walks to is the starter bed's front",
+      [(HOME, "nearestFree(bedNow().front.col, bedNow().front.row,", "nearestFree(bedOf(STARTER.bed as Placement).front.col, bedOf(STARTER.bed as Placement).front.row,")]),
+    M("sleeper-lies-at-the-starter-bed", ["home-layout"], "a sleeper that has walked to the new bed is drawn lying where the starter bed is",
+      [(HOME, "({ x: bedNow().left + BED_WIDTH / 2 - size / 2, y: bedNow().y + 16 - size });", "({ x: bedOf(STARTER.bed as Placement).left + BED_WIDTH / 2 - size / 2, y: bedOf(STARTER.bed as Placement).y + 16 - size });")]),
+    M("sleeper-stands-in-front-of-the-moved-bed", ["home-layout"], "a sleeping creature walks to the front of the moved bed and stays standing there",
+      [(IDLE, "    view.y = at.y;\n    setPose(view, \"sleep\");\n  }\n}", "    view.y = at.y;\n    setPose(view, \"idle\");\n  }\n}")]),
+    M("sleeper-lies-beside-the-moved-bed", ["home-layout"], "a sleeper that has walked to the moved bed is drawn lying 60 pixels to its left, still in the picture",
+      [(HOME, "({ x: bedNow().left + BED_WIDTH / 2 - size / 2, y:", "({ x: bedNow().left + BED_WIDTH / 2 - size / 2 - 60, y:")]),
+    M("saved-layout-dropped-on-load", ["home-layout"], "a save's home is thrown away when the game loads it",
+      [(STATE, "  if (home) value.home = home;\n  else delete value.home;", "  delete value.home;")]),
     # what is drawn
     M("void-colour-changed", ["home-open"], "outside the home the picture is black, not the void colour",
       [(STAGE, 'c.fillStyle = "#120c20";', 'c.fillStyle = "#000000";')]),

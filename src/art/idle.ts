@@ -274,6 +274,18 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
   if (world === "line") view.x = Math.min(walkMaxX(view.size), Math.max(ROOM.walkMinX, view.x));
 }
 
+// The furniture moved (docs/home-plan.md section 12), whether or not the creature is on show (an away creature keeps its place): in the home it goes to the nearest anchor that is free
+// now, a walk or a meal is called off (a creature on its way to bed plans the walk again from where it stands), and a sleeping one stands in front of the bed where it is now.
+export function reseat(view: View): void {
+  if (view.world !== "home") return;
+  view.path = [];
+  view.toBed = false;
+  const at = anchorPos(view.pose === "sleep" ? bedFront(view.size) : anchorOf(view.x, view.y, view.size), view.size);
+  view.x = at.x;
+  view.y = at.y;
+  if (view.pose === "walk" || view.pose === "eat") setPose(view, "idle", 1);
+}
+
 // The creature is put somewhere valid in the world it is now in: the one-line room (on the ground line, inside the walking area) or the home (on its starting tile).
 function enterWorld(view: View): void {
   view.placed = view.world;

@@ -1,13 +1,20 @@
 // The creature's movement in the home (src/art/idle.ts: the walk to bed, the walk round the rooms, the meal, the change of world). Looks only, never saved. The expected numbers
 // are worked out by hand from src/data/home.ts: the adult (48 pixels, 2 tiles wide) first stands on tile (15, 5), so its picture's left edge is at x 360 and its feet at y 144;
 // the bed's front is tile (2, 3), 13 tiles to the left and 2 up, and a sleeping creature walks 20 pixels a second.
-import { describe, expect, it } from "vitest";
-import { addEffect, createView, startEating, updateView } from "../src/art/idle";
+import { afterEach, describe, expect, it } from "vitest";
+import { STARTER } from "../src/data/home";
+import type { Layout } from "../src/data/home";
+import { useLayout } from "../src/art/home";
+import { addEffect, createView, reseat, startEating, updateView } from "../src/art/idle";
 import type { Mood, View } from "../src/art/idle";
 
 const AWAKE: Mood = { asleep: false, sad: false, sick: false };
 const ASLEEP: Mood = { asleep: true, sad: false, sick: false };
 const never = (): number => 0.99; // "stay and look around": the creature never starts a walk or a hop by itself
+
+afterEach(() => useLayout(STARTER));
+const withTable = (col: number, row: number): Layout => ({ ...STARTER, table: { col, row } });
+const withBed = (col: number, row: number): Layout => ({ ...STARTER, bed: { col, row } });
 
 // A view in the home with the adult on its first tile.
 function homeView(size = 48): View {
@@ -132,5 +139,74 @@ describe("a meal in the home", () => {
     startEating(view, "pellet");
     // the tile below is (29, 3): its middle is x 29 x 24 + 8 = 704, the food's feet at the bottom of the row, y 4 x 24 - 8 = 88
     expect(view.snack).toEqual({ food: "pellet", x: 704, y: 88 });
+  });
+});
+
+describe("when the furniture is moved (reseat)", () => {
+  it("puts a creature that a piece now covers on the nearest free anchor: an adult goes one tile down, a kid one tile left", () => {
+    useLayout(withTable(15, 4)); // columns 15 and 16, rows 4 and 5: both anchors' tiles
+    const adult = createView();
+    adult.world = "home";
+    adult.placed = "home";
+    adult.size = 48;
+    adult.x = 360;
+    adult.y = 144;
+    reseat(adult);
+    expect([adult.x, adult.y]).toEqual([360, 168]); // anchor (15, 6): the first that fits is below (the order is right, left, below)
+    const kid = createView();
+    kid.world = "home";
+    kid.placed = "home";
+    kid.size = 24;
+    kid.x = 360;
+    kid.y = 144;
+    reseat(kid);
+    expect([kid.x, kid.y]).toEqual([336, 144]); // anchor (14, 5)
+  });
+
+  it("puts a creature that is between two tiles on the tile it is nearest, and leaves one that is in the one-line room alone", () => {
+    const view = homeView();
+    view.x = 365;
+    reseat(view);
+    expect([view.x, view.y]).toEqual([360, 144]);
+    const line = createView();
+    line.x = 50;
+    line.path = [{ x: 1, y: 2 }];
+    reseat(line);
+    expect([line.x, line.path.length]).toEqual([50, 1]);
+  });
+
+  it("calls off a walk and a meal, and the food is gone at the next frame", () => {
+    const view = homeView();
+    view.pose = "walk";
+    view.path = [{ x: 300, y: 144 }];
+    reseat(view);
+    expect([view.pose, view.path.length, view.poseLength]).toEqual(["idle", 0, 1]);
+    startEating(view, "pellet");
+    expect(view.snack).not.toBeNull();
+    reseat(view);
+    updateView(view, 0.1, AWAKE, never, 48, "home");
+    expect([view.pose, view.snack]).toEqual(["idle", null]);
+  });
+
+  it("plans the walk to a bed that has moved again from where the creature stands, and lies down at the new bed", () => {
+    const view = homeView();
+    run(view, 3, ASLEEP);
+    expect(view.toBed).toBe(true);
+    useLayout(withBed(3, 2)); // the front is (4, 4): x 96, feet at 120
+    reseat(view);
+    expect([view.toBed, view.path.length, view.pose]).toEqual([false, 0, "idle"]);
+    run(view, 30, ASLEEP);
+    expect([view.pose, view.x, view.y]).toEqual(["sleep", 96, 120]);
+  });
+
+  it("stands a sleeping creature in front of the bed where it is now", () => {
+    const view = homeView();
+    run(view, 19, ASLEEP);
+    expect([view.pose, view.x, view.y]).toEqual(["sleep", 48, 96]);
+    useLayout(withBed(3, 2));
+    reseat(view);
+    expect([view.pose, view.x, view.y]).toEqual(["sleep", 96, 120]);
+    run(view, 0.1, AWAKE); // woken: it stands up in front of the bed that is there now
+    expect([view.pose, view.x, view.y]).toEqual(["idle", 96, 120]);
   });
 });

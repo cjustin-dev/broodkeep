@@ -58,3 +58,25 @@ describe("refusing what is not a save", () => {
     expect(migrateSave({ ...oldSave(2), log: "none" })).toBeNull();
   });
 });
+
+describe("where the furniture stands (Save.home)", () => {
+  const withHome = (home: unknown): Save => ({ ...JSON.parse(JSON.stringify(aliveSave("blip", at(10)))), home }) as Save;
+
+  it("is not in a new game or in a save from before Decorate mode, and one with it keeps it through a round trip", () => {
+    expect("home" in newSave(at(10), 1)).toBe(false);
+    const old = JSON.parse(JSON.stringify(aliveSave("blip", at(10)))) as Record<string, unknown>;
+    expect("home" in (migrateSave(old) as Save)).toBe(false);
+    const kept = migrateSave(withHome({ pieces: { sofa: { col: 13, row: 2 }, table: null } })) as Save;
+    expect(kept.home).toEqual({ pieces: { sofa: { col: 13, row: 2 }, table: null } });
+    expect(migrateSave(JSON.parse(JSON.stringify(kept)))).toEqual(kept);
+  });
+
+  it("drops a home that is not well formed, leaves the rest of the save alone, and never throws", () => {
+    for (const home of [null, "x", 3, [], {}, { pieces: null }, { pieces: { sofa: { col: 1.5, row: 1 } } }, { pieces: { sofa: "x" } }, Object.create(null)]) {
+      const read = migrateSave(withHome(home)) as Save;
+      expect("home" in read, JSON.stringify(home)).toBe(false);
+      expect(read.phase).toBe("alive");
+    }
+    expect((migrateSave(withHome({ pieces: Object.create(null) })) as Save).home).toEqual({ pieces: {} }); // an empty one is whole
+  });
+});

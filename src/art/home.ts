@@ -5,8 +5,8 @@
 // (footprintOf: 1 for an egg, baby or kid, 2 for a young or adult) and one tile deep: the body above the feet overlaps the tiles behind, as in any three-quarter
 // view. Walking is from anchor to neighbouring anchor.
 
-import { BED, COLS, DEAD_TILE, DOOR_ROWS, EGG_TILE, PARTITIONS, PIECES, POOP_TILES, ROOMS, ROWS, START_TILE, TILE, WALL_ROWS } from "../data/home";
-import type { Piece, RoomId } from "../data/home";
+import { COLS, DEAD_TILE, DOOR_ROWS, EGG_TILE, PARTITIONS, POOP_TILES, ROOMS, ROWS, START_TILE, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
+import type { Layout, Piece, Placement, RoomId } from "../data/home";
 import { BED_WIDTH } from "./layout";
 
 export interface Anchor {
@@ -16,14 +16,38 @@ export interface Anchor {
 
 export const HOME = { w: COLS * TILE, h: ROWS * TILE };
 
-// Which floor tiles are free: inside the home, below the wall rows, not on a partition (except in its doorway), and not under a solid piece of furniture.
-const FLOOR: boolean[] = Array.from({ length: COLS * ROWS }, (_, i) => {
-  const col = i % COLS;
-  const row = Math.floor(i / COLS);
-  if (row < WALL_ROWS) return false;
-  if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;
-  return !PIECES.some((p) => p.solid && col >= p.col && col < p.col + p.cols && row >= p.row && row < p.row + p.rows);
-});
+// Which floor tiles are free for a layout: inside the home, below the wall rows, not on a partition (except in its doorway), and not under a solid piece of furniture.
+const floorOf = (layout: Layout): boolean[] => {
+  const solid = piecesOf(layout).filter((p) => p.solid);
+  return Array.from({ length: COLS * ROWS }, (_, i) => {
+    const col = i % COLS;
+    const row = Math.floor(i / COLS);
+    if (row < WALL_ROWS) return false;
+    if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;
+    return !solid.some((p) => col >= p.col && col < p.col + p.cols && row >= p.row && row < p.row + p.rows);
+  });
+};
+
+// The layout the walking is done on (docs/home-plan.md section 12): the starter one until the Stage calls `useLayout` with the saved one. Every function below that reads the
+// floor or the bed reads this, so a layout is tried out with `withLayout` (art/homeLayout.ts) and put back.
+let LAYOUT: Layout = STARTER;
+let FLOOR: boolean[] = floorOf(LAYOUT);
+
+export const layoutInForce = (): Layout => LAYOUT;
+export function useLayout(layout: Layout): void {
+  if (layout === LAYOUT) return;
+  LAYOUT = layout;
+  FLOOR = floorOf(layout);
+}
+export function withLayout<T>(layout: Layout, fn: () => T): T {
+  const before = LAYOUT;
+  useLayout(layout);
+  try {
+    return fn();
+  } finally {
+    useLayout(before);
+  }
+}
 
 export const isFloor = (col: number, row: number): boolean => col >= 0 && col < COLS && row >= 0 && row < ROWS && FLOOR[row * COLS + col] === true;
 
@@ -102,6 +126,9 @@ function walkTree(from: Anchor, f: number): Map<number, number> {
   return via;
 }
 
+// Every anchor a creature with a footprint of f tiles can walk to from `from` (as keys, row * COLS + col), `from` included.
+export const reachableFrom = (from: Anchor, f: number): Set<number> => new Set(walkTree(from, f).keys());
+
 function pathTo(via: Map<number, number>, from: Anchor, to: Anchor): Anchor[] {
   const out: Anchor[] = [];
   let key = to.row * COLS + to.col;
@@ -145,8 +172,9 @@ export function foodTile(a: Anchor, f: number, facing: 1 | -1): { tile: Anchor; 
 export const isBehind = (p: Piece, feet: number): boolean => (p.row + p.rows) * TILE <= feet;
 
 // Fixed spots, in game pixels. A lying creature (asleep in the bed, or dead) is drawn from the left edge `x` and the top `y`.
-export const bedLying = (size: number): { x: number; y: number } => ({ x: BED.left + BED_WIDTH / 2 - size / 2, y: BED.y + 16 - size });
-export const bedFront = (size: number): Anchor => nearestFree(BED.front.col, BED.front.row, footprintOf(size));
+const bedNow = (): ReturnType<typeof bedOf> => bedOf((LAYOUT.bed ?? STARTER.bed) as Placement); // (a layout always has its bed: layoutOf's rule 6)
+export const bedLying = (size: number): { x: number; y: number } => ({ x: bedNow().left + BED_WIDTH / 2 - size / 2, y: bedNow().y + 16 - size });
+export const bedFront = (size: number): Anchor => nearestFree(bedNow().front.col, bedNow().front.row, footprintOf(size));
 export const eggSpot = (): { x: number; y: number } => ({ x: EGG_TILE.col * TILE + (TILE - 16) / 2, y: (EGG_TILE.row + 1) * TILE - 16 });
 export const deadCenter = (): number => DEAD_TILE.col * TILE + TILE / 2;
 export const deadFeet = (): number => (DEAD_TILE.row + 1) * TILE;

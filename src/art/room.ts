@@ -2,10 +2,11 @@
 // a bed, a food bowl and a rug. PLACEHOLDER ART made from simple rectangles.
 // Phase 4 replaces this with a room you can decorate.
 
-import { BED, COLS, DOOR_ROWS, PARTITIONS, PIECES, ROOMS, ROWS, TILE, WALL_ROWS } from "../data/home";
-import type { Piece, RoomId } from "../data/home";
+import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
+import type { Layout, Piece, Placement, RoomId } from "../data/home";
 import { plainWall, walls } from "../data/shop";
 import type { Save } from "../game/state";
+import { layoutOf } from "./homeLayout";
 import { BED_WIDTH, ROOM } from "./layout";
 
 function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number): void {
@@ -21,16 +22,18 @@ export function sky(hour: number): { color: string; body: "sun" | "moon"; stars:
   return { color: "#1d2b53", body: "moon", stars: true };
 }
 
-// What the shop changed in the room (data/shop.ts): the wallpaper on the wall (null: the plain wall), and whether the Comfy Bed and the Feeding Mat are in.
+// What the shop changed in the room (data/shop.ts): the wallpaper on the wall (null: the plain wall), and whether the Comfy Bed and the Feeding Mat are in; and, in the home, where
+// the furniture stands (the old one-line room ignores that).
 export interface Look {
   wall: string | null;
   bed: boolean;
   mat: boolean;
+  layout: Layout;
 }
 
-export const plainLook: Look = { wall: null, bed: false, mat: false };
+export const plainLook: Look = { wall: null, bed: false, mat: false, layout: STARTER };
 
-export const lookOf = (save: Save): Look => ({ wall: save.wall, bed: save.owned.includes("comfy-bed"), mat: save.owned.includes("feeding-mat") });
+export const lookOf = (save: Save): Look => ({ wall: save.wall, bed: save.owned.includes("comfy-bed"), mat: save.owned.includes("feeding-mat"), layout: layoutOf(save.home) });
 
 export function drawRoom(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
   // Wall with soft stripes (a wallpaper changes the three colours).
@@ -155,7 +158,7 @@ export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: 
     rect(ctx, "#6d4a2a", x + 2, DOOR_ROWS[0] * TILE - 3, TILE - 4, 3); // the lintel above the doorway
   }
   // The flat pieces: the rugs, and the Feeding Mat.
-  for (const p of PIECES) {
+  for (const p of piecesOf(look.layout)) {
     if (p.solid) continue;
     const x = p.col * TILE;
     const y = p.row * TILE;
@@ -171,7 +174,7 @@ export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: 
 
 // The solid pieces that `show` picks (the scene draws the ones behind a creature, then the creature, then the ones in front).
 export function drawHomePieces(ctx: CanvasRenderingContext2D, look: Look, show: (p: Piece) => boolean): void {
-  for (const p of PIECES) {
+  for (const p of piecesOf(look.layout)) {
     if (!p.solid || !show(p)) continue;
     const x = p.col * TILE;
     const y = p.row * TILE;
@@ -229,8 +232,7 @@ export function drawHomePieces(ctx: CanvasRenderingContext2D, look: Look, show: 
 
 // The bed (BED_WIDTH wide: the widest lying creature fits on it), with the same shapes as the old room's, from the bed's left edge and `bedY` in data/home.ts.
 function drawBed(ctx: CanvasRenderingContext2D, look: Look): void {
-  const bed = BED.left;
-  const y = BED.y;
+  const { left: bed, y } = bedOf((look.layout.bed ?? STARTER.bed) as Placement); // (a layout always has its bed: homeLayout's rule 6)
   rect(ctx, "#8a5a3a", bed, y + 10, BED_WIDTH, 14); // frame
   rect(ctx, "#6d86e0", bed + 1, y + 8, BED_WIDTH - 2, 10); // mattress
   rect(ctx, "#ffffff", bed + 2, y + 6, 10, 6); // pillow
@@ -243,7 +245,7 @@ function drawBed(ctx: CanvasRenderingContext2D, look: Look): void {
   rect(ctx, "#8a5a3a", bed + BED_WIDTH - 3, y + 22, 3, 3);
 }
 
-// The part of the home the Shop's picture shows for an item: a 128 x 128 window (the picture's canvas, unscaled) on the room it belongs to.
+// The part of the home the Shop's picture shows for an item: a 128 x 128 window (the picture's canvas, unscaled) on the room it belongs to, on the starter layout.
 const previewCrop: Record<RoomId, { x: number; y: number }> = {
   bedroom: { x: 24, y: 8 }, // the bed and the bedroom's window
   living: { x: 336, y: 0 }, // the sofa, the window and the wall, which the wallpapers colour
@@ -252,9 +254,10 @@ const previewCrop: Record<RoomId, { x: number; y: number }> = {
 
 export function drawHomePreview(ctx: CanvasRenderingContext2D, hour: number, look: Look, room: RoomId): void {
   const crop = previewCrop[room];
+  const shown: Look = { ...look, layout: STARTER }; // the crops are fixed on the starter layout, wherever the player has put things
   ctx.save();
   ctx.translate(-crop.x, -crop.y);
-  drawHomeBack(ctx, hour, look);
-  drawHomePieces(ctx, look, () => true);
+  drawHomeBack(ctx, hour, shown);
+  drawHomePieces(ctx, shown, () => true);
   ctx.restore();
 }

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-# Mutation runner for the home's pure rules (Broodkeep, Home slice H1, docs/home-plan.md): the floor plan and the paths (src/art/home.ts), the camera
-# (src/art/camera.ts), the gestures (src/ui/gesture.ts) and the creature's walk in the home (src/art/idle.ts).
+# Mutation runner for the home's pure rules (Broodkeep, Home slices H1 and H2a, docs/home-plan.md): the floor plan and the paths (src/art/home.ts), the camera
+# (src/art/camera.ts), the gestures (src/ui/gesture.ts), the creature's walk in the home (src/art/idle.ts), and the saved layout (the rules in src/art/homeLayout.ts, the
+# shapes in src/data/home.ts, the migrate step in src/game/state.ts, the untouched test in src/sync/sync.ts).
 #
 # It works on a COPY of the repo (home-unit-copy/), never on the real tree. Each mutant is one exact text replace whose `old` must occur exactly once in its
-# file. Only the four home test files run per mutant (tests/home, camera, gesture and idle-home: a mutant counts only when ITS named test fails, so the rest
+# file. Only the home test files run per mutant (tests/home, camera, gesture, idle-home, home-layout, save and cloud-sync: a mutant counts only when ITS named test fails, so the rest
 # of the suite cannot change the verdict). A mutant is CAUGHT only when the test named in `expect` (a substring of its full name, in `expect_file`) fails.
 #
 #   python3 mutate-home-unit.py --list   checks each `old` occurs once in the real files, prints the table, runs no tests
 #   python3 mutate-home-unit.py          makes a fresh copy, runs the baseline, then every mutant, then checks the copy
+#   python3 mutate-home-unit.py --only id1,id2   the same, for these mutants only
 #
-# Exit: 0 every mutant CAUGHT; 1 some mutant not CAUGHT (or an occurrence count is not 1); 2 baseline failed or the copy differs at the end.
+# Exit: 0 every mutant CAUGHT; 1 some mutant not CAUGHT (or an occurrence count is not 1); 2 baseline failed, the copy differs at the end, or an unknown or empty --only id.
 import argparse
 import json
 import os
@@ -30,7 +32,10 @@ T_HOME = "tests/home.test.ts"
 T_CAM = "tests/camera.test.ts"
 T_GES = "tests/gesture.test.ts"
 T_IDLE = "tests/idle-home.test.ts"
-VITEST = ["npx", "vitest", "run", T_HOME, T_CAM, T_GES, T_IDLE, "--cache=false", "--fsModuleCache=false", "--reporter=json"]
+T_LAYOUT = "tests/home-layout.test.ts"
+T_SAVE = "tests/save.test.ts"
+T_SYNC = "tests/cloud-sync.test.ts"
+VITEST = ["npx", "vitest", "run", T_HOME, T_CAM, T_GES, T_IDLE, T_LAYOUT, T_SAVE, T_SYNC, "--cache=false", "--fsModuleCache=false", "--reporter=json"]
 TEST_FILE = T_HOME
 TIMEOUT_S = 600
 
@@ -38,6 +43,10 @@ F_HOME = "src/art/home.ts"
 F_CAM = "src/art/camera.ts"
 F_GES = "src/ui/gesture.ts"
 F_IDLE = "src/art/idle.ts"
+F_RULES = "src/art/homeLayout.ts"
+F_DATA = "src/data/home.ts"
+F_STATE = "src/game/state.ts"
+F_SYNC = "src/sync/sync.ts"
 
 
 def mut(id, file, old, new, expect, test):
@@ -109,6 +118,44 @@ BEDWALK = "walks to the bed along the floor at 20 pixels a second"
 CALLEDOFF = "is called off when the creature wakes before it gets there"
 MEAL_SIDE = "puts the food against the side the creature faces"
 MEAL_BELOW = "puts the food on the tile below when both sides are walls"
+# H2a (tests/home-layout.test.ts, tests/idle-home.test.ts, tests/save.test.ts, tests/cloud-sync.test.ts)
+STARTER_PIN = "puts the nine pieces where H1 put them"
+R1_EDGES = "refuses a piece across a partition, off the right edge, below the home and on a column of a partition"
+R1_WALL = "refuses a piece that stands on the wall when it does not stand against it"
+R1_WHOLE = "refuses a piece that is not on a whole tile"
+R1_ROOMEND = "lets a four wide piece start on column 6 of the bedroom"
+R2_OVERLAP = "refuses a dresser on the bed and a table on the sofa"
+R2_TOUCH = "lets two solid pieces touch"
+R2_FLAT = "lets a rug lie under the sofa and the mat lie on the rug"
+R3_REFUSE = "refuses the egg's tile, a poop tile and the grave's block"
+R3_TILES = "knows exactly the protected tiles"
+R4_FRONT = "refuses a piece on either of them"
+R5_DOOR = "refuses to close a doorway"
+R5_NARROW = "refuses a passage that a one tile wide creature can use and a two tiles wide one cannot"
+R5_POCKET = "refuses a piece that cuts a pocket of one place off"
+R5_OPEN = "lets pieces away, and a piece that leaves every way open"
+R6_BED = "refuses a layout with no bed"
+R6_REST = "lets everything else be put away"
+LAYOUT_OVER = "puts the saved pieces over the starter layout and keeps the rest where it was"
+LAYOUT_SAME = "gives the very same layout for the same saved home"
+LAYOUT_WHOLE = "falls back to the whole starter layout when one piece breaks a rule"
+LAYOUT_COPY = "does not keep a layout it was given a second time with a changed piece under the same object"
+LAYOUT_ALIAS = "does not share a piece with the saved home"
+LAYOUT_NONE = "is what a missing home, an empty one and a home with only the starter places mean"
+COERCE_BAD = "gives nothing for anything that is not a home, and for a home with one bad entry"
+COERCE_KEEP = "keeps whole numbers and null, drops kinds it does not know and anything but col and row, and ignores inherited keys"
+BED_DERIVED = "derives its left edge, the top of a lying creature and the front tile from the bed's tile"
+BED_MOVED = "puts a lying creature, and the tile it stands on before it lies down, at the moved bed"
+FLOOR_MOVED = "makes the tiles under a moved solid piece walls and the tiles it left free"
+FLOOR_TRIAL = "tries a layout out and puts the old one back, also when the trial throws"
+RESEAT_COVERED = "puts a creature that a piece now covers on the nearest free anchor"
+RESEAT_BETWEEN = "puts a creature that is between two tiles on the tile it is nearest, and leaves one that is in the one-line room alone"
+RESEAT_CALLOFF = "calls off a walk and a meal, and the food is gone at the next frame"
+RESEAT_BED = "plans the walk to a bed that has moved again from where the creature stands"
+RESEAT_SLEEPER = "stands a sleeping creature in front of the bed where it is now"
+SAVE_KEEP = "is not in a new game or in a save from before Decorate mode, and one with it keeps it through a round trip"
+SAVE_DROP = "drops a home that is not well formed, leaves the rest of the save alone, and never throws"
+UNTOUCHED = "is a new egg that nothing has happened to"
 
 # Not mutated, because no mutant of them can change what the code does for any input the home has (each argued from the code by a reviewer, 2026-11-25):
 #  - `Math.round` for `Math.ceil` in footprintOf (the sizes are 16, 20, 24, 36 and 48: the same either way); `>` for `>=` in the clamp's "view as wide as the home" test
@@ -118,6 +165,10 @@ MEAL_BELOW = "puts the food on the tile below when both sides are walls"
 #    tree holds only the anchors that fit, and its start, which always fits in the game's calls, so the next check refuses the same goals); the snap to the bed's front at the
 #    end of sleepHome (the last step of the path is the same spot).
 #  - START_TILE and BED.front take a footprint of 1 or 2 alike (both fit at both): a footprint of 1 for startAnchor or bedFront changes nothing until that data moves.
+#  - `if (!fits(start.col, start.row, f))` of problemWith (a reviewer, 2026-11-25): `startAnchor` is `nearestFree`, which searches the whole home and returns the first anchor where the
+#    footprint fits, so the start fits unless NO anchor fits anywhere; the nine pieces cover at most 39 solid tiles and blocking every 2-wide place takes about 90 (5 a row, 6 rows, 3 rooms).
+#  - the cache's `known.clear()` at 32 entries in layoutOf and the early `if (layout === LAYOUT) return;` of useLayout: the first only bounds memory (a cleared entry is made again, the
+#    same layout by value), the second only skips work that gives the same floor; no test can see either through a result.
 #  - the check of findPath that the goal was reached: without it pathTo loops for ever (a hung test run, not a failed test), and the home has no part that is cut off.
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 MUTANTS = [
@@ -125,8 +176,8 @@ MUTANTS = [
     mut("floor-wall-row-one", F_HOME, "if (row < WALL_ROWS) return false;", "if (row < WALL_ROWS - 1) return false;", WALL, T_HOME),
     mut("floor-partition-closed", F_HOME, "if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;", "if (PARTITIONS.includes(col)) return false;", WALL, T_HOME),
     mut("floor-partition-open", F_HOME, "if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;", "if (false) return false;", WALL, T_HOME),
-    mut("floor-rug-blocks", F_HOME, "p.solid && col >= p.col", "col >= p.col", SOLID, T_HOME),
-    mut("floor-furniture-ignored", F_HOME, "return !PIECES.some((p) => p.solid &&", "return !PIECES.some((p) => false &&", SOLID, T_HOME),
+    mut("floor-rug-blocks", F_HOME, "const solid = piecesOf(layout).filter((p) => p.solid);", "const solid = piecesOf(layout);", SOLID, T_HOME),
+    mut("floor-furniture-ignored", F_HOME, "return !solid.some((p) => col >= p.col", "return !solid.some((p) => false && col >= p.col", SOLID, T_HOME),
     mut("floor-furniture-one-short", F_HOME, "col < p.col + p.cols && row >= p.row && row < p.row + p.rows", "col < p.col + p.cols - 1 && row >= p.row && row < p.row + p.rows", SOLID, T_HOME),
     mut("footprint-floor", F_HOME, "Math.ceil(size / TILE)", "Math.floor(size / TILE)", FOOT, T_HOME),
     mut("fits-first-tile-only", F_HOME, "for (let i = 0; i < f; i++) if", "for (let i = 0; i < 1; i++) if", FITS, T_HOME),
@@ -156,8 +207,8 @@ MUTANTS = [
     mut("food-own-tile-not-flagged", F_HOME, "return { tile: a, own: true };", "return { tile: a, own: false };", FOOD, T_HOME),
     mut("behind-strict", F_HOME, "(p.row + p.rows) * TILE <= feet", "(p.row + p.rows) * TILE < feet", BEHIND, T_HOME),
     mut("behind-by-top-edge", F_HOME, "(p.row + p.rows) * TILE <= feet", "p.row * TILE <= feet", BEHIND, T_HOME),
-    mut("bed-lying-not-centred", F_HOME, "x: BED.left + BED_WIDTH / 2 - size / 2,", "x: BED.left,", SPOTS, T_HOME),
-    mut("bed-lying-too-high", F_HOME, "y: BED.y + 16 - size })", "y: BED.y - size })", SPOTS, T_HOME),
+    mut("bed-lying-not-centred", F_HOME, "x: bedNow().left + BED_WIDTH / 2 - size / 2,", "x: bedNow().left,", SPOTS, T_HOME),
+    mut("bed-lying-too-high", F_HOME, "y: bedNow().y + 16 - size })", "y: bedNow().y - size })", SPOTS, T_HOME),
     mut("egg-not-centred-on-its-tile", F_HOME, "x: EGG_TILE.col * TILE + (TILE - 16) / 2,", "x: EGG_TILE.col * TILE,", SPOTS, T_HOME),
     mut("dead-not-in-the-middle", F_HOME, "DEAD_TILE.col * TILE + TILE / 2", "DEAD_TILE.col * TILE", SPOTS, T_HOME),
     mut("dead-feet-at-the-top", F_HOME, "(DEAD_TILE.row + 1) * TILE;", "DEAD_TILE.row * TILE;", SPOTS, T_HOME),
@@ -257,6 +308,72 @@ MUTANTS = [
     mut("meal-below-not-used", F_IDLE, "if (!own && tile.row !== here.row) {", "if (false) {", MEAL_BELOW, T_IDLE),
     mut("meal-below-on-the-wrong-column", F_IDLE, "x: here.col * TILE + (f * TILE - 8) / 2,", "x: here.col * TILE,", MEAL_BELOW, T_IDLE),
     mut("meal-below-too-low", F_IDLE, "y: (tile.row + 1) * TILE - 8 };", "y: (tile.row + 1) * TILE };", MEAL_BELOW, T_IDLE),
+    # the saved layout (H2a): the six rules, what a saved home means, the bed that follows its piece, the floor in force, the creature put on a free tile
+    mut("starter-sofa-one-tile-over", F_DATA, "sofa: { col: 13, row: 1 },", "sofa: { col: 14, row: 1 },", STARTER_PIN, T_LAYOUT),
+    mut("starter-bowl-one-row-up", F_DATA, "bowl: { col: 24, row: 5 },", "bowl: { col: 24, row: 4 },", STARTER_PIN, T_LAYOUT),
+    mut("rule6-bed-away-allowed", F_RULES, 'if (layout.bed === null) return "the bed is put away";', "if (layout.bed === null) return null;", R6_BED, T_LAYOUT),
+    mut("rule1-not-whole-tile", F_RULES, "if (!Number.isInteger(p.col) || !Number.isInteger(p.row))", "if (false)", R1_WHOLE, T_LAYOUT),
+    mut("rule1-room-end-off-by-one", F_RULES, "p.col + p.cols - 1 <= r.to", "p.col + p.cols <= r.to", R1_ROOMEND, T_LAYOUT),
+    mut("rule1-room-start-over-the-partition", F_RULES, "p.col >= r.from &&", "p.col >= r.from - 1 &&", R1_EDGES, T_LAYOUT),
+    mut("rule1-below-the-home", F_RULES, "if (p.row + p.rows > ROWS)", "if (p.row + p.rows > ROWS + 1)", R1_EDGES, T_LAYOUT),
+    mut("rule1-wall-for-all", F_RULES, "p.row < (SHAPES[p.kind].wall ? 1 : WALL_ROWS)", "p.row < 1", R1_WALL, T_LAYOUT),
+    mut("rule1-wall-piece-on-row-zero", F_RULES, "p.row < (SHAPES[p.kind].wall ? 1 : WALL_ROWS)", "p.row < (SHAPES[p.kind].wall ? 0 : WALL_ROWS)", R1_WALL, T_LAYOUT),
+    mut("rule2-overlap-columns-one-sided", F_RULES, "if (a.col < b.col + b.cols && b.col < a.col + a.cols &&", "if (a.col < b.col + b.cols &&", R2_TOUCH, T_LAYOUT),
+    mut("rule2-overlap-rows-one-sided", F_RULES, "a.row < b.row + b.rows && b.row < a.row + a.rows) return", "a.row < b.row + b.rows) return", R2_TOUCH, T_LAYOUT),
+    mut("rule2-touch-on-the-left-is-overlap", F_RULES, "if (a.col < b.col + b.cols &&", "if (a.col <= b.col + b.cols &&", R2_TOUCH, T_LAYOUT),
+    mut("rule2-touch-on-the-right-is-overlap", F_RULES, "b.col < a.col + a.cols &&", "b.col <= a.col + a.cols &&", R2_TOUCH, T_LAYOUT),
+    mut("rule2-touch-below-is-overlap", F_RULES, "b.row < a.row + a.rows) return", "b.row <= a.row + a.rows) return", R2_TOUCH, T_LAYOUT),
+    mut("rule2-touch-above-is-overlap", F_RULES, "a.row < b.row + b.rows &&", "a.row <= b.row + b.rows &&", R2_TOUCH, T_LAYOUT),
+    mut("rule2-overlap-never", F_RULES, "&& a.row < b.row + b.rows && b.row < a.row + a.rows) return", "&& false) return", R2_OVERLAP, T_LAYOUT),
+    mut("rule2-flat-pieces-count", F_RULES, "const solid = placed.filter((p) => p.solid);", "const solid = placed;", R2_FLAT, T_LAYOUT),
+    mut("rule3-protected-ignored", F_RULES, "if (isProtected(col, row)) return", "if (false) return", R3_REFUSE, T_LAYOUT),
+    mut("rule3-only-the-first-column", F_RULES, "for (let col = a.col; col < a.col + a.cols; col++) {", "for (let col = a.col; col < a.col + 1; col++) {", R3_REFUSE, T_LAYOUT),
+    mut("rule3-only-the-first-row", F_RULES, "for (let row = a.row; row < a.row + a.rows; row++) if (isProtected", "for (let row = a.row; row < a.row + 1; row++) if (isProtected", R3_REFUSE, T_LAYOUT),
+    mut("protected-egg-row-off", F_DATA, "(col === EGG_TILE.col && row === EGG_TILE.row) ||", "(col === EGG_TILE.col && row === EGG_TILE.row + 1) ||", R3_TILES, T_LAYOUT),
+    mut("protected-poop-ignored", F_DATA, "POOP_TILES.some((t) => t.col === col && t.row === row) ||", "false ||", R3_TILES, T_LAYOUT),
+    mut("protected-grave-one-column-short", F_DATA, "col < MEMORIAL.col + MEMORIAL.cols &&", "col < MEMORIAL.col + MEMORIAL.cols - 1 &&", R3_TILES, T_LAYOUT),
+    mut("protected-grave-one-row-short", F_DATA, "row < MEMORIAL.row + MEMORIAL.rows)", "row < MEMORIAL.row + MEMORIAL.rows - 1)", R3_TILES, T_LAYOUT),
+    mut("rule4-front-one-tile", F_RULES, "if (!isFloor(bed.col + 1, bed.row + 2) || !isFloor(bed.col + 2, bed.row + 2))", "if (!isFloor(bed.col + 1, bed.row + 2))", R4_FRONT, T_LAYOUT),
+    mut("rule4-front-other-tile", F_RULES, "if (!isFloor(bed.col + 1, bed.row + 2) || !isFloor(bed.col + 2, bed.row + 2))", "if (!isFloor(bed.col + 2, bed.row + 2))", R4_FRONT, T_LAYOUT),
+    mut("rule5-one-wide-only", F_RULES, "for (const size of [24, 48]) {", "for (const size of [24]) {", R5_NARROW, T_LAYOUT),
+    mut("rule5-two-wide-only", F_RULES, "for (const size of [24, 48]) {", "for (const size of [48]) {", R5_DOOR, T_LAYOUT),
+    mut("rule5-reach-never-checked", F_RULES, "if (fits(col, row, f) && !reached.has(row * COLS + col))", "if (fits(col, row, f) && false)", R5_DOOR, T_LAYOUT),
+    mut("rule5-every-tile-must-be-reached", F_RULES, "if (fits(col, row, f) && !reached.has(row * COLS + col))", "if (!reached.has(row * COLS + col))", R5_OPEN, T_LAYOUT),
+    mut("layout-half-kept", F_RULES, "const result = problemWith(layout) === null ? layout : STARTER;", "const result = layout;", LAYOUT_WHOLE, T_LAYOUT),
+    mut("layout-never-kept", F_RULES, "const result = problemWith(layout) === null ? layout : STARTER;", "const result = STARTER;", LAYOUT_OVER, T_LAYOUT),
+    mut("layout-put-away-reads-as-starter", F_RULES, "layout[kind] = at === null ? null :", "layout[kind] = at === null ? STARTER[kind] :", LAYOUT_OVER, T_LAYOUT),
+    mut("layout-new-object-each-time", F_RULES, "if (kept) return kept;", "if (false) return kept;", LAYOUT_SAME, T_LAYOUT),
+    mut("layout-one-key-for-all", F_RULES, "const key = JSON.stringify(home.pieces);", 'const key = "home";', LAYOUT_COPY, T_LAYOUT),
+    mut("layout-shares-the-saved-cell", F_RULES, "{ col: at.col, row: at.row };\n  }", "at;\n  }", LAYOUT_ALIAS, T_LAYOUT),
+    mut("layout-no-home-copies-starter", F_RULES, "if (!home) return STARTER;", "if (!home) return { ...STARTER };", LAYOUT_NONE, T_LAYOUT),
+    mut("coerce-array-is-a-home", F_DATA, "if (typeof value !== \"object\" || value === null || Array.isArray(value)) return undefined;", "if (typeof value !== \"object\" || value === null) return undefined;", COERCE_BAD, T_LAYOUT),
+    mut("coerce-pieces-array-is-a-home", F_DATA, "if (typeof raw !== \"object\" || raw === null || Array.isArray(raw)) return undefined;", "if (typeof raw !== \"object\" || raw === null) return undefined;", COERCE_BAD, T_LAYOUT),
+    mut("coerce-inherited-key-counts", F_DATA, "if (!Object.hasOwn(raw, kind)) continue;", "if (!(kind in raw)) continue;", COERCE_KEEP, T_LAYOUT),
+    mut("coerce-bad-entry-skipped", F_DATA, "else return undefined;\n  }\n  return { pieces };", "else continue;\n  }\n  return { pieces };", COERCE_BAD, T_LAYOUT),
+    mut("coerce-keeps-extra-keys", F_DATA, "pieces[kind] = { col: at.col, row: at.row };", "pieces[kind] = at;", COERCE_KEEP, T_LAYOUT),
+    mut("coerce-fraction-is-a-tile", F_DATA, "Number.isInteger((value as Placement).col) && Number.isInteger((value as Placement).row)", "Number.isFinite((value as Placement).col) && Number.isFinite((value as Placement).row)", COERCE_BAD, T_LAYOUT),
+    mut("bed-left-not-8-in", F_DATA, "left: at.col * TILE + 8,", "left: at.col * TILE,", BED_DERIVED, T_LAYOUT),
+    mut("bed-top-one-off", F_DATA, "y: at.row * TILE + 23,", "y: at.row * TILE + 24,", BED_DERIVED, T_LAYOUT),
+    mut("bed-front-one-row-up", F_DATA, "front: { col: at.col + 1, row: at.row + 2 } }", "front: { col: at.col + 1, row: at.row + 1 } }", BED_DERIVED, T_LAYOUT),
+    mut("bed-front-column-of-the-bed", F_DATA, "front: { col: at.col + 1, row: at.row + 2 } }", "front: { col: at.col, row: at.row + 2 } }", BED_DERIVED, T_LAYOUT),
+    mut("bed-walk-to-the-starter-front", F_HOME, "nearestFree(bedNow().front.col, bedNow().front.row,", "nearestFree(bedOf(STARTER.bed as Placement).front.col, bedOf(STARTER.bed as Placement).front.row,", BED_MOVED, T_LAYOUT),
+    mut("bed-lying-on-the-starter-bed", F_HOME, "({ x: bedNow().left + BED_WIDTH / 2 - size / 2, y: bedNow().y + 16 - size });", "({ x: bedOf(STARTER.bed as Placement).left + BED_WIDTH / 2 - size / 2, y: bedOf(STARTER.bed as Placement).y + 16 - size });", BED_MOVED, T_LAYOUT),
+    mut("floor-not-remade-for-a-new-layout", F_HOME, "  LAYOUT = layout;\n  FLOOR = floorOf(layout);", "  LAYOUT = layout;", FLOOR_MOVED, T_LAYOUT),
+    mut("layout-not-put-back-after-a-trial", F_HOME, "    return fn();\n  } finally {\n    useLayout(before);\n  }", "    return fn();\n  } finally {\n  }", FLOOR_TRIAL, T_LAYOUT),
+    mut("layout-not-put-back-after-a-throw", F_HOME, "  try {\n    return fn();\n  } finally {\n    useLayout(before);\n  }", "  const result = fn();\n  useLayout(before);\n  return result;", FLOOR_TRIAL, T_LAYOUT),
+    mut("reseat-in-the-one-line-room", F_IDLE, 'if (view.world !== "home") return;\n  view.path = [];\n  view.toBed = false;', 'view.path = [];\n  view.toBed = false;', RESEAT_BETWEEN, T_IDLE),
+    mut("reseat-keeps-the-path", F_IDLE, "  view.path = [];\n  view.toBed = false;\n  const at = anchorPos(view.pose", "  view.toBed = false;\n  const at = anchorPos(view.pose", RESEAT_CALLOFF, T_IDLE),
+    mut("reseat-keeps-toBed", F_IDLE, "  view.path = [];\n  view.toBed = false;\n  const at = anchorPos(view.pose", "  view.path = [];\n  const at = anchorPos(view.pose", RESEAT_BED, T_IDLE),
+    mut("reseat-sleeper-not-moved-to-the-bed", F_IDLE, 'view.pose === "sleep" ? bedFront(view.size) : anchorOf(view.x, view.y, view.size)', "anchorOf(view.x, view.y, view.size)", RESEAT_SLEEPER, T_IDLE),
+    mut("reseat-sleeper-always-to-the-bed", F_IDLE, 'view.pose === "sleep" ? bedFront(view.size) : anchorOf(view.x, view.y, view.size)', "bedFront(view.size)", RESEAT_COVERED, T_IDLE),
+    mut("reseat-meal-goes-on", F_IDLE, 'if (view.pose === "walk" || view.pose === "eat") setPose(view, "idle", 1);\n}', 'if (view.pose === "walk") setPose(view, "idle", 1);\n}', RESEAT_CALLOFF, T_IDLE),
+    mut("reseat-walk-goes-on", F_IDLE, 'if (view.pose === "walk" || view.pose === "eat") setPose(view, "idle", 1);\n}', 'if (view.pose === "eat") setPose(view, "idle", 1);\n}', RESEAT_CALLOFF, T_IDLE),
+    mut("reseat-stays-where-it-was", F_IDLE, "  view.x = at.x;\n  view.y = at.y;\n  if (view.pose === \"walk\" ||", "  if (view.pose === \"walk\" ||", RESEAT_COVERED, T_IDLE),
+    mut("reseat-stops-without-a-pause", F_IDLE, 'if (view.pose === "walk" || view.pose === "eat") setPose(view, "idle", 1);\n}', 'if (view.pose === "walk" || view.pose === "eat") setPose(view, "idle");\n}', RESEAT_CALLOFF, T_IDLE),
+    mut("save-keeps-a-bad-home", F_STATE, "  const home = coerceHome(value.home);\n  if (home) value.home = home;\n  else delete value.home;", "  const home = value.home;\n  if (home) value.home = home;\n  else delete value.home;", SAVE_DROP, T_SAVE),
+    mut("save-drops-a-good-home", F_STATE, "  if (home) value.home = home;\n  else delete value.home;", "  delete value.home;", SAVE_KEEP, T_SAVE),
+    mut("save-adds-an-empty-home", F_STATE, "  if (home) value.home = home;\n  else delete value.home;", "  value.home = home ?? { pieces: {} };", SAVE_KEEP, T_SAVE),
+    mut("untouched-ignores-the-home", F_SYNC, "    save.home === undefined &&\n", "", UNTOUCHED, T_SYNC),
     mut("meal-keeps-the-walk", F_IDLE, "  view.y = at.y;\n  view.path = [];\n  const { tile, own } = foodTile", "  view.y = at.y;\n  const { tile, own } = foodTile", MEAL_WALK, T_IDLE),
 ]
 
@@ -442,7 +559,16 @@ def do_run():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--list", action="store_true", help="check the occurrences and print the mutants; run no tests")
+    ap.add_argument("--only", help="run only these mutants (comma separated ids), after the same baseline; the summary counts only them (an unknown or empty id stops the run, exit 2)")
     args = ap.parse_args()
+    if args.only is not None:
+        ids = [i.strip() for i in args.only.split(",")]
+        known = {m["id"] for m in MUTANTS}
+        bad = [i for i in ids if i not in known]  # (an empty id is never known)
+        if bad:
+            print("unknown or empty mutant id: %s" % bad)
+            return 2
+        MUTANTS[:] = [m for m in MUTANTS if m["id"] in ids]
     if args.list:
         return do_list()
     return do_run()

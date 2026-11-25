@@ -19,7 +19,9 @@
 //   - the adult (Gravelhorn) is 48 pixels and stands on tiles (15,5)-(16,5)... its box is x 360 to 408, y 96 to 144, so the camera opens on x 384 and the box's middle is
 //     24 game pixels below the picture's middle; a kid (Pebblin, 24 pixels) stands at x 360 to 384, y 120 to 144; the egg (16 pixels) at x 124 to 140, y 128 to 144;
 //   - a pet is 2 happiness (tuning.affection.pet), the first at 450 ms and one every 800 ms after; a tickle (third quick tap) 3; an egg tap shaves 0.5 minutes.
-// Time is frozen (Playwright's fake clock): a check moves it with runFor(), so a hold is as long as the check says. Saves come from gen-saves (saves/<scenario>-<mode>.json).
+// Date.now is fixed at T (Playwright's setFixedTime), but the page's timers and frames are NOT paused: they run in real time between a check's steps, and runFor() jumps them
+// forward on top of that (a creature asleep for 12 real seconds has walked to its bed with no runFor at all). So a check that needs the picture at two times reads both from ONE
+// page; a second page of the same save keeps running while the first is read. Saves come from gen-saves (saves/<scenario>-<mode>.json).
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
@@ -51,6 +53,7 @@ const CHECK_MODES = {
   "home-find": ["adult", "kid"],
   "home-pet": ["adult", "kid"],
   "home-asleep": ["adult"],
+  "home-layout": ["adult", "kid"],
   "home-keys": ["adult", "kid"],
   "home-mouse": ["adult"],
 };
@@ -63,10 +66,11 @@ const CHECK_SIZES = {
   "home-find": PHONES,
   "home-pet": PHONES,
   "home-asleep": [[360, 640, 2]],
+  "home-layout": PHONES,
   "home-keys": DESKTOPS,
   "home-mouse": DESKTOPS,
 };
-const TOUCH_CHECKS = new Set(["home-open", "home-pan", "home-pinch", "home-find", "home-pet", "home-asleep"]);
+const TOUCH_CHECKS = new Set(["home-open", "home-pan", "home-pinch", "home-find", "home-pet", "home-asleep", "home-layout"]);
 
 // ---------- small helpers ----------
 
@@ -102,6 +106,13 @@ const SAVE_OF = {
   },
   asleep: (mode) => {
     const save = load("adult-home", mode);
+    save.creature.sleep = "night";
+    return save;
+  },
+  moved: (mode) => load("adult-home-moved", mode), // the sofa at column 15 and the rug at column 11 (saves.home), see gen-saves.ts
+  bedMoved: (mode) => load("adult-home-bedmoved", mode), // the bed at column 17, row 1, in the living room
+  bedMovedAsleep: (mode) => {
+    const save = load("adult-home-bedmoved", mode);
     save.creature.sleep = "night";
     return save;
   },
@@ -742,6 +753,88 @@ const checks = {
     const moved = regionMismatch(wallA, await start.evaluate(bandPixels, wallBand(g)), 96 * g.z, g.vp);
     if (moved < 0.2) throw new Error(`the wall right of the bed looks the same a key press away (${Math.round(moved * 1000) / 10} % differs), so the comparison cannot tell`);
     return "a sleeping creature leaves the living room (the words say so at 3 s), is in the bedroom by 12 s and, at 52 s, lies in the bed (the picture over the bed differs from the empty bed, in front of it is the same); Find appears while it is out of the picture and brings the bed end into view";
+  },
+
+  "home-layout": async (open, env) => {
+    // The layout in the save (docs/home-plan.md section 12): the home is drawn, and walked, from `save.home`. Two saved games (gen-saves.ts) move pieces of the starter home:
+    // the sofa two tiles right (columns 13 to 16 become 15 to 18) and the rug two tiles left (13 to 16 become 11 to 14), and the bed from the bedroom to the living room
+    // (columns 17 to 19, rows 1 and 2). The starter game is the control for every probe: a probe that reads the same colour in both would prove nothing.
+    // The points are worked out by hand from src/art/room.ts (a tile is 24 pixels): the sofa's seat is the rectangle x + 8 to x + w - 8, y + 26 to y + 44 of a sofa at (x, y), colour
+    // 6a8ae0; the rug's inner rectangle, colour c85a7c, starts 3 pixels inside it; the bed's pillow, white, is at x + 2 to x + 12, y + 6 to y + 12 of the bed's picture, whose left
+    // edge is 8 pixels right of its column and whose y is 23 below its row; the wood floor is d9a066 with c78d52 lines. A sleeping creature darkens everything, so the colours are
+    // read on awake saves, and the lying creature is found by comparing two sleeping pictures (as home-asleep does).
+    const SEAT_OLD = [340, 59]; // the starter sofa (13, 1): x 312 to 408, seat 320 to 400, y 50 to 68; the moved sofa starts at 360
+    const SEAT_NEW = [430, 59]; // the moved sofa (15, 1): x 360 to 456, seat 368 to 448
+    const RUG_OLD = [372, 156]; // the starter rug (13, 4): x 312 to 408, y 96 to 168; the adult stands on its upper rows, so a point below its feet
+    const RUG_NEW = [300, 132]; // the moved rug (11, 4): x 264 to 360, y 96 to 168 (inside the picture at every window: the camera's left edge is world 277 at 360 wide, ratio 2)
+    const PILLOW_NEW = [422, 56]; // the bed at (17, 1): left 416, y 47: the pillow x 418 to 428, y 53 to 59
+    const PILLOW_OLD = [38, 56]; // the bed at (1, 1): left 32, y 47: the pillow x 34 to 44
+    const OPEN_CAMERA = 384; // the camera opens on the adult's middle (home-open's note)
+    const SEAT = 0x6a8ae0;
+    const RUG = 0xc85a7c;
+    const WHITE = 0xffffff;
+    const WOOD = [0xd9a066, 0xc78d52];
+    const hex = (v) => v.toString(16).padStart(6, "0");
+    // (the game rounds the offset first, Math.round(vp / 2 - camera x zoom), and draws the world on whole device pixels from there, so the middle of a game pixel is whole + floor(zoom / 2))
+    const dev = (g, camera, [wx, wy]) => [Math.round(g.vp / 2 - camera * g.z) + wx * g.z + Math.floor(g.z / 2), g.top + wy * g.z + Math.floor(g.z / 2)];
+    const probe = async (page, g, camera, world, want, what) => {
+      const [x, y] = dev(g, camera, world);
+      const got = await page.evaluate(pixelAt, [x, y]);
+      const ok = Array.isArray(want) ? want.includes(got) : got === want;
+      if (!ok) throw new Error(`${what}: world (${world}) at device (${x}, ${y}) is ${hex(got)}, expected ${Array.isArray(want) ? want.map(hex).join(" or ") : hex(want)}`);
+    };
+    const toBedroomEnd = async (page) => {
+      await page.locator("canvas.room").focus();
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press("ArrowLeft");
+        await frame(page, 40);
+      }
+    };
+    const WORDS = "Gravelhorn is doing fine. In the living room.";
+
+    // The starter home (the control), then the same points with the sofa and the rug moved.
+    const { page: plain } = await open(SAVE_OF.awake(env.mode));
+    const g = await geometry(env, plain);
+    await probe(plain, g, OPEN_CAMERA, SEAT_OLD, SEAT, "the starter sofa's seat");
+    await probe(plain, g, OPEN_CAMERA, SEAT_NEW, WOOD, "the starter home where the moved sofa will be");
+    await probe(plain, g, OPEN_CAMERA, RUG_OLD, RUG, "the starter rug");
+    await probe(plain, g, OPEN_CAMERA, RUG_NEW, WOOD, "the starter home where the moved rug will be");
+    await probe(plain, g, OPEN_CAMERA, PILLOW_NEW, WOOD, "the starter home where the moved bed will be");
+    await toBedroomEnd(plain);
+    await probe(plain, g, g.vp / (2 * g.z), PILLOW_OLD, WHITE, "the starter bed's pillow");
+
+    const { page: moved } = await open(SAVE_OF.moved(env.mode));
+    expectEq((await moved.evaluate(canvasBox)).label, WORDS, "the moved home's words");
+    await probe(moved, g, OPEN_CAMERA, SEAT_OLD, WOOD, "the moved home where the sofa was");
+    await probe(moved, g, OPEN_CAMERA, SEAT_NEW, SEAT, "the moved sofa's seat");
+    await probe(moved, g, OPEN_CAMERA, RUG_OLD, WOOD, "the moved home where the rug was");
+    await probe(moved, g, OPEN_CAMERA, RUG_NEW, RUG, "the moved rug");
+    expectEq(await moved.locator("button.find").count(), 0, "Find buttons when the moved home opens (the camera is on the creature)");
+
+    // The bed: in the living room, and gone from the bedroom.
+    const { page: bed } = await open(SAVE_OF.bedMoved(env.mode));
+    await probe(bed, g, OPEN_CAMERA, PILLOW_NEW, WHITE, "the moved bed's pillow");
+    await toBedroomEnd(bed);
+    await probe(bed, g, g.vp / (2 * g.z), PILLOW_OLD, WOOD, "the bedroom where the bed was");
+
+    // A sleeping creature walks to the bed where it is now (20 pixels a second: about 6 s from tile (15, 5) to the tile in front of the bed, (18, 3)) and lies down in it. It never
+    // leaves the picture, so there is no Find button. It lies over the bed (x 420 to 468, y 15 to 63, as a creature of 48 lies on a bed whose left edge is 416) and does not
+    // stand in front of it (x 432 to 480, y 72 to 96): the picture 20 s on against the same page's first picture (the camera is the same: nothing touches it).
+    const { page: sleeper } = await open(SAVE_OF.bedMovedAsleep(env.mode), { still: false });
+    const rows = (p, y0, y1) => p.evaluate(bandPixels, [g.top + y0 * g.z, g.top + y1 * g.z]);
+    const overStart = await rows(sleeper, 15, 63); // (the start: the creature has had a moment, a few pixels of its walk, and is nowhere near the bed or the tile in front of it)
+    const frontStart = await rows(sleeper, 72, 96);
+    expectEq((await sleeper.evaluate(canvasBox)).label, "Gravelhorn is asleep. In the living room.", "words at the start");
+    await sleeper.clock.runFor(20000);
+    await sleeper.waitForTimeout(100);
+    expectEq((await sleeper.evaluate(canvasBox)).label, "Gravelhorn is asleep. In the living room.", "words after 20 s");
+    expectEq(await sleeper.locator("button.find").count(), 0, "Find buttons after 20 s (the bed is in the picture)");
+    const cols = (x0, x1) => [dev(g, OPEN_CAMERA, [x0, 0])[0], dev(g, OPEN_CAMERA, [x1, 0])[0]];
+    const over = regionMismatch(overStart, await rows(sleeper, 15, 63), ...cols(420, 468));
+    if (over < 0.05) throw new Error(`over the moved bed the picture is the same with the creature asleep for 20 s as at its first frame (${Math.round(over * 1000) / 10} % differs): it is not lying there`);
+    const before = regionMismatch(frontStart, await rows(sleeper, 72, 96), ...cols(432, 480));
+    if (before !== 0) throw new Error(`in front of the moved bed the picture differs from the first frame (${Math.round(before * 1000) / 10} %): the creature is standing there`);
+    return "the sofa, the rug and the bed are drawn where the save puts them and not where the starter home has them (each probe reads the other game's colour: sofa seat 6a8ae0, rug c85a7c, pillow ffffff, against wood floor); a sleeper walks to the bed in the living room, lies over it and not in front of it, and Find is not shown at the open or after 20 s (it never leaves the picture: the words say the living room)";
   },
 
   "home-keys": async (open, env) => {
