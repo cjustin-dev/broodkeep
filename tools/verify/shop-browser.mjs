@@ -694,7 +694,7 @@ const checks = {
     await pick(page, "Knit Cap");
     const knit = mustBe(await previewCount(page, KNIT), "the preview with the Knit Cap chosen");
     expectEq(await page.locator(".shop-preview").getAttribute("aria-label"), "Your creature wearing Knit Cap", "the picture's label");
-    // The room behind the creature is the living room: its wall stripe (#e4d3f0) at the preview's point (4, 10), where the kitchen's wall is [207, 197, 174].
+    // The room behind the creature is the living room: its wall stripe (#e4d3f0) at the preview's point (4, 10), where the kitchen's picture is [207, 197, 174] (a floor tile line).
     expectEq(await page.evaluate(pixelOf, [".shop-preview", 4, 10]), [228, 211, 240], "the living room's wall in a hat's preview");
     expectEq(trimAll(await page.locator(".shop-hint").allTextContents()), ["Tap an item to see it in the room."], "the hint under a hat's preview");
     await pick(page, "Stone Crown");
@@ -734,6 +734,10 @@ const checks = {
     const inField = mustBe(await roomCount(field.page, KNIT), "the field picture with the Knit Cap on");
     const dead = await open("hat-dead");
     mustBe(await roomCount(dead.page, KNIT), "a dead creature's picture", true);
+    // A dead creature is tinted grey all over (scene.ts: 75% of #8a8a8a), so a cap drawn on it would read 0.25 x its colour + 0.75 x 138, not its plain colour: that is what is counted.
+    expectEq(await dead.page.locator("canvas.room").getAttribute("aria-label"), "Gravelhorn has passed away.", "the dead creature's picture, so the count below is of it");
+    const DEAD_KNIT = KNIT.map((v) => Math.round(v * 0.25 + 138 * 0.75));
+    mustBe((await dead.page.evaluate(firstRowOfColour, ["canvas.room", DEAD_KNIT, 2])).n, `a dead creature's picture, the cap's colour tinted grey (${DEAD_KNIT})`, true);
     return `the Knit Cap shows in the home (${home} pixels), the habitat (${habitat}), a creature at work in the habitat (${atWork}) and the field picture (${inField}), tinted green on a sick creature (${tinted.n} pixels), and not on a dead creature or in the arena`;
   },
 
@@ -775,7 +779,7 @@ const checks = {
     const { page } = await open("hat-worn");
     const n = mustBe(await roomCount(page, KNIT), "the Kid Mode room with a worn hat");
     expectEq(await page.getByRole("button", { name: /shop/i }).count(), 0, "buttons with Shop in their name in Kid Mode");
-    return `a hat bought in Adult Mode still shows in Kid Mode (${n} pixels) and Kid Mode still has no Shop`;
+    return `a hat worn in Adult Mode (the saved game has it on) still shows in Kid Mode (${n} pixels) and Kid Mode still has no Shop`;
   },
 
   "fit-scroll": async (open) => {

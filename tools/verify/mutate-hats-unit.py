@@ -4,7 +4,7 @@
 # in the catalogue (data/shop.ts), wearing, buying and undoing one (game/shop.ts useHat, buy, undoBuy) and what a saved hat may be (game/state.ts). The drawing in the scene, the
 # habitat and the shop preview, and the screen's buttons, are the UI runner's (mutate-shop-ui.py: the checks hat-wear, hat-preview, hat-places, hat-bed).
 #
-# It works on a COPY of the repo (hats-unit-copy/), never on the real tree. Each mutant is one exact text replace whose `old` must occur exactly once in its file. Only the two test
+# It works on a COPY of the repo (hats-unit-copy/), never on the real tree. Each mutant is one exact text replace whose `old` must occur exactly once in its file. Only the three test
 # files run per mutant (tests/hats, tests/shop and tests/requests): a mutant counts only when ITS named test fails, so the rest of the suite cannot change the verdict. A mutant is CAUGHT only when
 # the test named in `expect` (a substring of its full name, in `expect_file`) fails.
 #

@@ -229,10 +229,13 @@ describe("the hats' art (edge 9)", () => {
 describe("the blanket (edge 22)", () => {
   // The scene fits the blanket to the HATLESS lying picture (scene.ts: drawBlanket(ctx, faceSprite(form, kind, frame), ...)). This pins why: a hat can move the blanket's box,
   // so a blanket fitted to the hatted picture would sit two rows higher on a Scorchlet in a Knit Cap. The wiring itself is checked in a browser (shop-browser, "hat-bed").
-  it("a hat moves blanketBox for some lying pictures (a Scorchlet's top is 26 plain, 24 in a Knit Cap)", () => {
+  it("a hat moves blanketBox for some lying pictures (a Scorchlet's top is 26 plain, 24 in a Knit Cap, in both lying pictures)", () => {
     const scorchlet = forms.scorchlet!;
     expect(blanketBox(faceSprite(scorchlet, "lie0", 0))).toEqual({ left: -1, right: 44, top: 26, bottom: 35 });
     expect(blanketBox(faceSprite(scorchlet, "lie0", 0, "hat-knit"))).toEqual({ left: -1, right: 44, top: 24, bottom: 35 });
+    // The sleeper alternates the two lying pictures (a breath every 1.4 s), and the hat moves the box in both.
+    expect(blanketBox(faceSprite(scorchlet, "lie1", 0))).toEqual({ left: -1, right: 44, top: 26, bottom: 35 });
+    expect(blanketBox(faceSprite(scorchlet, "lie1", 0, "hat-knit"))).toEqual({ left: -1, right: 44, top: 24, bottom: 35 });
   });
 });
 
