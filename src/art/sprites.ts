@@ -66,7 +66,10 @@ export type IconName =
   | "swords"
   | "sword"
   | "shield"
-  | "spark";
+  | "spark"
+  | "decorate"
+  | "bin"
+  | "done";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -428,6 +431,39 @@ export const icons: Record<IconName, Sprite> = {
     "KYYOOOYK",
     ".KYYYYK.",
     "..KKKK..",
+  ]),
+  // A blue sofa with brown arms and legs (Decorate mode).
+  decorate: icon([
+    "..NNNN..",
+    ".NBBBBN.",
+    ".NBBBBN.",
+    "NNBBBBNN",
+    "NBBBBBBN",
+    "NBBBBBBN",
+    "NNNNNNNN",
+    ".N....N.",
+  ]),
+  // A grey bin with a lid (put the piece away).
+  bin: icon([
+    "..KKKK..",
+    "SSSSSSSS",
+    ".SSSSSS.",
+    ".SKSKSS.",
+    ".SKSKSS.",
+    ".SKSKSS.",
+    ".SKSKSS.",
+    "..SSSS..",
+  ]),
+  // A green tick (Done).
+  done: icon([
+    "........",
+    ".......G",
+    "......GG",
+    "G....GG.",
+    "GG..GG..",
+    ".GGGG...",
+    "..GG....",
+    "........",
   ]),
   lock: icon([
     "..KKKK..",

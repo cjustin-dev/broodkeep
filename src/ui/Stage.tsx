@@ -3,17 +3,22 @@
 //   tap the creature   -> it startles (3 quick taps = tickle)
 //   hold the creature  -> petting
 //   drag               -> moves the camera over the home (docs/home-plan.md section 3.2); two fingers pinch it bigger or smaller
+// While Decorate mode is on (docs/home-plan.md section 12) the creature is not touched at all: a finger on a piece of furniture carries it on the tile grid (a tap selects it),
+// a finger anywhere else pans, and a tap there lets go of the selection. The arrow keys move the selected piece; Escape lets go of it.
 // The habitat, the arena and a field keep the old 128 x 128 picture (no camera); the home is 768 x 192 and the camera shows a square part of it.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { drawArena } from "../art/arena";
 import { clampCamera, clampZoom, defaultZoom, frameOn, inView, panBy, snapZoom, stepCamera, toGame, zoomAbout } from "../art/camera";
 import type { Box, Camera, Point } from "../art/camera";
 import { HOME, layoutInForce, roomOf, useLayout } from "../art/home";
+import { drop, follow, lift, tileOf } from "../art/homeEdit";
+import type { Lift } from "../art/homeEdit";
 import { layoutOf } from "../art/homeLayout";
 import { addHeart, addSparkles, reseat, triggerPose, updateView } from "../art/idle";
 import { ROOM } from "../art/layout";
 import { stepMoment } from "../art/moment";
 import { drawHabitat } from "../art/habitat";
+import { drawOutline, drawPiece, lookOf } from "../art/room";
 import { drawScene, moodOf, sizeOf } from "../art/scene";
 import { spotsOf } from "../art/spots";
 import type { World } from "../art/spots";
@@ -24,6 +29,7 @@ import type { IconName } from "../art/sprites";
 import { fields } from "../data/fields";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
+import { PIECE_NAMES, TILE } from "../data/home";
 import { tapEgg, touch } from "../game/actions";
 import { isAdultMode } from "../game/hud";
 import type { CallKind, Save } from "../game/state";
@@ -39,6 +45,10 @@ const callWords: Record<CallKind, string> = {
 
 // A sentence for screen readers, since the picture itself has no text.
 function describe(save: Save, game: Game): string {
+  if (game.decor && game.view.world === "home") {
+    const piece = game.selectedPiece;
+    return `Decorating the home. ${piece ? `The ${PIECE_NAMES[piece].toLowerCase()} is selected. The arrow keys move it.` : "Nothing is selected."}`;
+  }
   if (save.phase === "egg") return "An egg. Tap it to help it hatch.";
   if (!save.creature) return "";
   const name = getForm(save.creature.formId).name;
@@ -75,6 +85,18 @@ function worldOf(game: Game): World {
 // The icon on the Find button: the creature's call when it has one, otherwise a smile.
 const findIcons: Record<CallKind, IconName> = { hungry: "hunger", sad: "cloud", dirty: "poop", sick: "sick", sleepy: "zzz" };
 
+// The picture, for the tray to hand the keyboard back to after a piece is put out.
+export const focusPicture = (): void => document.querySelector<HTMLElement>("canvas.room")?.focus();
+
+const ARROWS: Record<string, { col: number; row: number }> = {
+  ArrowLeft: { col: -1, row: 0 },
+  ArrowRight: { col: 1, row: 0 },
+  ArrowUp: { col: 0, row: -1 },
+  ArrowDown: { col: 0, row: 1 },
+};
+const VALID_COLOR = "#ffffff";
+const INVALID_COLOR = "#e0455b";
+
 const MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const GLIDE_SECONDS = 0.35;
 const PET_PAD_CSS = 14; // how far past the creature's picture a touch still counts, in CSS pixels (the zoom does not change it)
@@ -98,10 +120,13 @@ export function Stage({ game }: { game: Game }) {
   const glide = useRef<{ from: Camera; to: Camera; t: number } | null>(null);
   const framed = useRef(false); // a hatch or evolve scene was running on the last frame
   const tracker = useRef(new GestureTracker());
+  const lifting = useRef<{ id: number; held: Lift } | null>(null); // Decorate mode: the piece a finger is carrying (view state: the layout changes only when it is put down)
   const [find, setFindState] = useState<IconName | null>(null); // the Find button: shown (with this icon) while the creature is not fully in view
   const [inHome, setInHomeState] = useState(false);
   const findNow = useRef<IconName | null>(null); // (what the draw loop last put in the two states above, so it only sets them when they change)
   const inHomeNow = useRef(false);
+  const [scene, setSceneState] = useState(false); // a hatch or evolve scene is playing (no Decorate button then)
+  const sceneNow = useRef(false);
   const [, setRoomState] = useState<string | null>(null); // which room the creature is in: kept only so the words for a screen reader are made again when it walks into another
   const roomNow = useRef<string | null>(null);
   const setFind = (v: IconName | null): void => {
@@ -161,6 +186,9 @@ export function Stage({ game }: { game: Game }) {
         reseat(game.view);
       }
       stepMoment(game.view, game.save, dt);
+      if (game.decor && (world !== "home" || game.view.moment !== null)) game.endDecor(); // (a field, the habitat, the arena or a scene is not the home's picture)
+      if (!game.decor) lifting.current = null;
+      else endHold(); // (a pet hold begun before Decorate mode started ends with it)
       updateView(game.view, dt, moodOf(game.save), Math.random, sizeOf(game.save), world);
       ctx.imageSmoothingEnabled = false;
       if (world === "home") drawHome(ctx, canvas, dt);
@@ -172,6 +200,10 @@ export function Stage({ game }: { game: Game }) {
           const arena = game.arena;
           drawArena(ctx, game.save, game.now(), game.view.clock, arena ? { battle: arena.battle, play: arena.play, t: game.arenaTime() } : null);
         } else drawScene(ctx, game.save, game.view, game.now());
+      }
+      if ((game.view.moment !== null) !== sceneNow.current) {
+        sceneNow.current = game.view.moment !== null;
+        setSceneState(sceneNow.current);
       }
       if ((world === "home") !== inHomeNow.current) {
         setInHome(world === "home");
@@ -209,7 +241,17 @@ export function Stage({ game }: { game: Game }) {
       c.fillStyle = "#120c20"; // (what shows where the home is smaller than the picture)
       c.fillRect(0, 0, vp.w, vp.h);
       c.setTransform(cam.zoom, 0, 0, cam.zoom, Math.round(vp.w / 2 - cam.x * cam.zoom), Math.round(vp.h / 2 - cam.y * cam.zoom));
-      drawScene(c, game.save, game.view, game.now());
+      const layout = layoutOf(game.save.home);
+      const carried = lifting.current?.held ?? null;
+      drawScene(c, game.save, game.view, game.now(), carried ? { ...layout, [carried.kind]: null } : undefined); // (a carried piece is left out here and drawn on top below)
+      if (game.decor) {
+        game.viewMiddle = { col: cam.x / TILE, row: cam.y / TILE };
+        const selected = game.selectedPiece;
+        if (carried) {
+          drawPiece(c, lookOf(game.save), carried.kind, carried.at);
+          drawOutline(c, carried.kind, carried.at, carried.valid ? VALID_COLOR : INVALID_COLOR);
+        } else if (selected && layout[selected]) drawOutline(c, selected, layout[selected], VALID_COLOR);
+      }
       const wanted: IconName | null = inView(cam, boxOf(targetBox()), vp) ? null : game.save.creature?.call && !game.save.creature.job ? findIcons[game.save.creature.call] : "happiness";
       if (wanted !== findNow.current) setFind(wanted);
     };
@@ -308,13 +350,35 @@ export function Stage({ game }: { game: Game }) {
     }
   };
 
+  // The home's tile under a finger.
+  const tileUnder = (e: PointerEvent): { col: number; row: number } | null => {
+    const cam = camera.current;
+    return cam ? tileOf(toGame(cam, viewport(), place(e).device)) : null;
+  };
+
+  // Decorate mode: a finger that lands on a piece takes it, and selects it.
+  const grab = (e: PointerEvent): void => {
+    const tile = tileUnder(e);
+    const held = tile ? lift(layoutOf(game.save.home), game.save.owned.includes("feeding-mat"), tile.col, tile.row) : null;
+    if (!held) return;
+    lifting.current = { id: e.pointerId, held };
+    game.select(held.kind);
+  };
+
   const onPointerDown = (e: PointerEvent): void => {
     if (e.pointerType === "mouse" && e.button !== 0) return; // only the main mouse button
     if (game.view.world === "home") {
       // The home takes every finger that lands on the picture: a gesture is made of those fingers only (a finger on a button or the HUD never reaches here).
       canvasRef.current?.setPointerCapture(e.pointerId);
       const { css } = place(e);
-      if (tracker.current.down(e.pointerId, css)) endHold(); // a second finger ends the first one's hold at once
+      if (tracker.current.down(e.pointerId, css)) {
+        endHold(); // a second finger ends the first one's hold at once
+        lifting.current = null; // ...and puts back the piece the first was carrying: the two fingers pinch
+      }
+      if (game.decor) {
+        if (tracker.current.pointers === 1) grab(e); // (a third finger changes nothing)
+        return; // the creature is not touched while decorating
+      }
       if (tracker.current.pointers > 1 || game.save.creature?.job || !isOnTarget(e)) return;
       endHold();
       const h: Hold = { id: e.pointerId, petted: false };
@@ -345,7 +409,15 @@ export function Stage({ game }: { game: Game }) {
   const onPointerMove = (e: PointerEvent): void => {
     if (game.view.world !== "home") return;
     const { css, scale } = place(e);
-    act(tracker.current.move(e.pointerId, css), scale);
+    const actions = tracker.current.move(e.pointerId, css);
+    const carrying = lifting.current;
+    if (carrying?.id === e.pointerId) {
+      // The piece follows only once the finger has left the slop: a finger that stays within it is a tap, which selects the piece and moves nothing.
+      const tile = tracker.current.mode === "tap" ? null : tileUnder(e);
+      if (tile) carrying.held = follow(layoutOf(game.save.home), carrying.held, tile.col, tile.row);
+      return; // (the finger carries a piece: the home does not pan under it)
+    }
+    act(actions, scale);
   };
 
   // Only the finger that started the hold can end it. Other fingers are ignored.
@@ -353,7 +425,23 @@ export function Stage({ game }: { game: Game }) {
     if (game.view.world === "home") {
       const { css, scale } = place(e);
       const result = tracker.current.up(e.pointerId, css);
+      const carrying = lifting.current;
+      if (carrying?.id === e.pointerId) {
+        // The piece is put down where the finger lifted, if the rules allow it there; otherwise (or on the tile it came from, or when the finger never left the slop) nothing
+        // changes and it is back where it was.
+        lifting.current = null;
+        if (result.tap) return;
+        const layout = layoutOf(game.save.home);
+        const tile = tileUnder(e);
+        const next = drop(layout, tile ? follow(layout, carrying.held, tile.col, tile.row) : carrying.held);
+        if (next) game.setLayout(next);
+        return;
+      }
       act(result.actions, scale);
+      if (game.decor) {
+        if (result.tap) game.select(null); // a tap on bare floor lets go of the piece
+        return;
+      }
       if (hold.current?.id !== e.pointerId) return;
       const h = endHold();
       if (h && !h.petted && result.tap) tap();
@@ -365,6 +453,7 @@ export function Stage({ game }: { game: Game }) {
   };
 
   const onPointerCancel = (e: PointerEvent): void => {
+    if (lifting.current?.id === e.pointerId) lifting.current = null; // the piece goes back
     if (game.view.world === "home") act(tracker.current.cancel(e.pointerId), 1);
     if (hold.current?.id === e.pointerId) endHold();
   };
@@ -372,6 +461,19 @@ export function Stage({ game }: { game: Game }) {
   const onKeyDown = (e: KeyboardEvent): void => {
     const cam = camera.current;
     if (game.view.world !== "home" || !cam || e.ctrlKey || e.metaKey || e.altKey) return; // (Ctrl and + is the browser's own zoom)
+    if (game.decor) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        game.select(null);
+        return;
+      }
+      const step = ARROWS[e.key];
+      if (step && game.selectedPiece) {
+        e.preventDefault(); // (with a piece selected the arrows move it; with none they move the camera)
+        game.nudge(step.col, step.row);
+        return;
+      }
+    }
     const next = stepCamera(cam, e.key, viewport(), HOME, dpr());
     if (!next) return;
     e.preventDefault();
@@ -411,6 +513,11 @@ export function Stage({ game }: { game: Game }) {
         onKeyDown={onKeyDown}
         onContextMenu={(e) => e.preventDefault()}
       />
+      {inHome && !scene && !game.decor && (
+        <button class="btn decorate-btn" aria-label="Decorate the home" onClick={() => game.startDecor()}>
+          <Icon name="decorate" px={28} />
+        </button>
+      )}
       {inHome && find !== null && (
         <button class="btn find" aria-label={`Find ${label}`} onClick={onFind}>
           <Icon name={find} px={28} />

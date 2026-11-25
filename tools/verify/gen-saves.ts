@@ -106,6 +106,24 @@ const scenarios: Record<string, (mode: Mode) => Save> = {
   "adult-home-moved": (mode) => withHome(mode, { sofa: { col: 15, row: 1 }, rug: { col: 11, row: 4 } }, { sofa: { col: 15, row: 1 }, rug: { col: 11, row: 4 } }),
   // The bed moved out of the bedroom into the living room, next to the sofa (columns 17 to 19, rows 1 and 2): a sleeping creature walks there and lies down.
   "adult-home-bedmoved": (mode) => withHome(mode, { bed: { col: 17, row: 1 } }, { bed: { col: 17, row: 1 } }),
+  // Decorate mode (H2b, decorate-browser.mjs): the Feeding Mat owned, and put out as at the start (the mat is the one piece the tray and a touch only know once it is owned)...
+  "adult-home-mat": (mode) => {
+    const save = living(mode, ADULT);
+    save.owned = ["feeding-mat"];
+    return save;
+  },
+  // ...the dresser and the mat put away, so the tray has two pieces when Decorate mode opens...
+  "adult-home-trayed": (mode) => {
+    const save = withHome(mode, { dresser: null, mat: null }, {});
+    save.owned = ["feeding-mat"];
+    return save;
+  },
+  // ...and everything but the bed put away: eight pieces, two rows of the tray.
+  "adult-home-alltrayed": (mode) => {
+    const save = withHome(mode, { dresser: null, sofa: null, rug: null, table: null, counter: null, fridge: null, mat: null, bowl: null }, {});
+    save.owned = ["feeding-mat"];
+    return save;
+  },
   "adult-fight": (mode) => living(mode, ADULT), // the browser check starts the fight through the Arena screen
   egg: (mode) => base(mode), // a new game: phase egg, no creature
   "adult-home-lives": (mode) => {

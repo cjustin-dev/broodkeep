@@ -2,8 +2,8 @@
 // a bed, a food bowl and a rug. PLACEHOLDER ART made from simple rectangles.
 // Phase 4 replaces this with a room you can decorate.
 
-import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
-import type { Layout, Piece, Placement, RoomId } from "../data/home";
+import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, SHAPES, STARTER, TILE, WALL_ROWS, bedOf, piecesOf } from "../data/home";
+import type { Layout, Piece, PieceKind, Placement, RoomId } from "../data/home";
 import { plainWall, walls } from "../data/shop";
 import type { Save } from "../game/state";
 import { layoutOf } from "./homeLayout";
@@ -158,81 +158,107 @@ export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: 
     rect(ctx, "#6d4a2a", x + 2, DOOR_ROWS[0] * TILE - 3, TILE - 4, 3); // the lintel above the doorway
   }
   // The flat pieces: the rugs, and the Feeding Mat.
-  for (const p of piecesOf(look.layout)) {
-    if (p.solid) continue;
-    const x = p.col * TILE;
-    const y = p.row * TILE;
-    if (p.kind === "rug") {
-      rect(ctx, "#e58aa5", x, y, p.cols * TILE, p.rows * TILE);
-      rect(ctx, "#c85a7c", x + 3, y + 3, p.cols * TILE - 6, p.rows * TILE - 6);
-    } else if (p.kind === "mat" && look.mat) {
-      rect(ctx, "#b98a2c", x + 2, y + 12, p.cols * TILE - 4, 10);
-      rect(ctx, "#f2d27a", x + 3, y + 13, p.cols * TILE - 6, 8);
-    }
+  for (const p of piecesOf(look.layout)) if (!p.solid) drawFlat(ctx, look, p);
+}
+
+function drawFlat(ctx: CanvasRenderingContext2D, look: Look, p: Piece): void {
+  const x = p.col * TILE;
+  const y = p.row * TILE;
+  if (p.kind === "rug") {
+    rect(ctx, "#e58aa5", x, y, p.cols * TILE, p.rows * TILE);
+    rect(ctx, "#c85a7c", x + 3, y + 3, p.cols * TILE - 6, p.rows * TILE - 6);
+  } else if (p.kind === "mat" && look.mat) {
+    rect(ctx, "#b98a2c", x + 2, y + 12, p.cols * TILE - 4, 10);
+    rect(ctx, "#f2d27a", x + 3, y + 13, p.cols * TILE - 6, 8);
   }
 }
 
 // The solid pieces that `show` picks (the scene draws the ones behind a creature, then the creature, then the ones in front).
 export function drawHomePieces(ctx: CanvasRenderingContext2D, look: Look, show: (p: Piece) => boolean): void {
-  for (const p of piecesOf(look.layout)) {
-    if (!p.solid || !show(p)) continue;
-    const x = p.col * TILE;
-    const y = p.row * TILE;
-    const w = p.cols * TILE;
-    const h = p.rows * TILE;
-    switch (p.kind) {
-      case "bed":
-        drawBed(ctx, look);
-        break;
-      case "dresser":
-        rect(ctx, "#4a2f1c", x + 2, y + 4, w - 4, h - 6);
-        rect(ctx, "#8a5a3a", x + 3, y + 5, w - 6, h - 9);
-        rect(ctx, "#a8734a", x + 3, y + 5, w - 6, 4);
-        for (const dy of [14, 28]) {
-          rect(ctx, "#6d4326", x + 6, y + dy, w - 12, 1);
-          rect(ctx, "#f2d27a", x + w / 2 - 2, y + dy + 4, 4, 2);
-        }
-        break;
-      case "sofa":
-        rect(ctx, "#2f3f78", x + 2, y + 6, w - 4, h - 8);
-        rect(ctx, "#4a6ab0", x + 3, y + 7, w - 6, 18); // the back
-        rect(ctx, "#6a8ae0", x + 8, y + 26, w - 16, 18); // the seat
-        rect(ctx, "#4a6ab0", x + 3, y + 22, 8, 22); // the arms
-        rect(ctx, "#4a6ab0", x + w - 11, y + 22, 8, 22);
-        break;
-      case "table":
-        rect(ctx, "#4a2f1c", x + 3, y + 8, w - 6, 26);
-        rect(ctx, "#c4894f", x + 4, y + 9, w - 8, 18); // the top
-        rect(ctx, "#8a5a3a", x + 5, y + 34, 4, h - 34); // two legs
-        rect(ctx, "#8a5a3a", x + w - 9, y + 34, 4, h - 34);
-        break;
-      case "counter":
-        rect(ctx, "#4a4a5a", x + 1, y + 6, w - 2, h - 8);
-        rect(ctx, "#d8d8e0", x + 2, y + 7, w - 4, 8); // the worktop
-        rect(ctx, "#8a8a9a", x + 2, y + 16, w - 4, h - 19);
-        for (let dx = 24; dx < w - 4; dx += 24) rect(ctx, "#6a6a7a", x + dx, y + 18, 1, h - 22);
-        break;
-      case "fridge":
-        rect(ctx, "#5a5e70", x + 2, y + 2, w - 4, h - 3);
-        rect(ctx, "#c8ccd8", x + 3, y + 3, w - 6, h - 6);
-        rect(ctx, "#8a8ea0", x + 3, y + 18, w - 6, 1); // the door between the freezer and the fridge
-        rect(ctx, "#5a5e70", x + w - 9, y + 8, 2, 8);
-        rect(ctx, "#5a5e70", x + w - 9, y + 24, 2, 12);
-        break;
-      case "bowl":
-        rect(ctx, "#6a7fd1", x + 2, y + 8, 19, 8);
-        rect(ctx, "#8aa0f0", x + 4, y + 8, 15, 3);
-        rect(ctx, "#6a7fd1", x + 7, y + 16, 10, 2);
-        break;
-      default:
-        break;
-    }
+  for (const p of piecesOf(look.layout)) if (p.solid && show(p)) drawSolid(ctx, look, p);
+}
+
+// One piece on its own, wherever it is: Decorate mode draws the piece a finger is carrying over everything, and each button of the tray shows its piece (at (0, 0), on a
+// canvas of its own size).
+export function drawPiece(ctx: CanvasRenderingContext2D, look: Look, kind: PieceKind, at: Placement): void {
+  const { cols, rows, solid } = SHAPES[kind];
+  const p: Piece = { kind, col: at.col, row: at.row, cols, rows, solid };
+  if (solid) drawSolid(ctx, look, p);
+  else drawFlat(ctx, look, p);
+}
+
+// The outline round a piece's tiles: a dark edge and two pixels of `color` inside it.
+export function drawOutline(ctx: CanvasRenderingContext2D, kind: PieceKind, at: Placement, color: string): void {
+  const { cols, rows } = SHAPES[kind];
+  const x = at.col * TILE;
+  const y = at.row * TILE;
+  const w = cols * TILE;
+  const h = rows * TILE;
+  for (const [ring, inset] of [["#1a1020", 0], [color, 1], [color, 2]] as const) {
+    rect(ctx, ring, x + inset, y + inset, w - 2 * inset, 1);
+    rect(ctx, ring, x + inset, y + h - 1 - inset, w - 2 * inset, 1);
+    rect(ctx, ring, x + inset, y + inset + 1, 1, h - 2 * inset - 2);
+    rect(ctx, ring, x + w - 1 - inset, y + inset + 1, 1, h - 2 * inset - 2);
+  }
+}
+
+function drawSolid(ctx: CanvasRenderingContext2D, look: Look, p: Piece): void {
+  const x = p.col * TILE;
+  const y = p.row * TILE;
+  const w = p.cols * TILE;
+  const h = p.rows * TILE;
+  switch (p.kind) {
+    case "bed":
+      drawBed(ctx, look, p);
+      break;
+    case "dresser":
+      rect(ctx, "#4a2f1c", x + 2, y + 4, w - 4, h - 6);
+      rect(ctx, "#8a5a3a", x + 3, y + 5, w - 6, h - 9);
+      rect(ctx, "#a8734a", x + 3, y + 5, w - 6, 4);
+      for (const dy of [14, 28]) {
+        rect(ctx, "#6d4326", x + 6, y + dy, w - 12, 1);
+        rect(ctx, "#f2d27a", x + w / 2 - 2, y + dy + 4, 4, 2);
+      }
+      break;
+    case "sofa":
+      rect(ctx, "#2f3f78", x + 2, y + 6, w - 4, h - 8);
+      rect(ctx, "#4a6ab0", x + 3, y + 7, w - 6, 18); // the back
+      rect(ctx, "#6a8ae0", x + 8, y + 26, w - 16, 18); // the seat
+      rect(ctx, "#4a6ab0", x + 3, y + 22, 8, 22); // the arms
+      rect(ctx, "#4a6ab0", x + w - 11, y + 22, 8, 22);
+      break;
+    case "table":
+      rect(ctx, "#4a2f1c", x + 3, y + 8, w - 6, 26);
+      rect(ctx, "#c4894f", x + 4, y + 9, w - 8, 18); // the top
+      rect(ctx, "#8a5a3a", x + 5, y + 34, 4, h - 34); // two legs
+      rect(ctx, "#8a5a3a", x + w - 9, y + 34, 4, h - 34);
+      break;
+    case "counter":
+      rect(ctx, "#4a4a5a", x + 1, y + 6, w - 2, h - 8);
+      rect(ctx, "#d8d8e0", x + 2, y + 7, w - 4, 8); // the worktop
+      rect(ctx, "#8a8a9a", x + 2, y + 16, w - 4, h - 19);
+      for (let dx = 24; dx < w - 4; dx += 24) rect(ctx, "#6a6a7a", x + dx, y + 18, 1, h - 22);
+      break;
+    case "fridge":
+      rect(ctx, "#5a5e70", x + 2, y + 2, w - 4, h - 3);
+      rect(ctx, "#c8ccd8", x + 3, y + 3, w - 6, h - 6);
+      rect(ctx, "#8a8ea0", x + 3, y + 18, w - 6, 1); // the door between the freezer and the fridge
+      rect(ctx, "#5a5e70", x + w - 9, y + 8, 2, 8);
+      rect(ctx, "#5a5e70", x + w - 9, y + 24, 2, 12);
+      break;
+    case "bowl":
+      rect(ctx, "#6a7fd1", x + 2, y + 8, 19, 8);
+      rect(ctx, "#8aa0f0", x + 4, y + 8, 15, 3);
+      rect(ctx, "#6a7fd1", x + 7, y + 16, 10, 2);
+      break;
+    default:
+      break;
   }
 }
 
 // The bed (BED_WIDTH wide: the widest lying creature fits on it), with the same shapes as the old room's, from the bed's left edge and `bedY` in data/home.ts.
-function drawBed(ctx: CanvasRenderingContext2D, look: Look): void {
-  const { left: bed, y } = bedOf((look.layout.bed ?? STARTER.bed) as Placement); // (a layout always has its bed: homeLayout's rule 6)
+function drawBed(ctx: CanvasRenderingContext2D, look: Look, at: Placement): void {
+  const { left: bed, y } = bedOf(at);
   rect(ctx, "#8a5a3a", bed, y + 10, BED_WIDTH, 14); // frame
   rect(ctx, "#6d86e0", bed + 1, y + 8, BED_WIDTH - 2, 10); // mattress
   rect(ctx, "#ffffff", bed + 2, y + 6, 10, 6); // pillow

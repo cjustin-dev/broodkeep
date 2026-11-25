@@ -87,6 +87,19 @@ export const piecesOf = (layout: Layout): Piece[] =>
 
 export const PIECES: Piece[] = piecesOf(STARTER); // the starter layout's pieces
 
+// What the tray and a screen reader call each piece.
+export const PIECE_NAMES: Record<PieceKind, string> = {
+  bed: "Bed",
+  dresser: "Dresser",
+  sofa: "Sofa",
+  rug: "Rug",
+  table: "Table",
+  counter: "Counter",
+  fridge: "Fridge",
+  mat: "Feeding mat",
+  bowl: "Bowl",
+};
+
 // What is saved in `Save.home`: the pieces the player has moved or put away (null). A kind that is missing is at its starter place.
 export interface HomeSave {
   pieces: Partial<Record<PieceKind, Placement | null>>;
@@ -112,12 +125,17 @@ export const START_TILE = { col: 15, row: 5 }; // where a creature first stands 
 export const AWAY_BUBBLE = { x: 16 * TILE, y: 3 * TILE };
 
 // The spots a solid piece may not cover, so the egg, the poop and the grave are always on bare floor (a rug or the mat may lie on them): the egg's tile, the five poop tiles and
-// the block the largest creature lying at the grave takes with its tombstone (x 156 to 216, y 96 to 144: columns 6 to 8, rows 4 and 5).
+// the block the largest creature lying at the grave takes with its tombstone (art at x 156 to 216, y 96 to 144, which whole tiles round out to columns 6 to 8, rows 4 and 5).
 export const MEMORIAL = { col: 6, row: 4, cols: 3, rows: 2 };
 export const isProtected = (col: number, row: number): boolean =>
   (col === EGG_TILE.col && row === EGG_TILE.row) ||
   POOP_TILES.some((t) => t.col === col && t.row === row) ||
   (col >= MEMORIAL.col && col < MEMORIAL.col + MEMORIAL.cols && row >= MEMORIAL.row && row < MEMORIAL.row + MEMORIAL.rows);
+
+// The saved form of a layout: every piece's place, or null for a put-away one (a saved `home` is read back by `layoutOf`, art/homeLayout.ts).
+export const homeOf = (layout: Layout): HomeSave => ({
+  pieces: Object.fromEntries(KINDS.map((kind) => [kind, layout[kind] ? { col: layout[kind].col, row: layout[kind].row } : null])),
+});
 
 const isPlacement = (value: unknown): value is Placement =>
   typeof value === "object" && value !== null && Number.isInteger((value as Placement).col) && Number.isInteger((value as Placement).row);

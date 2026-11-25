@@ -62,6 +62,7 @@ export interface View {
   nextBlink: number; // clock time of the next blink
   moment: Moment | null; // a hatch or evolve scene that is playing (see moment.ts)
   shown: Shown | null; // what the screen last saw of the save, to notice a hatch or an evolution
+  still: boolean; // Decorate mode (docs/home-plan.md section 12): in the home the creature stands where it is, so no walk starts and a walk begun is called off
 }
 
 export interface Mood {
@@ -116,6 +117,7 @@ export function createView(): View {
     nextBlink: 2,
     moment: null,
     shown: null,
+    still: false,
   };
 }
 
@@ -224,10 +226,17 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
   view.effects = view.effects.filter((fx) => (fx.age += dt) < fx.life);
   if (mood.dead && view.pose === "eat") setPose(view, "idle", 2); // a meal stops if it dies halfway
   if (view.pose !== "eat") view.snack = null;
+  const stay = view.still && world === "home" && view.pose !== "sleep"; // (a creature already in its bed stays there: it is where it stands)
+  if (stay && view.pose === "walk") {
+    view.path = [];
+    view.toBed = false;
+    setPose(view, "idle", 1);
+  }
 
   if (mood.asleep) {
-    if (world === "home") sleepHome(view, dt);
-    else goToBed(view, dt);
+    if (world === "home") {
+      if (!stay) sleepHome(view, dt);
+    } else goToBed(view, dt);
     return;
   }
   if (view.pose === "sleep") {
@@ -260,7 +269,7 @@ export function updateView(view: View, dt: number, mood: Mood, rand: () => numbe
       break;
     }
     case "idle":
-      if (view.poseTime >= view.poseLength) chooseNext(view, mood, rand);
+      if (view.poseTime >= view.poseLength && !stay) chooseNext(view, mood, rand);
       break;
     default: // timed reactions end by themselves
       if (view.poseTime >= view.poseLength) {
