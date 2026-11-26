@@ -111,7 +111,6 @@ RETIRECLEAR = "is ended by retiring, by Adult Mode going off, and by another cre
 NOTEVERY = "does not drop on every change: a pet and a meal go through `changed` and a gift stays"
 DEATHCLEAR = "is ended at once, with no tick, by the creature dying or another hatching"
 REPLACE = "zeroes the clock and draws a new wait when a different game is put in (replaceSave), and only then"
-UNSEEN = "holds the countdown while the creature is out of view, keeps an active one, and lets it fade on time"
 CONTROL = "leaves the save and every call the same as a control run with the creature out of view, over 20 minutes"
 GIFTS = "shows the item it pays: each of the six gifts has its own icon, and a tap pays that item and says so"
 DEVSPEED = "is not changed by a dev speed: the wait counts real time, not game time"

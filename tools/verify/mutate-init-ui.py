@@ -148,8 +148,8 @@ MUTANTS = [
 # unit tests of the Game own it), the draw order of an initiative against a call (the Game never has both).
 # Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every check still passes, which is the proof that the argument holds):
 EQUIVALENT = [
-    # a call can only start in `tick()`'s catch-up, and `stepInitiative` (which drops an offer while a call is on) runs right after it in the same tick, before Preact draws what the listeners queued;
-    # so the label never sees an offer and a call together, and no check has a call
+    # NOT truly equivalent, a blind spot: an action (a feed, a pet) runs the catch-up itself (`alive()` calls `simulateTo`), so a call can start between two ticks while the offer is still set, and the
+    # label then carries both for up to one tick. No check starts a call, so this mutant survives; `--equivalents` proves no more than that
     dict(id="label-says-offer-during-a-call", expect=["init-a11y"], kid_only=False, size="360x640@2", what="the accessible name says the offer even while a call is on",
          edits=[(STAGE, '  if (!i || !c || c.call) return "";\n  if (i.kind === "play")', '  if (!i || !c) return "";\n  if (i.kind === "play")')]),
 ]

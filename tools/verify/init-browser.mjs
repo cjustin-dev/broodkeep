@@ -412,11 +412,12 @@ const CHECKS = {
     }
     expectEq(kinds, ["play", "craving", "gift"], `the offers in 300 s (they started at ${starts.join(", ")} s)`);
     if (starts[0] < 60 || starts[0] > 91) throw new Error(`the first offer came at ${starts[0]} s: the rule says 60 to 90 s (plus the clock's own second)`);
+    if (!(starts[0] + 225 > 300)) throw new Error(`the first offer came at ${starts[0]} s: a fourth would then fall inside the 300 s (this check's count of three needs the first after 75 s; the first wait is drawn at 0.99, about 87 s)`);
     for (const i of [1, 2]) {
       const gap = starts[i] - starts[i - 1];
-      if (Math.abs(gap - 75) > 2) throw new Error(`offer ${i + 1} came ${gap} s after offer ${i}: a wait draw of 0.5 is 75 s (starts at ${starts.join(", ")} s)`);
+      if (Math.abs(gap - 75) > 1) throw new Error(`offer ${i + 1} came ${gap} s after offer ${i}: a wait draw of 0.5 is 75 s (starts at ${starts.join(", ")} s)`);
     }
-    if (longest > 31) throw new Error(`an offer was on the canvas for ${longest} s: it fades after 30`);
+    if (longest > 31) throw new Error(`an offer was on the canvas for ${longest} s: it fades after 30 (31 allows one sample of lag between the clock's tick and the frame that draws it; the tests pin 30 s)`);
     const save = await savedGame(page);
     expectEq([save.coins, xpOf(save), save.inventory], [0, 0, {}], "the coins, the Bond XP and the bag after ignoring everything");
     const lines = save.log.map((l) => l.text).filter((t) => /^Found |^Bond level/.test(t));

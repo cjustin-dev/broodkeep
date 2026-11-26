@@ -513,7 +513,7 @@ describe("feeding and a craving", () => {
     expect(game.initiative?.food).toBe(food);
   });
 
-  it("is answered by a dish of the food it asked for (a kid in a field that owns a booster)", () => {
+  it("is answered by a dish of the food it asked for (a kid of a field that owns a booster)", () => {
     start({ form: stageForm("kid") });
     const c = game.save.creature!;
     const id = dishIds.find((d) => items[d].dish!.also === undefined)!; // a booster: one food, counted as a whole cell

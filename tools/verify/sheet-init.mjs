@@ -82,7 +82,7 @@ const states = {
 };
 
 for (const name of only ?? []) {
-  if (!(name in states)) {
+  if (!Object.hasOwn(states, name)) {
     console.error(`unknown state ${name} (known: ${Object.keys(states).join(", ")})`);
     process.exit(2);
   }
@@ -139,6 +139,7 @@ async function bubbleCenter(page) {
     const canvas = document.querySelector("canvas.room");
     const raw = canvas?.getAttribute("data-bubble");
     if (!canvas || !raw) return null;
+    canvas.scrollIntoView({ block: "start", behavior: "instant" }); // (on its side the picture starts below the fold: a tap needs it in the window)
     const [x, y, w, h] = raw.split(",").map(Number);
     const rect = canvas.getBoundingClientRect();
     return { x: rect.left + x + w / 2, y: rect.top + y + h / 2 };
@@ -179,6 +180,11 @@ try {
           const canvas = document.querySelector("canvas.room");
           return `${canvas?.getAttribute("data-initiative")} ${canvas?.getAttribute("data-bubble")}`;
         });
+        // (the page scrolls as a whole: on its side the picture starts below the fold, so its top (where the note sits) is brought to the top of the window first)
+        if (name !== "bond-card") {
+          await page.evaluate(() => document.querySelector("canvas.room")?.scrollIntoView({ block: "start", behavior: "instant" }));
+          await run(page, 100, 50);
+        }
         const file = join(DIR, `${name}-${w}x${h}@${dpr}.png`);
         // (the Bond card is in the page's flow, not a fixed layer: it pushes the picture down, so the whole page shows whether the card covers the bubble)
         await page.screenshot({ path: file, animations: "disabled", fullPage: name === "bond-card" });
