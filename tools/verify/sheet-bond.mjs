@@ -7,7 +7,7 @@
 //   top-card     15000 XP, the card open
 //   level-up     296 XP and a hold that reaches level 2, picture taken right after (the chip is mid-pop)
 //   focus        the chip with the keyboard focus on it (Tab from the page's start until it is reached)
-// Run: node sheet-bond.mjs --base http://127.0.0.1:4173 [--sizes 360x640@2]   Saves: gen-saves (saves/adult-home-adult.json). Exit 0 when every picture was written, 2 when the script broke.
+// Run: node sheet-bond.mjs --base http://127.0.0.1:4173 [--sizes 360x640@2]   Saves: gen-saves (saves/adult-home-adult.json). Exit 0 when every picture was written, 2 when --base is missing, 1 when anything threw (an uncaught error, which Node reports as 1).
 import { mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
@@ -110,7 +110,7 @@ try {
         const y = box.y + (box.width * dpr) / 2 / dpr + (24 * z) / dpr; // the picture's middle, 24 game pixels down: the adult's middle
         const send = (type, points) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
         await send("touchStart", [{ x, y }]);
-        for (let left = 3000; left > 0; left -= 100) await page.clock.runFor(100); // pets at 450, 1250, 2050, 2850 ms: 300 is reached at the third
+        for (let left = 3000; left > 0; left -= 100) await page.clock.runFor(100); // pets at 450, 1250, 2050, 2850 ms: 297, 298, 299, then 300 (level 2) at the fourth
         await send("touchEnd", []);
         await sleep(40);
       }

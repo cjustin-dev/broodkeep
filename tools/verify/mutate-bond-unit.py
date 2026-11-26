@@ -91,14 +91,11 @@ LINES = "lists where it stands, the next unlock that exists"
 
 # Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every test still passes, which is the proof that the argument holds):
 #  - dropping `before.chain > 0 &&` in earnBond: with no chain the sum is `0 + 1`, so the chain is 1 whether or not the gap passes the test, and the else branch is 1 as well.
-#  - dropping `save.creature !== null &&` in bondAtLeast: a save whose phase is "alive" always has a creature (the egg and the grave have phases of their own, which the phase test stops), so the
-#    test is there to narrow the type; no test builds the invalid state (alive and no creature), which would throw.
 #  - dropping the `typeof ... !== "number"` guard on xp, chain or at in coerceBond: `Number.isInteger` and `Number.isFinite` do not convert, so each is false for a string or any other
 #    non-number and the same `return undefined` follows. (The guards stay because they narrow the type for the comparisons after them; esbuild, which runs the tests, does not check types.)
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 EQUIVALENT = [
     mut("chain-needs-no-previous", F_BOND, "before.chain > 0 && gap >= 0", "gap >= 0", "(none)"),
-    mut("fond-with-no-creature", F_BOND, 'save.phase === "alive" && save.creature !== null && isAdultSave(save)', 'save.phase === "alive" && isAdultSave(save)', "(none)"),
     mut("coerce-xp-typeof", F_BOND, 'if (typeof xp !== "number" || ', "if (", "(none)"),
     mut("coerce-chain-typeof", F_BOND, 'if (typeof chain !== "number" || ', "if (", "(none)"),
     mut("coerce-at-typeof", F_BOND, 'if (typeof at !== "number" || ', "if (", "(none)"),
@@ -202,6 +199,7 @@ MUTANTS = level_mutants() + [
     mut("big-burst-from-level-6", F_BOND, "export const BIG_BURST_LEVEL = 5;", "export const BIG_BURST_LEVEL = 6;", UNLOCKS),
     mut("fond-in-kid-mode", F_BOND, "save.creature !== null && isAdultSave(save) && bondLevel", "save.creature !== null && bondLevel", FONDQ),
     mut("fond-in-a-grave", F_BOND, 'save.phase === "alive" && save.creature !== null && isAdultSave(save)', "save.creature !== null && isAdultSave(save)", FONDQ),
+    mut("fond-with-no-creature", F_BOND, 'save.phase === "alive" && save.creature !== null && isAdultSave(save)', 'save.phase === "alive" && isAdultSave(save)', FONDQ),
     mut("mood-has-no-fond", F_SCENE, "    fond: bondAtLeast(save, FOND_LEVEL),\n", "", FONDQ),
     mut("bounce-chance-is-0.2", F_IDLE, "export const FOND_CHANCE = 0.12;", "export const FOND_CHANCE = 0.2;", BOUNCE),
     mut("bounce-includes-the-chance", F_IDLE, "if (rest < FOND_CHANCE) {", "if (rest <= FOND_CHANCE) {", BOUNCE),

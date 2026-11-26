@@ -597,7 +597,7 @@ describe("feelings", () => {
     creature.stats = { hunger: 24, happiness: 29, energy: 24, hygiene: 80, wellness: 80, discipline: 50 };
     creature.sick = true;
     alive.creature = creature;
-    expect(moodOf(alive)).toEqual({ asleep: false, sad: true, sick: true, dead: false, hungry: true, sleepy: true });
+    expect(moodOf(alive)).toEqual({ asleep: false, sad: true, sick: true, dead: false, hungry: true, sleepy: true, fond: false });
     creature.stats.hunger = 25;
     creature.stats.energy = 25;
     creature.stats.happiness = 30;

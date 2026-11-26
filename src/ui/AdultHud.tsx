@@ -71,7 +71,10 @@ function StatusStrip({ game, roster, now, onSwitch, onBook, onSettings, onForeca
   useEffect(() => {
     const before = seen.current;
     seen.current = { level, formId: c?.formId, bornAt: c?.bornAt };
-    if (!alive || before.formId !== c?.formId || before.bornAt !== c?.bornAt || level <= before.level) return;
+    if (!alive || before.formId !== c?.formId || before.bornAt !== c?.bornAt || level <= before.level) {
+      setPop(false); // (a pop still running when the creature changes had its timer cleared just now: end it here, so it is not left on for the next creature)
+      return;
+    }
     setPop(true);
     const timer = window.setTimeout(() => setPop(false), POP_MS);
     return () => window.clearTimeout(timer);

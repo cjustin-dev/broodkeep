@@ -1,5 +1,5 @@
 // Browser checks for A3.1 Bond (docs/adult-a3-plan.md section 4, edges 1, 2, 11, 16 to 18): the Bond chip and card in Adult Mode's header, what a held finger, a tap and three taps do
-// to Bond, the level-up and the level 5 sparkles, Kid Mode showing and changing nothing, and the fit of the new text at 320, 360 and 390 wide at pixel ratios 1, 2 and 3.
+// to Bond, the level-up and the level 5 sparkles, the chip's pop (and its still ring in a window that asks for reduced motion), Kid Mode showing and changing nothing and throwing no sparkles, and the fit of the new text at 320, 360 and 390 wide at pixel ratios 1, 2 and 3.
 // Real touch events (CDP Input.dispatchTouchEvent) on a mobile touch window against the built game (dist/).
 //
 // Run: node bond-browser.mjs --base http://127.0.0.1:4173 [--only id1,id2] [--sizes 360x640@2,390x844@3] [--modes kid,adult]
@@ -43,6 +43,7 @@ const CHECK_MODES = {
   "bond-burst": ["adult"],
   "bond-fit": ["adult"],
   "bond-reload": ["adult"],
+  "bond-motion": ["adult"],
 };
 const CHECK_SIZES = {
   "bond-hold": THREE,
@@ -52,6 +53,7 @@ const CHECK_SIZES = {
   "bond-burst": THREE,
   "bond-fit": NINE,
   "bond-reload": [[360, 640, 2]],
+  "bond-motion": [[360, 640, 2]],
 };
 const ALL_IDS = Object.keys(CHECK_MODES);
 const ALL_MODES = ["kid", "adult"];
@@ -154,25 +156,28 @@ function bondDom() {
   };
 }
 
-// Runs in the page: the middle and the edges of the chip, in CSS pixels, and whether the chip is what a finger finds 5 and 14 pixels above and below it.
+// Runs in the page: the chip is scrolled to the middle of the window first (the page scrolls as a whole, so in a small window the header can sit above the top), then the middle and
+// the edges of the chip, in CSS pixels, whether the chip with 14 pixels around it is inside the window, and whether the chip is what a finger finds 5 and 14 pixels above and below it.
 function chipHit() {
   const chip = document.querySelector(".bond-chip");
+  chip.scrollIntoView({ block: "center", behavior: "instant" });
   const r = chip.getBoundingClientRect();
   const x = (r.left + r.right) / 2;
   const at = (y) => {
     const el = document.elementFromPoint(x, y);
     return el ? el.closest(".bond-chip") !== null : false;
   };
-  return { x, y: (r.top + r.bottom) / 2, top: r.top, bottom: r.bottom, h: r.height, in5: [at(r.top - 5), at(r.bottom + 5)], in14: [at(r.top - 14), at(r.bottom + 14)] };
+  return { x, y: (r.top + r.bottom) / 2, top: r.top, bottom: r.bottom, h: r.height, visible: r.top - 14 >= 0 && r.bottom + 14 <= window.innerHeight, in5: [at(r.top - 5), at(r.bottom + 5)], in14: [at(r.top - 14), at(r.bottom + 14)] };
 }
 
-// Runs in the page: what does not fit. The page does not scroll sideways; the chip and the card sit inside the window; every text line of them sits inside its own box (a Range, not
+// Runs in the page: what does not fit. The page does not scroll sideways; the chip and the card sit inside the window's width; every text line of them sits inside its own box (a Range, not
 // scrollWidth) and inside the window; the chip is inside the bag row or the row below it is not squeezed; no part of the header ends past the window's width.
-function fitProblems() {
-  const iw = window.innerWidth;
+function fitProblems(iw) {
+  // `iw` is the window's width as the run set it (env.w), NOT window.innerWidth: in this mobile window a page that overflows widens innerWidth to its own width (a 360 px window read 467
+  // with a 400 px bar), so innerWidth can never be smaller than the page and cannot be the reference.
   const problems = [];
   const doc = document.documentElement;
-  if (doc.scrollWidth > iw) problems.push(`page scrollWidth ${doc.scrollWidth} > innerWidth ${iw}`);
+  if (doc.scrollWidth > iw) problems.push(`page scrollWidth ${doc.scrollWidth} > the window's width ${iw}`);
   const chip = document.querySelector(".bond-chip");
   if (!chip) return { problems: ["no Bond chip on the screen"], lines: 0 };
   let lines = 0;
@@ -215,10 +220,20 @@ function headerCost() {
   return { withIt: Math.round(withIt), without: Math.round(without) };
 }
 
+// Runs in the page: the chip's pop, the name of its animation, and whether it shows the 2 px inset ring (the box-shadow of the chip while its card is open, and of its pop in a window that
+// asks for less motion; bond-motion never opens the card).
+function chipStyle() {
+  const chip = document.querySelector(".bond-chip");
+  const s = getComputedStyle(chip);
+  return { pop: chip.getAttribute("data-pop"), animation: s.animationName, ring: / 0px 0px 0px 2px inset$/.test(s.boxShadow) };
+}
+
 // ---------- the page, the fingers ----------
 
-async function openGame(env, save, track) {
+// `extra` is more window options (reducedMotion, for one check).
+async function openGame(env, save, track, extra = {}) {
   const context = await env.browser.newContext({
+    ...extra,
     viewport: { width: env.w, height: env.h },
     deviceScaleFactor: env.dpr,
     isMobile: true,
@@ -329,7 +344,8 @@ const CHECKS = {
     return `${env.w}x${env.h}@${env.dpr}: a 700 ms hold is one pet (296 to 297), 2900 ms more is four (301), level 2 is reached once (log, chip label, pop for under 2 s), happiness gained 10`;
   },
 
-  // The chip opens a card and closes it again; the card has the lines worked out by hand; the chip's finger target is 44 px tall though the chip is not.
+  // The chip opens a card and closes it again; the card has the lines worked out by hand; the chip's finger target reaches past the chip (found 5 px out, not 14 px out: the
+  // stylesheet's 6 px is not measured to the pixel).
   "bond-card": async (open, env) => {
     const { page, cdp } = await open(adult(920));
     const dom = () => page.evaluate(bondDom);
@@ -338,6 +354,7 @@ const CHECKS = {
     expectEq((await dom()).cardLines, null, "the card before the chip is tapped");
     const hit = await page.evaluate(chipHit);
     if (hit.h >= 44) throw new Error(`the chip is ${hit.h} px tall: the finger-target check below proves nothing (it must be under 44 px with a larger target)`);
+    expectEq(hit.visible, true, "the chip with 14 px around it is inside the window (the finger-target checks below need that)");
     expectEq(hit.in5, [true, true], "the chip is what a finger finds 5 px above and 5 px below it");
     expectEq(hit.in14, [false, false], "the chip is NOT what a finger finds 14 px above and 14 px below it");
     await touchTap(page, cdp, [hit.x, hit.y]);
@@ -353,23 +370,28 @@ const CHECKS = {
     return `${env.w}x${env.h}@${env.dpr}: the chip (${hit.h.toFixed(0)} px tall) is found 5 px above and below, not 14; a tap opens the card with its five lines and a second closes it`;
   },
 
-  // Kid Mode: no chip, no card, no word Bond anywhere, and a hold changes the saved Bond data not at all (the old rule: 2 happiness a pet).
+  // Kid Mode: no chip, no card, no word Bond anywhere, a hold changes the saved Bond data not at all (the old rule: 2 happiness a pet), and a pet throws no sparkles although the
+  // Bond data it carries is level 5 (an Adult profile throws 3 more a pet there).
   "bond-kid": async (open, env) => {
+    const SPARKLE = [255, 224, 102]; // #ffe066
     const save = load("kid-home", "kid");
-    save.creature.bond = { xp: 299, chain: 4, at: T };
+    save.creature.bond = { xp: 3100, chain: 4, at: T };
     const { page, cdp } = await open(save);
     const g = await geometry(env, page);
     const [cx, cy] = screenAtKid(env, g);
     const dom = await page.evaluate(bondDom);
     expectEq([dom.chips, dom.cardLines, dom.bodyHasBond], [0, null, false], "chips, card and the word Bond in Kid Mode");
-    await touchHold(page, cdp, [cx, cy], 700);
+    const before = await page.evaluate(countColour, SPARKLE);
+    await touchHold(page, cdp, [cx, cy], 700); // one pet, at 450 ms; the sparkles of a burst last 1.1 s
+    const rise = (await page.evaluate(countColour, SPARKLE)) - before;
+    expectEq(rise, 0, "the rise in sparkle pixels after a Kid pet with level 5 Bond data");
     const saved = await savedGame(page);
     expectEq(saved.creature.affection.gained, 2, "the Kid pet's happiness (the old rule)");
-    expectEq(saved.creature.bond, { xp: 299, chain: 4, at: T }, "the Bond data a Kid profile carries, after a pet");
+    expectEq(saved.creature.bond, { xp: 3100, chain: 4, at: T }, "the Bond data a Kid profile carries, after a pet");
     expectEq(saved.log.filter((e) => /Bond/.test(e.text)).length, 0, "Bond lines in the Kid log");
     const after = await page.evaluate(bondDom);
     expectEq([after.chips, after.bodyHasBond], [0, false], "the chip and the word Bond after the pet");
-    return `${env.w}x${env.h}@${env.dpr}: a Kid profile with Bond data shows no chip, card or the word Bond, and a pet leaves the data as it was (299, chain 4) with 2 happiness gained`;
+    return `${env.w}x${env.h}@${env.dpr}: a Kid profile with Bond data shows no chip, card or the word Bond, and a pet leaves the data as it was (3100, chain 4), throws no sparkle pixels and gains 2 happiness`;
   },
 
   // A tap alone is a poke (nothing), the third quick tap is a tickle (3 XP, the chain alone).
@@ -413,7 +435,29 @@ const CHECKS = {
     return `${env.w}x${env.h}@${env.dpr}: sparkle pixels rise by 0 (level 4), ${level5.rise} (level 5) and ${levelUp.rise} (the level-up) after one pet; one sparkle is ${one}`;
   },
 
-  // Fit: the worst bag (99999 coins and 999 of everything) and the longest label; the chip and the card inside the window, no sideways scroll, every line inside its box.
+  // The pop's motion (the stylesheet's rules: the one under "motion preferences" that stops every animation in such a window, and the chip's own ring): in a normal window the chip pops with its animation; in a window that asks for reduced motion it has no animation and
+  // shows a 2 px ring instead. Both are read right after the pet that reaches level 2 (one pet, at 450 ms, from 299 XP).
+  "bond-motion": async (open, env) => {
+    const read = async (extra, what) => {
+      const { page, cdp } = await open(adult(299), extra);
+      const g = await geometry(env, page);
+      const [cx, cy] = creatureAt(env, g);
+      const before = await page.evaluate(chipStyle);
+      await touchHold(page, cdp, [cx, cy], 700);
+      const after = await page.evaluate(chipStyle);
+      expectEq([before.pop, after.pop], ["false", "true"], `the chip's pop before and right after the level-up (${what})`);
+      return { before, after };
+    };
+    const normal = await read({}, "a normal window");
+    const reduced = await read({ reducedMotion: "reduce" }, "a window that asks for reduced motion");
+    expectEq([normal.before.animation, normal.before.ring], ["none", false], "the chip at rest in a normal window: its animation and ring");
+    expectEq([normal.after.animation, normal.after.ring], ["bond-pop", false], "the chip popping in a normal window: its animation and ring");
+    expectEq([reduced.before.animation, reduced.before.ring], ["none", false], "the chip at rest in a window that asks for reduced motion: its animation and ring");
+    expectEq([reduced.after.animation, reduced.after.ring], ["none", true], "the chip popping in a window that asks for reduced motion: its animation and ring");
+    return `${env.w}x${env.h}@${env.dpr}: the pop declares the bond-pop animation with no ring in a normal window, and in a window that asks for reduced motion it declares none and shows a 2 px ring`;
+  },
+
+  // Fit: the worst bag (99999 coins and 999 of everything) and the longest label; the chip and the card inside the window's width, no sideways scroll, every line inside its box.
   "bond-fit": async (open, env) => {
     const bag = { fiber: 999, herb: 999, wood: 999, fish: 999, stone: 999 };
     const out = [];
@@ -424,22 +468,22 @@ const CHECKS = {
       const { page, cdp } = await open(adult(xp, { coins: 99999, inventory: bag }));
       const dom = () => page.evaluate(bondDom);
       expectEq((await dom()).label, label, `the chip at ${xp} XP`);
-      let fit = await page.evaluate(fitProblems);
+      let fit = await page.evaluate(fitProblems, env.w);
       expectEq(fit.problems, [], `what does not fit with the chip at ${xp} XP, card closed`);
       const cost = await page.evaluate(headerCost);
       const hit = await page.evaluate(chipHit);
       await touchTap(page, cdp, [hit.x, hit.y]);
       expectEq((await dom()).cardLines, lines, `the card's lines at ${xp} XP`);
-      fit = await page.evaluate(fitProblems);
+      fit = await page.evaluate(fitProblems, env.w);
       expectEq(fit.problems, [], `what does not fit with the card open at ${xp} XP`);
       if (fit.lines < 4) throw new Error(`only ${fit.lines} text lines were measured at ${xp} XP: the clip check did not look at the card`);
       const open2 = await page.evaluate(headerCost);
       out.push(`${xp} XP: header ${cost.without} px without the chip, ${cost.withIt} with (+${cost.withIt - cost.without}), card open +${open2.withIt - cost.withIt}`);
     }
-    return `${env.w}x${env.h}@${env.dpr}: no sideways scroll, no clipped line, chip and card inside the window; ${out.join("; ")}`;
+    return `${env.w}x${env.h}@${env.dpr}: no sideways scroll, no clipped line, chip and card inside the window's width; ${out.join("; ")}`;
   },
 
-  // After a reload the chip says what the game saved.
+  // A new page seeded with the game the first page saved says what was saved (the check does not reload: it reads the saved game out and opens a fresh window on it).
   "bond-reload": async (open, env) => {
     const first = await open(adult(296));
     const g = await geometry(env, first.page);
@@ -462,7 +506,7 @@ function screenAtKid(env, g) {
 
 async function runCheck(id, env) {
   const contexts = [];
-  const open = (save) => openGame(env, save, contexts);
+  const open = (save, extra) => openGame(env, save, contexts, extra);
   try {
     return await withTimeout(CHECKS[id](open, env), CHECK_TIMEOUT_MS);
   } finally {

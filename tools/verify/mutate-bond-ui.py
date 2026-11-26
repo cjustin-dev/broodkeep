@@ -56,13 +56,14 @@ BUILD_TIMEOUT = 600
 BASELINE_TIMEOUT = 1500
 MUTANT_TIMEOUT = 240
 
-ALL_IDS = ["bond-hold", "bond-card", "bond-kid", "bond-poke", "bond-burst", "bond-fit", "bond-reload"]
+ALL_IDS = ["bond-hold", "bond-card", "bond-kid", "bond-poke", "bond-burst", "bond-fit", "bond-reload", "bond-motion"]
 
 HUD = "src/ui/AdultHud.tsx"
 STAGE = "src/ui/Stage.tsx"
 APP = "src/ui/App.tsx"
 CSS = "src/ui/app.css"
 STATE = "src/game/state.ts"
+BOND = "src/game/bond.ts"
 
 # edits: (file, old, new), applied in order. `old` must occur exactly once in that file of the copy.
 # expect: check ids that must FAIL for the mutant to count as caught. kid_only: the checker runs --modes kid.
@@ -80,7 +81,7 @@ MUTANTS = [
     dict(id="pop-never-ends", expect=["bond-hold"], kid_only=False, what="the pop lasts ten minutes",
          edits=[(HUD, "const POP_MS = 1600;", "const POP_MS = 600000;")]),
     dict(id="pop-when-the-screen-opens", expect=["bond-hold"], kid_only=False, what="the chip pops when the screen opens at a level (a level equal to the one seen counts as new)",
-         edits=[(HUD, "level <= before.level) return;", "level < before.level) return;")]),
+         edits=[(HUD, "level <= before.level) {", "level < before.level) {")]),
     dict(id="card-never-opens", expect=["bond-card"], kid_only=False, what="a tap on the chip opens nothing",
          edits=[(HUD, "onBond={() => setBondOpen(!bondOpen)}", "onBond={() => undefined}")]),
     dict(id="card-never-drawn", expect=["bond-card"], kid_only=False, what="the card is never drawn",
@@ -105,12 +106,22 @@ MUTANTS = [
          edits=[(STAGE, "    addSparkles(game.view, 8);\n    addHeart(game.view);\n  };", "    addHeart(game.view);\n  };")]),
     dict(id="pet-forgets-the-level-up", expect=["bond-burst"], kid_only=False, what="a pet that reaches a new level does not call the level-up burst",
          edits=[(STAGE, "    levelBurst(result);\n  };\n", "  };\n")]),
-    dict(id="bar-wider-than-the-window", expect=["bond-fit"], kid_only=False, what="the chip's bar is 400 px wide",
-         edits=[(CSS, ".bond-bar {\n  width: 28px;", ".bond-bar {\n  width: 400px;")]),
+    dict(id="bar-wider-than-the-window", expect=["bond-fit"], kid_only=False, what="the chip's bar is 400 px wide and does not shrink (a plain 400 px bar is a flex item and shrinks to fit, so it changes nothing)",
+         edits=[(CSS, ".bond-bar {\n  width: 28px;", ".bond-bar {\n  flex: none;\n  width: 400px;")]),
     dict(id="card-lines-do-not-wrap", expect=["bond-fit"], kid_only=False, what="the card's lines do not wrap",
          edits=[(CSS, ".bond-bar {\n  width: 28px;", ".bond-card p {\n  white-space: nowrap;\n}\n\n.bond-bar {\n  width: 28px;")]),
     dict(id="loader-drops-the-bond", expect=["bond-reload"], kid_only=False, what="a saved Bond is dropped when the game loads",
          edits=[(STATE, "if (bond) value.creature.bond = bond;", "if (bond && false) value.creature.bond = bond;")]),
+    dict(id="chip-not-positioned", expect=["bond-card"], kid_only=False, what="the chip is not a positioned box, so its finger target hangs off another box",
+         edits=[(CSS, ".chip.bond-chip {\n  position: relative;\n  min-height: 32px;", ".chip.bond-chip {\n  min-height: 32px;")]),
+    dict(id="kid-gets-the-level-5-burst", expect=["bond-kid"], kid_only=True, what="a Kid profile that carries level 5 Bond data throws the level 5 sparkles (the Adult Mode guard of bondAtLeast is gone)",
+         edits=[(BOND, "isAdultSave(save) && bondLevel(save.creature) >= level", "bondLevel(save.creature) >= level")]),
+    dict(id="pop-animation-removed", expect=["bond-motion"], kid_only=False, what="the pop has no animation in a normal window",
+         edits=[(CSS, '.bond-chip[data-pop="true"] {\n  animation: bond-pop 0.7s var(--ease);\n}', '.bond-chip[data-pop="true"] {\n  animation: none;\n}')]),
+    dict(id="reduced-motion-global-rule-gone", expect=["bond-motion"], kid_only=False, what="a window that asks for less motion no longer has its animations stopped (the motion preferences rule loses its animation line), so the pop still runs",
+         edits=[(CSS, "    animation: none !important;\n", "")]),
+    dict(id="reduced-motion-has-no-ring", expect=["bond-motion"], kid_only=False, what="a window that asks for less motion gets no ring to show the pop",
+         edits=[(CSS, "    box-shadow: inset 0 0 0 2px var(--accent);\n", "")]),
 ]
 
 

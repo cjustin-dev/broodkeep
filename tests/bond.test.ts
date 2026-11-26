@@ -346,7 +346,7 @@ describe("what the levels unlock (Adult Mode)", () => {
     return view;
   };
 
-  it("is fond from level 2 in Adult Mode, and never in Kid Mode (whatever Bond data it holds), as an egg or in a grave", () => {
+  it("is fond from level 2 in Adult Mode, and never in Kid Mode (whatever Bond data it holds), as an egg, in a grave or with no creature", () => {
     expect([299, 300, 15000].map((xp) => bondAtLeast(withXp(xp), FOND_LEVEL))).toEqual([false, true, true]);
     expect([2999, 3000].map((xp) => bondAtLeast(withXp(xp), BIG_BURST_LEVEL))).toEqual([false, true]);
     expect(bondAtLeast(withXp(15000, false), FOND_LEVEL)).toBe(false);
@@ -357,9 +357,12 @@ describe("what the levels unlock (Adult Mode)", () => {
     killCreature(dead, T + 1000);
     expect(bondAtLeast(dead, FOND_LEVEL)).toBe(false);
     expect(bondAtLeast(newSave(T, 1), FOND_LEVEL)).toBe(false);
+    const hollow = withXp(300); // (phase "alive" and no creature: a damaged save, which the loader's isSave lets through)
+    hollow.creature = null;
+    expect(bondAtLeast(hollow, FOND_LEVEL)).toBe(false);
   });
 
-  it("makes a fond creature in a good mood bounce for joy and show a heart on a roll under 0.12, and spreads the rest of the roll over the walk, hop and turn shares that are left", () => {
+  it("makes a fond creature in a good mood bounce for joy and show a heart on a roll under 0.12, and spreads the rest of the roll over the walk and hop shares that are left", () => {
     const fond = { ...awake, fond: true };
     expect(FOND_CHANCE).toBe(0.12);
     for (const roll of [0, 0.05, FOND_CHANCE - 1e-9]) {
