@@ -359,7 +359,7 @@ describe("what the levels unlock (Adult Mode)", () => {
     expect(bondAtLeast(newSave(T, 1), FOND_LEVEL)).toBe(false);
   });
 
-  it("makes a fond creature in a good mood bounce for joy and show a heart on a roll under 0.12, and spreads the rest of the roll as before", () => {
+  it("makes a fond creature in a good mood bounce for joy and show a heart on a roll under 0.12, and spreads the rest of the roll over the walk, hop and turn shares that are left", () => {
     const fond = { ...awake, fond: true };
     expect(FOND_CHANCE).toBe(0.12);
     for (const roll of [0, 0.05, FOND_CHANCE - 1e-9]) {
@@ -383,6 +383,14 @@ describe("what the levels unlock (Adult Mode)", () => {
         expect(view.effects).toEqual([]);
       }
     }
+    // A hungry or sleepy creature growls or yawns on rolls under 0.25; from 0.25 the low-spirits branch is what stops a bounce (0.3 and 0.32 are 0.07 and 0.09 of what is left, under 0.12).
+    for (const roll of [0.3, 0.32]) {
+      for (const low of [{ hungry: true }, { sleepy: true }]) {
+        const view = choice({ ...awake, fond: true, ...low }, roll);
+        expect(view.pose, `${JSON.stringify(low)} at ${roll}`).toBe("walk");
+        expect(view.effects).toEqual([]);
+      }
+    }
     expect(choice(awake, 0.7).pose).toBe("idle"); // (a turn on the spot, as before)
   });
 });
@@ -400,7 +408,7 @@ describe("growth (Adult Mode)", () => {
   it("earns happy cells only inside the old hourly limit: a hold at 100 earns none, a hold from 90 earns the one it climbed for, in both modes", () => {
     expect(hold(true, 100)).toBe(0); // (without the rule each minute's small decay is topped up again: a cell a minute)
     expect(hold(false, 100)).toBe(0);
-    expect(hold(true, 90)).toBe(1); // (five pets of 2 take 90 to 100 with 8 of the 15 gained)
+    expect(hold(true, 90)).toBe(1); // (five pets of 2 take 90 to 100 with 10 of the 15 gained)
     expect(hold(false, 90)).toBe(1);
     expect(hold(true, 85)).toBe(1); // (seven pets of 2 reach 99 with 14 gained; the eighth, which starts under the limit, crosses 100)
     expect(hold(false, 85)).toBe(1); // (the eighth Kid pet pays the 1 that is left of the 15)

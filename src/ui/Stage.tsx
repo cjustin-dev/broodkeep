@@ -31,6 +31,8 @@ import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
 import { PIECE_NAMES, TILE, roomsBuilt, wallRoomOf } from "../data/home";
 import { tapEgg, touch } from "../game/actions";
+import type { TouchResult } from "../game/actions";
+import { BIG_BURST_LEVEL, bondAtLeast } from "../game/bond";
 import { isAdultMode } from "../game/hud";
 import type { CallKind, Save } from "../game/state";
 import type { Game } from "./game";
@@ -284,12 +286,21 @@ export function Stage({ game }: { game: Game }) {
 
   const adult = isAdultMode(game.save);
 
+  // A new Bond level is a burst of sparkles with a heart (the chip in the header pops too, ui/AdultHud.tsx).
+  const levelBurst = (result: TouchResult): void => {
+    if (!result.levelUp) return;
+    addSparkles(game.view, 8);
+    addHeart(game.view);
+  };
+
   const pet = (h: Hold): void => {
     h.petted = true;
     const result = game.act((s, now) => touch(s, "pet", now));
     if (result.asleep) return;
     triggerPose(game.view, "happy");
     if (result.gained > 0) addHeart(game.view);
+    if (result.gained > 0 && bondAtLeast(game.save, BIG_BURST_LEVEL)) addSparkles(game.view, 3); // (Bond level 5: a bigger burst; Adult Mode only, read from the save at each pet)
+    levelBurst(result);
   };
 
   const tap = (): void => {
@@ -305,9 +316,10 @@ export function Stage({ game }: { game: Game }) {
     taps.current.push(now);
     if (taps.current.length >= 3) {
       taps.current = [];
-      game.act((s, t) => touch(s, "tickle", t));
+      const result = game.act((s, t) => touch(s, "tickle", t));
       triggerPose(game.view, "happy");
       addSparkles(game.view, 4);
+      levelBurst(result);
     } else {
       triggerPose(game.view, "startle");
     }

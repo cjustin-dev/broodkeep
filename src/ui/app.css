@@ -1087,6 +1087,71 @@ output {
   font-size: 0.85rem;
 }
 
+/* The Bond chip (ui/AdultHud.tsx): level and a thin bar of the way to the next level, a button that opens the card of its details. The chip is 32px tall and its finger target grows
+   6px up and down to 44px: the gap to the stat cells below is 6px, so the target stops where they start (a larger one would sit under them, which paint over it). */
+.chip.bond-chip {
+  position: relative;
+  min-height: 32px;
+  border: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bond-chip::after {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+.bond-chip:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bond-chip[aria-expanded="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.bond-bar {
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-lift);
+}
+
+.bond-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.bond-chip[data-pop="true"] {
+  animation: bond-pop 0.7s var(--ease);
+}
+
+@keyframes bond-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bond-chip[data-pop="true"] {
+    animation: none;
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+}
+
 .astats {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
