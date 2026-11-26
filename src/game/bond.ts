@@ -33,9 +33,12 @@ export function bondInfo(xp: number): BondInfo {
 }
 
 // What a level gives that the game really has (decision 3 of the plan: the screen names only these). Each later slice adds its own.
+// Level 2: a creature in a good mood now and then bounces for joy on its own (art/idle.ts). Level 5: a pet shows a bigger burst (ui/Stage.tsx). Both are Adult Mode only.
+export const FOND_LEVEL = 2;
+export const BIG_BURST_LEVEL = 5;
 const unlocks: Record<number, string> = {
-  2: "an idle hop",
-  5: "a bigger burst when petted",
+  [FOND_LEVEL]: "a happy bounce of its own now and then",
+  [BIG_BURST_LEVEL]: "a bigger burst when petted",
 };
 export const unlockAt = (level: number): string | null => unlocks[level] ?? null;
 // The next level above `level` that unlocks something, with what it unlocks; null when there is none.
@@ -50,6 +53,8 @@ export function nextUnlock(level: number): { level: number; text: string } | nul
 // What a creature's Bond is now (level 1 with nothing earned when it has none).
 export const bondOf = (c: Creature): Bond => c.bond ?? { xp: 0, chain: 0, at: 0 };
 export const bondLevel = (c: Creature): number => levelOf(bondOf(c).xp);
+// The living creature has reached `level` in Adult Mode. Kid Mode never has it, whatever `bond` data the save carries.
+export const bondAtLeast = (save: Save, level: number): boolean => save.phase === "alive" && save.creature !== null && isAdultSave(save) && bondLevel(save.creature) >= level;
 
 // A pet or a tickle earns XP. A pet goes on the chain when it comes 0 to `chainGapMs` after the last one (a clock that went back restarts it) and is worth more from the `streakFrom`th;
 // a tickle is a fixed amount and leaves the chain alone. Returns the level just reached, or null when there is no new level.

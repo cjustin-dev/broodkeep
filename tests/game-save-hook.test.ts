@@ -51,7 +51,7 @@ describe("the save hook", () => {
     expect(told).toEqual([true]);
   });
 
-  it("says a pet that earns Bond XP is the player's, and the clock moving on afterwards (an idle device) is not, and leaves the XP as it was", () => {
+  it("says an Adult Mode pet (which earns Bond XP) is the player's, and the clock moving on afterwards (an idle device) is not and leaves the XP as it was", () => {
     game.save.settings.adultMode = true;
     game.act((save, now) => touch(save, "pet", now));
     game.saveNow();

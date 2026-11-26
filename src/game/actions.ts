@@ -201,10 +201,14 @@ export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   }
   const want = kind === "pet" ? tuning.affection.pet : tuning.affection.tickle;
   const gained = adult ? taper(want, a.gained) : Math.max(0, Math.min(want, tuning.affection.maxGainPerWindow - a.gained));
+  const underOldLimit = a.gained < tuning.affection.maxGainPerWindow; // (what the window had gained before this touch)
   a.gained += gained;
   const happinessBefore = c.stats.happiness;
   c.stats.happiness = clamp(c.stats.happiness + gained);
-  countCareCells(c, c.stats.hunger, happinessBefore, hungerGrace(save.owned)); // (hunger did not change, so it cannot count, mat or no mat)
+  // A "happy cell" counts toward growth when a touch takes happiness up to 100. The Adult taper never reaches 0, so without this a held finger would take it up to 100 again after each minute's
+  // small decay and earn a cell a minute (5 cells in one hold, against about 1 an hour under the old limit; docs/decisions.md, A3.1). Past the old limit a touch still pays happiness but earns no cell.
+  // (Kid Mode pays nothing past the limit, so there it changes nothing.)
+  countCareCells(c, c.stats.hunger, underOldLimit ? happinessBefore : 100, hungerGrace(save.owned)); // (hunger did not change, so it cannot count, mat or no mat)
   const levelUp = adult ? earnBond(c, kind, nowMs) : null;
   if (levelUp !== null) {
     logEvent(save, nowMs, `Bond level ${levelUp}`);

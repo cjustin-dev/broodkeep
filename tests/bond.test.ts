@@ -2,15 +2,18 @@
 // The expected numbers are worked out by hand in the comments, not read from the code.
 import { describe, expect, it } from "vitest";
 import { startJob, startNewEgg, touch } from "../src/game/actions";
-import { bondInfo, coerceBond, earnBond, isAdultSave, levelOf, nextUnlock, taper, unlockAt } from "../src/game/bond";
-import { isAdultMode } from "../src/game/hud";
+import { createView, FOND_CHANCE, updateView } from "../src/art/idle";
+import type { Mood } from "../src/art/idle";
+import { moodOf } from "../src/art/scene";
+import { BIG_BURST_LEVEL, FOND_LEVEL, bondAtLeast, bondInfo, coerceBond, earnBond, isAdultSave, levelOf, nextUnlock, taper, unlockAt } from "../src/game/bond";
+import { bondLabel, bondLines, bondPercent, isAdultMode } from "../src/game/hud";
 import { killCreature, setPlace, setStat } from "../src/game/dev";
 import { simulateTo } from "../src/game/sim";
 import { migrateSave, newSave } from "../src/game/state";
 import type { Save } from "../src/game/state";
 import { MINUTE } from "../src/game/time";
 import { tuning } from "../src/data/tuning";
-import { aliveSave, at } from "./helpers";
+import { aliveSave, at, stageForm } from "./helpers";
 
 const T = at(10);
 const adultSave = (t = T): Save => {
@@ -52,11 +55,12 @@ describe("the levels", () => {
     for (let xp = 0; xp <= 15000; xp++) expect(levelOf(xp + most) - levelOf(xp)).toBeLessThanOrEqual(1);
   });
 
-  it("name only the unlocks that exist: an idle hop at level 2 and a bigger burst at level 5", () => {
-    expect([1, 2, 3, 4, 5, 6, 10].map(unlockAt)).toEqual([null, "an idle hop", null, null, "a bigger burst when petted", null, null]);
-    expect(nextUnlock(1)).toEqual({ level: 2, text: "an idle hop" });
+  it("name only the unlocks that exist: a happy bounce of its own at level 2 and a bigger burst at level 5", () => {
+    expect([1, 2, 3, 4, 5, 6, 10].map(unlockAt)).toEqual([null, "a happy bounce of its own now and then", null, null, "a bigger burst when petted", null, null]);
+    expect(nextUnlock(1)).toEqual({ level: 2, text: "a happy bounce of its own now and then" });
     expect(nextUnlock(2)).toEqual({ level: 5, text: "a bigger burst when petted" });
     expect(nextUnlock(5)).toBeNull();
+    expect([FOND_LEVEL, BIG_BURST_LEVEL]).toEqual([2, 5]);
   });
 
   it("`isAdultSave` agrees with the HUD's `isAdultMode` for every value the setting can hold", () => {
@@ -98,7 +102,7 @@ describe("the taper (Adult Mode)", () => {
     expect(touch(save, "pet", T + 30 * MINUTE).gained).toBe(2); // (the clock went back: a new window, not a negative difference that never ends)
   });
 
-  it("keeps the window at 59 minutes and starts it again at exactly 60 (a creature's window starts when it hatches)", () => {
+  it("keeps the window at 59 minutes and starts it again at exactly 60", () => {
     const save = adultSave();
     setStat(save, "happiness", 0);
     for (let i = 0; i < 30; i++) touch(save, "pet", T);
@@ -109,7 +113,7 @@ describe("the taper (Adult Mode)", () => {
   it("shares the window with Kid Mode: 30 Adult pets leave a Kid pet in the same hour nothing, and the reverse", () => {
     const save = adultSave();
     setStat(save, "happiness", 0);
-    for (let i = 0; i < 30; i++) touch(save, "pet", T); // the window has gained 30 (8 x 2 + 14 x 1)
+    for (let i = 0; i < 30; i++) touch(save, "pet", T); // the window has gained 34 (8 x 2 + 14 x 1 + 8 x 0.5)
     save.settings.adultMode = false;
     expect(touch(save, "pet", T).gained).toBe(0); // over the Kid cap of 15
     const kid = aliveSave("pebblin", T);
@@ -324,6 +328,126 @@ describe("Kid Mode is the old rule", () => {
   });
 });
 
+describe("what the levels unlock (Adult Mode)", () => {
+  const withXp = (xp: number, adult = true): Save => {
+    const save = adultSave();
+    save.settings.adultMode = adult;
+    (save.creature as { bond?: unknown }).bond = { xp, chain: 0, at: 0 };
+    return save;
+  };
+  const awake: Mood = { asleep: false, sad: false, sick: false };
+  // A creature that has just finished standing still, asked what to do next when every roll of the dice comes out as `roll`.
+  const choice = (mood: Mood, roll: number) => {
+    const view = createView();
+    view.pose = "idle";
+    view.poseTime = 99;
+    view.poseLength = 1;
+    updateView(view, 0.05, mood, () => roll, 48);
+    return view;
+  };
+
+  it("is fond from level 2 in Adult Mode, and never in Kid Mode (whatever Bond data it holds), as an egg or in a grave", () => {
+    expect([299, 300, 15000].map((xp) => bondAtLeast(withXp(xp), FOND_LEVEL))).toEqual([false, true, true]);
+    expect([2999, 3000].map((xp) => bondAtLeast(withXp(xp), BIG_BURST_LEVEL))).toEqual([false, true]);
+    expect(bondAtLeast(withXp(15000, false), FOND_LEVEL)).toBe(false);
+    expect(moodOf(withXp(300)).fond).toBe(true);
+    expect(moodOf(withXp(299)).fond).toBe(false);
+    expect(moodOf(withXp(300, false)).fond).toBe(false);
+    const dead = withXp(300);
+    killCreature(dead, T + 1000);
+    expect(bondAtLeast(dead, FOND_LEVEL)).toBe(false);
+    expect(bondAtLeast(newSave(T, 1), FOND_LEVEL)).toBe(false);
+  });
+
+  it("makes a fond creature in a good mood bounce for joy and show a heart on a roll under 0.12, and spreads the rest of the roll as before", () => {
+    const fond = { ...awake, fond: true };
+    expect(FOND_CHANCE).toBe(0.12);
+    for (const roll of [0, 0.05, FOND_CHANCE - 1e-9]) {
+      const view = choice(fond, roll);
+      expect(view.pose, `roll ${roll}`).toBe("happy");
+      expect(view.effects.map((e) => e.kind)).toEqual(["heart"]);
+    }
+    expect(choice(fond, FOND_CHANCE).pose).toBe("walk"); // (the next share of the roll is the first walk)
+    expect(choice(fond, 0.4).pose).toBe("walk");
+    expect(choice(fond, 0.56).pose).toBe("hop"); // (0.56 is 0.5 of what is left: the hop's share)
+    expect(choice(fond, 0.7).pose).toBe("hop"); // (0.7 is 0.66 of what is left; without the spreading it would be a turn on the spot)
+  });
+
+  it("leaves a creature that is not fond as it was, and a fond one in low spirits too", () => {
+    for (const roll of [0, 0.05, 0.11]) {
+      expect(choice(awake, roll).pose).toBe("walk");
+      expect(choice(awake, roll).effects).toEqual([]);
+      for (const low of [{ sad: true }, { sick: true }, { hungry: true }, { sleepy: true }]) {
+        const view = choice({ ...awake, fond: true, ...low }, roll);
+        expect(view.pose, `${JSON.stringify(low)} at ${roll}`).not.toBe("happy");
+        expect(view.effects).toEqual([]);
+      }
+    }
+    expect(choice(awake, 0.7).pose).toBe("idle"); // (a turn on the spot, as before)
+  });
+});
+
+describe("growth (Adult Mode)", () => {
+  // A young creature held and petted for five minutes, one pet every 800 ms, from the given happiness; the happy cells growth counted.
+  const hold = (adult: boolean, happiness: number): number => {
+    const save = aliveSave(stageForm("young"), T);
+    save.settings.adultMode = adult;
+    setStat(save, "happiness", happiness);
+    for (let i = 0; i < 375; i++) touch(save, "pet", T + i * 800);
+    return save.creature!.counters.happyCells;
+  };
+
+  it("earns happy cells only inside the old hourly limit: a hold at 100 earns none, a hold from 90 earns the one it climbed for, in both modes", () => {
+    expect(hold(true, 100)).toBe(0); // (without the rule each minute's small decay is topped up again: a cell a minute)
+    expect(hold(false, 100)).toBe(0);
+    expect(hold(true, 90)).toBe(1); // (five pets of 2 take 90 to 100 with 8 of the 15 gained)
+    expect(hold(false, 90)).toBe(1);
+    expect(hold(true, 85)).toBe(1); // (seven pets of 2 reach 99 with 14 gained; the eighth, which starts under the limit, crosses 100)
+    expect(hold(false, 85)).toBe(1); // (the eighth Kid pet pays the 1 that is left of the 15)
+  });
+
+  it("earns no cell when the window has gained the old limit exactly, as the Kid rule pays nothing then", () => {
+    for (const adult of [true, false]) {
+      const save = aliveSave(stageForm("young"), T);
+      save.settings.adultMode = adult;
+      setStat(save, "happiness", 0);
+      for (let i = 0; i < 5; i++) touch(save, "tickle", T); // 5 x 3 = 15 in both modes
+      expect(save.creature?.affection.gained).toBe(15);
+      setStat(save, "happiness", 99.5);
+      touch(save, "pet", T);
+      expect(save.creature?.stats.happiness).toBe(adult ? 100 : 99.5); // (the Adult pet pays 1 at the half rate; the Kid pet nothing)
+      expect(save.creature?.counters.happyCells).toBe(0);
+    }
+  });
+});
+
+describe("what the screen says (Adult Mode)", () => {
+  const withXp = (xp: number) => {
+    const c = aliveSave("pebblin", T).creature!;
+    c.bond = { xp, chain: 0, at: 0 };
+    return c;
+  };
+  const how = ["Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention."];
+
+  it("reads the level and what is left, for a screen reader", () => {
+    expect(bondLabel(withXp(920))).toBe("Bond level 3, 120 of 700 to level 4");
+    expect(bondLabel(withXp(0))).toBe("Bond level 1, 0 of 300 to level 2");
+    expect(bondLabel(aliveSave("pebblin", T).creature!)).toBe("Bond level 1, 0 of 300 to level 2"); // (a creature with no Bond yet)
+    expect(bondLabel(withXp(15000))).toBe("Bond level 10, the top level");
+  });
+
+  it("fills the bar by the share of the level done: 0, 17 (120 of 700), 99 (299 of 300) and, at the top, 100", () => {
+    expect([0, 920, 299, 15000, 20].map((xp) => bondPercent(withXp(xp)))).toEqual([0, 17, 99, 100, 6]);
+  });
+
+  it("lists where it stands, the next unlock that exists, and what each way of touching does", () => {
+    expect(bondLines(withXp(0))).toEqual(["Bond level 1 of 10.", "0 of 300 to level 2.", "Level 2: a happy bounce of its own now and then.", ...how]);
+    expect(bondLines(withXp(920))).toEqual(["Bond level 3 of 10.", "120 of 700 to level 4.", "Level 5: a bigger burst when petted.", ...how]);
+    expect(bondLines(withXp(3000))).toEqual(["Bond level 5 of 10.", "0 of 1500 to level 6.", ...how]); // (nothing further is unlocked yet)
+    expect(bondLines(withXp(15000))).toEqual(["Bond level 10 of 10.", "The top level.", ...how]);
+  });
+});
+
 describe("what is saved", () => {
   it("keeps a hold of 150 pets through a reload: the chain is stored at 10, never more, and the loader keeps the XP", () => {
     const save = adultSave();
@@ -362,6 +486,7 @@ describe("what is saved", () => {
       { chain: 1, at: 0 },
       { xp: 5, at: 0 },
       Object.create({ xp: 5, chain: 1, at: 0 }),
+      Object.assign([], { xp: 5, chain: 1, at: 0 }), // (an array that carries the three keys by name)
       { constructor: { xp: 5, chain: 1, at: 0 } },
     ];
     expect(() => coerceBond(null)).not.toThrow();

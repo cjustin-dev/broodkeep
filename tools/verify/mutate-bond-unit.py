@@ -40,6 +40,9 @@ F_BOND = "src/game/bond.ts"
 F_ACTIONS = "src/game/actions.ts"
 F_STATE = "src/game/state.ts"
 F_SIM = "src/game/sim.ts"
+F_IDLE = "src/art/idle.ts"
+F_SCENE = "src/art/scene.ts"
+F_HUD = "src/game/hud.ts"
 F_TUNING = "src/data/tuning.ts"
 
 
@@ -77,10 +80,17 @@ SHARED = "shares the window with Kid Mode"
 NEVER = "never goes down, whichever touch comes and whatever the clock does"
 NEXT = "starts again with the next creature"
 FIELD = "pays a creature in a field as at home"
+FONDQ = "is fond from level 2 in Adult Mode"
+BOUNCE = "makes a fond creature in a good mood bounce for joy"
+NOTFOND = "leaves a creature that is not fond as it was"
+GROW1 = "earns happy cells only inside the old hourly limit"
+GROW2 = "earns no cell when the window has gained the old limit exactly"
+LABEL = "reads the level and what is left, for a screen reader"
+BAR = "fills the bar by the share of the level done"
+LINES = "lists where it stands, the next unlock that exists"
 
 # Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every test still passes, which is the proof that the argument holds):
 #  - dropping `before.chain > 0 &&` in earnBond: with no chain the sum is `0 + 1`, so the chain is 1 whether or not the gap passes the test, and the else branch is 1 as well.
-#  - dropping `Array.isArray(value) ||` in coerceBond: an array has none of the three own keys, so the `hasOwn` line returns first.
 #  - dropping the `typeof ... !== "number"` guard on xp, chain or at in coerceBond: `Number.isInteger` and `Number.isFinite` do not convert, so each is false for a string or any other
 #    non-number and the same `return undefined` follows. (The guards stay because they narrow the type for the comparisons after them; esbuild, which runs the tests, does not check types.)
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
@@ -89,7 +99,6 @@ EQUIVALENT = [
     mut("coerce-xp-typeof", F_BOND, 'if (typeof xp !== "number" || ', "if (", "(none)"),
     mut("coerce-chain-typeof", F_BOND, 'if (typeof chain !== "number" || ', "if (", "(none)"),
     mut("coerce-at-typeof", F_BOND, 'if (typeof at !== "number" || ', "if (", "(none)"),
-    mut("coerce-array-check", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || value === null) return undefined;', "(none)"),
 ]
 
 _TAPER = "taper: { full: 15, half: 30, halfFactor: 0.5, quarterFactor: 0.25 },"
@@ -111,8 +120,8 @@ MUTANTS = level_mutants() + [
     mut("level-needs-more-than-the-start", F_BOND, "if (xp >= (b.levelAt[n] as number)) level = n + 1;", "if (xp > (b.levelAt[n] as number)) level = n + 1;", LEVELS),
     mut("info-span-one-too-long", F_BOND, "span: (b.levelAt[level] as number) - from,", "span: (b.levelAt[level] as number) - from + 1,", INFO),
     mut("info-last-level-has-a-next", F_BOND, "return { level, into: xp - from, span: 0, next: null };", "return { level, into: xp - from, span: 0, next: level };", INFO),
-    mut("unlock-of-level-2-missing", F_BOND, '  2: "an idle hop",\n', "", UNLOCKS),
-    mut("unlock-of-level-5-renamed", F_BOND, '5: "a bigger burst when petted",', '5: "a burst",', UNLOCKS),
+    mut("unlock-of-level-2-missing", F_BOND, '  [FOND_LEVEL]: "a happy bounce of its own now and then",\n', "", UNLOCKS),
+    mut("unlock-of-level-5-renamed", F_BOND, '[BIG_BURST_LEVEL]: "a bigger burst when petted",', '[BIG_BURST_LEVEL]: "a burst",', UNLOCKS),
     mut("next-unlock-includes-this-level", F_BOND, "for (let n = level + 1; n <= LAST_LEVEL; n++) {", "for (let n = level; n <= LAST_LEVEL; n++) {", UNLOCKS),
     mut("adult-save-is-truthy", F_BOND, "save.settings.adultMode === true;", "Boolean(save.settings.adultMode);", AGREE),
     # earning XP
@@ -161,6 +170,7 @@ MUTANTS = level_mutants() + [
     mut("coerce-keeps-a-time-that-is-not-finite", F_BOND, "!Number.isFinite(at) || ", "", COERCE_BAD),
     mut("coerce-keeps-a-negative-time", F_BOND, " || at < 0)", ")", COERCE_BAD),
     mut("coerce-reads-inherited-keys", F_BOND, '  if (!Object.hasOwn(v, "xp") || !Object.hasOwn(v, "chain") || !Object.hasOwn(v, "at")) return undefined;\n', "", COERCE_BAD),
+    mut("coerce-reads-an-array-with-the-keys", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || value === null) return undefined;', COERCE_BAD),
     mut("coerce-throws-on-null", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || Array.isArray(value)) return undefined;', COERCE_BAD),
     mut("coerce-adds-the-other-keys", F_BOND, "return { xp, chain, at };\n}\n", "return { ...v, xp, chain, at } as Bond;\n}\n", COERCE_GOOD),
     # the window and the numbers of `touch`
@@ -179,6 +189,31 @@ MUTANTS = level_mutants() + [
     mut("streak-needs-more-than-ten", F_BOND, "gain = chain >= b.streakFrom ?", "gain = chain > b.streakFrom ?", STREAK),
     mut("xp-starts-again-with-the-chain", F_BOND, "const xp = Math.min(XP_MAX, before.xp + gain);", "const xp = Math.min(XP_MAX, (chain === 1 ? 0 : before.xp) + gain);", NEVER),
     mut("hatched-creature-carries-a-bond", F_SIM, "    affection: { windowStart: t, gained: 0 },\n", "    affection: { windowStart: t, gained: 0 },\n    bond: { xp: 1, chain: 0, at: 0 },\n", NEXT),
+    # growth: the happy cell
+    mut("cells-always-open", F_ACTIONS, "underOldLimit ? happinessBefore : 100", "happinessBefore", GROW1),
+    mut("cells-open-at-the-limit", F_ACTIONS, "const underOldLimit = a.gained < tuning.affection.maxGainPerWindow;", "const underOldLimit = a.gained <= tuning.affection.maxGainPerWindow;", GROW2),
+    mut("cells-limit-read-after-the-touch", F_ACTIONS, "  const underOldLimit = a.gained < tuning.affection.maxGainPerWindow; // (what the window had gained before this touch)\n  a.gained += gained;\n",
+        "  a.gained += gained;\n  const underOldLimit = a.gained < tuning.affection.maxGainPerWindow;\n", GROW1),
+    # what the levels unlock
+    mut("fond-from-level-3", F_BOND, "export const FOND_LEVEL = 2;", "export const FOND_LEVEL = 3;", UNLOCKS),
+    mut("big-burst-from-level-6", F_BOND, "export const BIG_BURST_LEVEL = 5;", "export const BIG_BURST_LEVEL = 6;", UNLOCKS),
+    mut("fond-in-kid-mode", F_BOND, "save.creature !== null && isAdultSave(save) && bondLevel", "save.creature !== null && bondLevel", FONDQ),
+    mut("fond-in-a-grave", F_BOND, 'save.phase === "alive" && save.creature !== null && isAdultSave(save)', "save.creature !== null && isAdultSave(save)", FONDQ),
+    mut("fond-with-no-creature", F_BOND, 'save.phase === "alive" && save.creature !== null && isAdultSave(save)', 'save.phase === "alive" && isAdultSave(save)', FONDQ),
+    mut("mood-has-no-fond", F_SCENE, "    fond: bondAtLeast(save, FOND_LEVEL),\n", "", FONDQ),
+    mut("bounce-chance-is-0.2", F_IDLE, "export const FOND_CHANCE = 0.12;", "export const FOND_CHANCE = 0.2;", BOUNCE),
+    mut("bounce-includes-the-chance", F_IDLE, "if (rest < FOND_CHANCE) {", "if (rest <= FOND_CHANCE) {", BOUNCE),
+    mut("bounce-shows-no-heart", F_IDLE, '      setPose(view, "happy");\n      addHeart(view);\n      return;\n', '      setPose(view, "happy");\n      return;\n', BOUNCE),
+    mut("bounce-roll-not-spread", F_IDLE, "calm = (rest - FOND_CHANCE) / (1 - FOND_CHANCE);", "calm = rest;", BOUNCE),
+    mut("bounce-in-low-spirits", F_IDLE, '    else setPose(view, "idle", 2 + rand() * 3);\n    return;\n', '    else setPose(view, "idle", 2 + rand() * 3);\n', NOTFOND),
+    # what the screen says
+    mut("label-top-level-reworded", F_HUD, "`Bond level ${level}, the top level`", "`Bond level ${level}, top level`", LABEL),
+    mut("label-swaps-the-numbers", F_HUD, "${level}, ${into} of ${span} to level ${next}`", "${level}, ${span} of ${into} to level ${next}`", LABEL),
+    mut("bar-rounds", F_HUD, "Math.floor((100 * into) / span)", "Math.round((100 * into) / span)", BAR),
+    mut("bar-empty-at-the-top", F_HUD, "return next === null ? 100 : Math.floor", "return next === null ? 0 : Math.floor", BAR),
+    mut("lines-leave-out-the-unlock", F_HUD, "if (unlock) lines.push(", "if (false && unlock) lines.push(", LINES),
+    mut("lines-poke-label-reworded", F_HUD, '"Poke: gets attention."', '"Poke: startles."', LINES),
+    mut("lines-count-the-levels-wrong", F_HUD, "of ${tuning.bond.levelAt.length}.`", "of 9.`", LINES),
     # the loader
     mut("loader-reads-bond-of-a-null-creature", F_STATE, 'if (typeof value.creature === "object" && value.creature !== null) {', 'if (typeof value.creature === "object") {', LOADER),
     mut("loader-keeps-a-damaged-bond", F_STATE, "    else delete value.creature.bond;\n", "", LOADER),

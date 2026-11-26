@@ -3,6 +3,7 @@
 
 import { getForm } from "../data/forms";
 import type { Layout } from "../data/home";
+import { FOND_LEVEL, bondAtLeast } from "../game/bond";
 import type { CallKind, Save } from "../game/state";
 import { MINUTE, hourOf } from "../game/time";
 import { tuning } from "../data/tuning";
@@ -32,6 +33,7 @@ export function moodOf(save: Save): Mood {
     dead: false,
     hungry: c.stats.hunger < 25,
     sleepy: c.stats.energy < 25,
+    fond: bondAtLeast(save, FOND_LEVEL),
   };
 }
 
