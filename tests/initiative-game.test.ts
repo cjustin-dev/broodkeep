@@ -7,13 +7,14 @@ import { bubbleBox } from "../src/art/scene";
 import { materialIds } from "../src/data/habitat";
 import { initiativeKinds } from "../src/data/initiatives";
 import { tuning } from "../src/data/tuning";
-import { retireCreature } from "../src/game/actions";
+import { feed, retireCreature, touch } from "../src/game/actions";
 import { bondOf } from "../src/game/bond";
 import { killCreature, setStat } from "../src/game/dev";
 import { cravingFoods, weightOf } from "../src/game/initiatives";
 import type { Initiative } from "../src/game/initiatives";
 import { menuOf } from "../src/game/growth";
 import { newSave } from "../src/game/state";
+import { HOUR } from "../src/game/time";
 import { writeSave } from "../src/sync/local";
 import { Game } from "../src/ui/game";
 import { at, careState, stageForm } from "./helpers";
@@ -141,6 +142,25 @@ describe("making an initiative", () => {
     expect(game.initiative).not.toBeNull(); // 60,000 ms
   });
 
+  it("counts a step backwards (the system clock set back) as nothing, not as time to wait again", () => {
+    start();
+    game.stepInitiative(-5000);
+    for (let k = 0; k < 29; k++) game.stepInitiative(2000);
+    expect(game.initiative).toBeNull(); // 58,000 ms
+    game.stepInitiative(2000);
+    expect(game.initiative).not.toBeNull(); // 60,000 ms
+  });
+
+  it("makes only one at a time, even when the countdown has run out under the one that shows (set by hand: through the clock it cannot)", () => {
+    start();
+    run(60);
+    const first = game.initiative;
+    expect(first).not.toBeNull();
+    Object.assign(game, { initiativeWait: 0 });
+    game.stepInitiative(1000);
+    expect(game.initiative).toBe(first);
+  });
+
   it("makes 3 in 300 seconds at the longest wait, 4 at 72 s and 5 at the shortest (the fifth exactly at 300 s), none overlapping", () => {
     const starts = (rand: number): number => {
       start();
@@ -187,7 +207,8 @@ describe("making an initiative", () => {
 });
 
 describe("what blocks an initiative", () => {
-  const blockers: Record<string, () => Game> = {
+  // Games that cannot be unblocked (a different kind of game): only "none is made" is asked of them.
+  const fixed: Record<string, () => Game> = {
     "Kid Mode": () => start({ adult: false }),
     "no creature (an egg)": () => {
       vi.setSystemTime(T0);
@@ -202,62 +223,41 @@ describe("what blocks an initiative", () => {
       killCreature(game.save, T0);
       return game;
     },
-    "away on a job": () => start({ set: { away: true } }),
     "asleep": () => start({ t: at(23), set: { sleep: "night" } }), // (at night: by day the clock wakes it)
-    "a call": () => {
-      start({ set: { hunger: 5 } });
-      game.save.creature!.call = "hungry";
-      return game;
-    },
-    "the habitat screen": () => {
-      start();
-      game.setScreen("habitat");
-      return game;
-    },
-    "the arena screen": () => {
-      start();
-      game.setScreen("arena");
-      return game;
-    },
-    "a fight": () => {
-      start();
-      expect(game.fight()).toBe("started");
-      return game;
-    },
-    "a training session": () => {
-      start();
-      expect(game.startTraining()).toBe("started");
-      return game;
-    },
-    "Decorate mode": () => {
-      start();
-      game.view.world = "home"; // (the Stage sets it)
-      expect(game.startDecor()).toBe(true);
-      return game;
-    },
-    "a hatch or evolve scene": () => {
-      start();
-      game.view.moment = { kind: "evolve", time: 0 };
-      return game;
-    },
-    "a haul card waiting": () => {
-      start();
-      game.save.hauls.push({ spot: "meadow", at: T0, coins: 3, material: "fiber", amount: 1 });
-      return game;
-    },
-    "an open panel": () => {
-      start();
-      game.menuOpen = true;
-      return game;
-    },
-    "a meal in progress": () => {
-      start();
-      game.view.snack = { food: "pellet", x: 0, y: 0 };
-      return game;
-    },
   };
 
-  for (const [name, make] of Object.entries(blockers)) {
+  // The rest are one condition each, so that only that row blocks: the screen rows change the screen, a fight and a training session start the real thing on the room screen, the others set their field.
+  type Row = { on: (g: Game) => void; off: (g: Game) => void };
+  const rows: Record<string, Row> = {
+    "away on a job": {
+      on: (g) => (g.save.creature!.job = { spot: "meadow", startedAt: T0, endsAt: T0 + 24 * HOUR }),
+      off: (g) => (g.save.creature!.job = null),
+    },
+    "a call": {
+      on: (g) => {
+        setStat(g.save, "hunger", 5);
+        g.save.creature!.call = "hungry";
+      },
+      off: (g) => {
+        setStat(g.save, "hunger", 70);
+        g.save.creature!.call = null;
+      },
+    },
+    "the habitat screen": { on: (g) => g.setScreen("habitat"), off: (g) => g.setScreen("room") },
+    "the arena screen": { on: (g) => g.setScreen("arena"), off: (g) => g.setScreen("room") },
+    "a fight": { on: (g) => expect(g.fight()).toBe("started"), off: (g) => (g.arena = null) }, // (the fight is `game.arena` on the room screen: the Arena screen is its own row)
+    "a training session": { on: (g) => expect(g.startTraining()).toBe("started"), off: (g) => g.closeTraining() },
+    "Decorate mode": { on: (g) => (g.decor = { selected: null, wall: null }), off: (g) => (g.decor = null) },
+    "a hatch or evolve scene": { on: (g) => (g.view.moment = { kind: "evolve", time: 0 }), off: (g) => (g.view.moment = null) },
+    "a haul card waiting": {
+      on: (g) => g.save.hauls.push({ spot: "meadow", at: T0, coins: 3, material: "fiber", amount: 1 }),
+      off: (g) => (g.save.hauls = []),
+    },
+    "an open panel": { on: (g) => (g.menuOpen = true), off: (g) => (g.menuOpen = false) },
+    "a meal in progress": { on: (g) => (g.view.snack = { food: "pellet", x: 0, y: 0 }), off: (g) => (g.view.snack = null) },
+  };
+
+  for (const [name, make] of Object.entries(fixed)) {
     it(`makes none while ${name} (120 seconds)`, () => {
       make();
       run(120);
@@ -266,28 +266,42 @@ describe("what blocks an initiative", () => {
     });
   }
 
-  it("is not stopped by a creature out in a field, a held finger or the feed tray (a clear game makes one at 60 s)", () => {
+  for (const [name, row] of Object.entries(rows)) {
+    it(`${name}: makes none for 120 seconds, holds the countdown (40 clear, 30 blocked, 19 clear: none; the 20th: made), and drops an active one at the next step`, () => {
+      start();
+      row.on(game);
+      run(120);
+      expect([game.initiative, game.view.invite]).toEqual([null, null]);
+      row.off(game);
+
+      start();
+      run(40);
+      row.on(game);
+      run(30);
+      expect(game.initiative).toBeNull();
+      row.off(game);
+      run(19);
+      expect(game.initiative).toBeNull();
+      run(1);
+      expect(game.initiative).not.toBeNull();
+
+      start();
+      run(60);
+      expect(game.initiative).not.toBeNull();
+      row.on(game);
+      game.stepInitiative(1000);
+      expect([game.initiative, game.view.invite]).toEqual([null, null]);
+    });
+  }
+
+  it("is not stopped by a creature out in a field (a clear game makes one at 60 s); the feed tray and a held finger are the Stage's and the bar's own state, which the game never reads", () => {
     start({ set: { place: "land" } });
     expect(untilMade(75)).toBe(60);
   });
 
-  it("holds the countdown while blocked and goes on where it was (40 s, 30 blocked, 20: made at 90 s elapsed, not at 60)", () => {
-    start();
-    run(40);
-    game.menuOpen = true;
-    run(30);
-    expect(game.initiative).toBeNull();
-    game.menuOpen = false;
-    run(19);
-    expect(game.initiative).toBeNull();
-    run(1);
-    expect(game.initiative).not.toBeNull();
-  });
-
-  it("drops an active initiative at once when a blocker comes, at the next tick, and wakes the screens", () => {
+  it("wakes the screens when a blocker drops an active initiative, once", () => {
     start();
     run(60);
-    expect(game.initiative).not.toBeNull();
     game.menuOpen = true;
     const before = woken;
     game.stepInitiative(1000);
@@ -312,6 +326,16 @@ describe("what blocks an initiative", () => {
     expect(game.initiative).toBe(shown); // (not dropped by being unseen)
     run(1);
     expect(game.initiative).toBeNull(); // (the fade runs on the clock, seen or not)
+  });
+
+  it("counts only 2 seconds for a tab that was hidden for 10 minutes (one tick after the gap)", () => {
+    start();
+    vi.advanceTimersByTime(600_000);
+    game.tick();
+    run(57); // 2 s + 57 s = 59 s counted
+    expect(game.initiative).toBeNull();
+    run(1);
+    expect(game.initiative).not.toBeNull();
   });
 
   it("drops a craving at the next step when its food is no longer accepted, and keeps one that still is", () => {
@@ -414,7 +438,7 @@ describe("answering a gift or a play", () => {
     expect(game.save.coins).toBe(0);
   });
 
-  it("still answers when the creature is half out of view (a bubble the player can see pays)", () => {
+  it("still answers while the creature counts as out of view (the answer tests the blockers, not unseen: a half-hidden creature's bubble can be on screen)", () => {
     start();
     offer("gift", { gift: { kind: "coins", amount: 2 } });
     game.view.inView = false;
@@ -443,6 +467,16 @@ describe("feeding and a craving", () => {
     offer("craving", { food });
     game.save.creature!.bond = { xp: tuning.bond.levelAt[1]! - 8, chain: 0, at: 0 };
     expect(game.feed(food)).toEqual({ result: "ate", levelUp: 2 });
+  });
+
+  it("pays nothing for a meal of the food asked for while the game is blocked (a panel open)", () => {
+    start();
+    const food = cravingFoods(game.save.creature!)[0]!;
+    offer("craving", { food });
+    game.menuOpen = true;
+    const first = xpOf();
+    expect(game.feed(food)).toEqual({ result: "ate", levelUp: null });
+    expect(xpOf() - first).toBe(0);
   });
 
   it("pays nothing for another food and leaves the craving", () => {
@@ -481,11 +515,16 @@ describe("feeding and a craving", () => {
     expect(xpOf() - first).toBe(8);
   });
 
-  it("is the old feeding in Kid Mode: the same result, no Bond XP, nothing else", () => {
-    start({ adult: false });
-    const first = JSON.stringify(game.save.creature!.bond ?? null);
-    expect(game.feed("pellet")).toEqual({ result: "ate", levelUp: null });
-    expect(JSON.stringify(game.save.creature!.bond ?? null)).toBe(first);
+  it("is the old feeding in Kid Mode: the same result and the same save as `act(feed)` on a copy of the game", () => {
+    const make = (): Game => {
+      vi.setSystemTime(T0);
+      return new Game(careState(stageForm("adult"), {}, T0));
+    };
+    const viaFeed = make();
+    const viaAct = make();
+    expect(viaFeed.feed("pellet")).toEqual({ result: "ate", levelUp: null });
+    expect(viaAct.act((s, now) => feed(s, "pellet", now))).toBe("ate");
+    expect(JSON.stringify(viaFeed.save)).toBe(JSON.stringify(viaAct.save));
   });
 });
 
@@ -564,13 +603,27 @@ describe("what ends an initiative with no cost", () => {
     expect(game.initiative).toBeNull();
   });
 
-  it("does not drop on every change: a toss, a pet or a meal is a change and the initiative stays", () => {
+  it("does not drop on every change: a pet and a meal go through `changed` and a gift stays", () => {
+    start();
+    const gift = offer("gift", { gift: { kind: "coins", amount: 2 } });
+    game.act((save, now) => touch(save, "pet", now));
+    expect(game.initiative).toBe(gift);
+    game.act((save, now) => feed(save, "pellet", now));
+    expect(game.initiative).toBe(gift);
+  });
+
+  it("is ended at once, with no tick, by the creature dying or another hatching", () => {
+    start();
+    offer("gift", { gift: { kind: "coins", amount: 2 } });
+    game.act((save, now) => killCreature(save, now));
+    expect([game.initiative, game.view.invite]).toEqual([null, null]);
+
     start();
     offer("gift", { gift: { kind: "coins", amount: 2 } });
     game.act((save) => {
-      save.coins += 0;
+      save.creature!.bornAt += 1;
     });
-    expect(game.initiative).not.toBeNull();
+    expect(game.initiative).toBeNull();
   });
 
   it("zeroes the clock and draws a new wait when a different game is put in (replaceSave), and only then", () => {
@@ -613,9 +666,14 @@ describe("where the bubble is", () => {
     expect(bubbleBox(view, SIZE, WORLD).x).toBe(WORLD - 12); // (not past the right wall)
     view.x = -40;
     expect(bubbleBox(view, SIZE, WORLD).x).toBe(0); // (not past the left wall)
+    view.x = 100.6;
+    view.y = 60;
+    expect(bubbleBox(view, SIZE, WORLD).x).toBe(123); // (the creature is drawn at a whole pixel: 101 + 24 - 2)
+    view.x = 100.4;
+    expect(bubbleBox(view, SIZE, WORLD).x).toBe(122); // (100 + 24 - 2)
   });
 
-  it("follows the creature's pose: the box is where the resting box is plus the pose's own offset (every pose, four times in it), so the drawn bubble and a tap on it agree", () => {
+  it("follows the creature's pose: the box is the resting box plus the pose's own offset (every pose, four times in it; the draw and the tap both call it, and init-hit tries a real tap)", () => {
     for (const pose of poses) {
       for (const t of [0, 0.1, 0.25, 0.4]) {
         const view = createView();

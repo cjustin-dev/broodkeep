@@ -5,9 +5,8 @@ import { initiativeKinds, initiativeTuning } from "../src/data/initiatives";
 import type { InitiativeKind } from "../src/data/initiatives";
 import { materialIds } from "../src/data/habitat";
 import { bondOf } from "../src/game/bond";
-import { countToss, cravingFoods, giftNote, isOver, newInitiative, nextDelay, payBond, payGift, pickKind, possible, preferenceLine, preferenceOf, stepOf, weightOf } from "../src/game/initiatives";
+import { countToss, cravingFoods, giftNote, isMoot, isOver, newInitiative, nextDelay, payBond, payGift, pickKind, possible, preferenceLine, preferenceOf, stepOf, weightOf } from "../src/game/initiatives";
 import type { Initiative } from "../src/game/initiatives";
-import { setPlace, setStat } from "../src/game/dev";
 import type { Creature } from "../src/game/state";
 import { aliveSave, at, careState, stageForm } from "./helpers";
 
@@ -285,7 +284,21 @@ describe("the words of a preference", () => {
     expect(all).toMatch(/cravings/);
     expect(all).toMatch(/gifts/);
     for (const line of seen) expect(line).toMatch(/^Prefers: (play|cravings|gifts), (play|cravings|gifts)\.$/);
-    setStat(aliveSave(stageForm("adult"), T0), "hunger", 50); // (setStat and setPlace are used by the Game tests: imported here only so a rename breaks this file too)
-    expect(typeof setPlace).toBe("function");
+  });
+});
+
+describe("a moot craving", () => {
+  it("is a craving whose food would be refused now (full, asleep, away) and never a play or a gift", () => {
+    const c = creatureOf(stageForm("adult"));
+    const food = cravingFoods(c)[0]!;
+    const craving: Initiative = { kind: "craving", bornAt: c.bornAt, at: 0, food, gift: null, tosses: 0, playFrom: null };
+    expect(isMoot(craving, c)).toBe(false);
+    expect(isMoot(craving, creatureOf(stageForm("adult"), { hunger: 95 }))).toBe(true); // full at 95
+    expect(isMoot(craving, creatureOf(stageForm("adult"), { hunger: 94 }))).toBe(false);
+    expect(isMoot(craving, creatureOf(stageForm("adult"), { sleep: "night" }))).toBe(true);
+    expect(isMoot(craving, creatureOf(stageForm("adult"), { away: true }))).toBe(true);
+    expect(isMoot({ ...craving, food: null }, c)).toBe(true);
+    expect(isMoot({ ...craving, kind: "play", food: null }, creatureOf(stageForm("adult"), { hunger: 100 }))).toBe(false);
+    expect(isMoot({ ...craving, kind: "gift", food: null }, creatureOf(stageForm("adult"), { hunger: 100 }))).toBe(false);
   });
 });

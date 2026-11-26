@@ -87,11 +87,12 @@ function offerOf(game: Game, name: string): string {
   return ` ${name} wants ${foods[i.food as FoodId].name.toLowerCase()}.`;
 }
 
-// The bubble of a play or a gift that is showing, in game pixels (null for none, and for a craving: it is answered by feeding, not by a tap). The draw and the hit test both use it.
+// The bubble of an initiative that is showing, in game pixels (null for none). A tap on a craving's bubble lands here too and does nothing (a craving is answered by feeding): without it the touch would
+// fall through to the creature under the bubble's lower edge and pet or poke it. The draw and the hit test both take the place from `bubbleBox`.
 function bubbleOf(game: Game): Box | null {
   const i = game.initiative;
   const c = game.save.creature;
-  if (!i || i.kind === "craving" || !c || c.call || c.sleep || c.job) return null;
+  if (!i || !c || c.call || c.sleep || c.job) return null;
   return bubbleBox(game.view, sizeOf(game.save), spotsOf(game.view.world).w);
 }
 
@@ -337,7 +338,7 @@ export function Stage({ game }: { game: Game }) {
     return at.x >= box.x - at.pad && at.x <= box.x + box.size + at.pad && at.y >= box.y - at.pad && at.y <= box.y + box.size + at.pad;
   };
 
-  // A touch on the ball or the gift over the creature's head (the bubble is tested before the creature).
+  // A touch on the bubble over the creature's head, whatever it offers (the bubble is tested before the creature).
   const isOnBubble = (e: PointerEvent): boolean => {
     const at = pointOf(e);
     const box = bubbleOf(game);
@@ -556,7 +557,7 @@ export function Stage({ game }: { game: Game }) {
     if (hold.current?.id !== e.pointerId) return;
     const h = endHold();
     if (h?.bubble) {
-      answer();
+      if (isOnBubble(e)) answer(); // (the one-line picture has no pan: a finger that has left the bubble answers nothing)
       return;
     }
     if (h && !h.petted) tap();

@@ -54,7 +54,6 @@ function icon(name: IconName): HTMLCanvasElement {
   return spriteCanvas(icons[name], `icon:${name}`);
 }
 
-// A round speech bubble above the creature with an icon inside.
 // Where a thought bubble over the creature is, in game pixels: over its head, kept inside the walls (the call and an initiative share the slot, and a tap on an initiative's bubble is tested against the
 // very same box). `size` is the creature's picture size and `spotsW` the width of its world.
 export const BUBBLE = { w: 12, h: 15 };
@@ -65,6 +64,7 @@ export function bubbleBox(view: View, size: number, spotsW: number): { x: number
   return { x: Math.max(0, Math.min(x + size - 2, spotsW - BUBBLE.w)), y: Math.max(0, y - 12), w: BUBBLE.w, h: BUBBLE.h };
 }
 
+// A round speech bubble above the creature with an icon inside.
 export function drawBubble(ctx: CanvasRenderingContext2D, name: IconName, x: number, y: number): void {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(x + 1, y, 10, 12);
