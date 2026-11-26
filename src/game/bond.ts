@@ -69,8 +69,16 @@ export function earnBond(c: Creature, kind: "pet" | "tickle", now: number): numb
     at = now;
     gain = chain >= b.streakFrom ? b.xpPetStreak : b.xpPet;
   }
-  const xp = Math.min(XP_MAX, before.xp + gain);
-  c.bond = { xp, chain, at };
+  c.bond = { xp: before.xp, chain, at };
+  return addBondXp(c, gain);
+}
+
+// Add XP to a creature's Bond (never past the cap), leaving the pet chain and the last pet time as they are. Returns the level just reached, or null when there is no new level.
+// A pet or a tickle goes through here (`earnBond`), and so does a training session (game/training.ts).
+export function addBondXp(c: Creature, amount: number): number | null {
+  const before = bondOf(c);
+  const xp = Math.min(XP_MAX, before.xp + amount);
+  c.bond = { xp, chain: before.chain, at: before.at };
   const after = levelOf(xp);
   return after > levelOf(before.xp) ? after : null;
 }

@@ -455,6 +455,13 @@ input:focus-visible {
   gap: 12px;
 }
 
+/* Adult Mode's two buttons before a fight: Fight and Train, each with its word under the icon. */
+.trainbtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 /* What a fight paid, as a strip in the dock (not over the picture, so the last blow stays in view). Tap to put it away. */
 .result {
   appearance: none;
@@ -2098,4 +2105,145 @@ body:has(.panel) {
 .req-gift {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* ---------- training (Bug Catch, ui/TrainGame.tsx) ---------- */
+
+.train .train-reward {
+  margin: 0;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.train-play {
+  display: grid;
+  gap: 12px;
+}
+
+.train-side {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.train-stats {
+  margin: 0;
+  display: flex;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.train-stats b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.train-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* The field is a square (the engine's field is 1000 by 1000 units), as wide as the panel leaves it. A finger on it never scrolls or zooms the page. */
+.train-field {
+  position: relative;
+  width: min(100%, 448px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  background: repeating-conic-gradient(#2f6b3f 0 25%, #2b6439 0 50%) 0 0 / 48px 48px;
+  box-shadow: inset 0 0 0 2px #1f4a2b;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A bug is a button 15.3 percent of the field wide (153 units: 44 px on the narrowest field, 288 px) and never under 44 px; the picture inside is smaller. The script writes its place. */
+.bug {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: max(44px, 15.3%);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.bug-pic {
+  display: block;
+  image-rendering: pixelated;
+  width: 70%;
+  height: auto;
+}
+
+/* The golden bug is drawn bigger than the plain one (its button is the same size, so it is no easier to hit). */
+.bug[data-kind="golden"] .bug-pic {
+  width: 92%;
+}
+
+.train-paused {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: inherit;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(18, 12, 32, 0.9);
+  cursor: pointer;
+}
+
+.train-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: 1.05rem;
+}
+
+.train-lines li:first-child {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* A short, wide window (a phone on its side): the field on the left, as large a square as the height allows, and the numbers and buttons in a column on the right. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .train {
+    max-width: none;
+  }
+
+  .train-play {
+    grid-template-columns: auto minmax(150px, 1fr);
+    align-items: start;
+  }
+
+  .train-field {
+    grid-column: 1;
+    grid-row: 1;
+    width: min(calc(100dvh - 44px - env(safe-area-inset-bottom)), 448px);
+    margin: 0;
+  }
+
+  .train-side {
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .train-stats {
+    flex-direction: column;
+    gap: 4px;
+  }
 }

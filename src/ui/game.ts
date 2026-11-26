@@ -11,6 +11,7 @@ import type { View } from "../art/idle";
 import { homeOf, isBuilt, roomsBuilt, wallOfRoom } from "../data/home";
 import type { Layout, PieceKind, RoomId } from "../data/home";
 import { isWallId } from "../data/shop";
+import type { TrainStage } from "../data/training";
 import { endFight, startFight } from "../game/actions";
 import type { StartFightResult } from "../game/actions";
 import { playRound } from "../game/combat/battle";
@@ -22,6 +23,8 @@ import { paidNote } from "../game/requests";
 import { simulateTo } from "../game/sim";
 import type { Creature, Save } from "../game/state";
 import { gameNow } from "../game/time";
+import { newBugCatch, payTraining, trainRefusal, trainStageOf } from "../game/training";
+import type { BugCatchState, TrainRefusal, TrainResult } from "../game/training";
 import { writeSave } from "../sync/local";
 
 export type Screen = "room" | "habitat" | "arena";
@@ -43,6 +46,19 @@ export interface Arena {
   result: FightResult | null; // what a finished fight paid, once it is over
 }
 
+// A training session (Bug Catch, docs/adult-a3-plan.md section 10). View state like a fight: never saved, so a reload in the middle pays nothing. `phase`: the start card, the run, the result card.
+// The overlay (ui/TrainGame.tsx) drives `run` with the engine's own functions; `Game` is told only at the start, the finish and the close.
+export interface Training {
+  bornAt: number; // the creature that started it: another one (a retire and a hatch) ends the session
+  stage: TrainStage; // the stage it is played at (the difficulty row), fixed at the start
+  phase: "ready" | "playing" | "done";
+  run: BugCatchState | null;
+  result: TrainResult | null; // what the run paid, once it has been paid
+}
+
+// What `startTraining` says, in the order it checks: Kid Mode, no living creature, a session already on, something else on the screen, then the creature's own reasons.
+export type StartTrainingResult = "started" | "adult-only" | "no-creature" | "open" | "elsewhere" | TrainRefusal;
+
 export class Game {
   save: Save;
   screen: Screen = "room"; // which picture is showing (not saved: a new visit starts in the room, and so does a new egg)
@@ -50,6 +66,7 @@ export class Game {
   view: View = createView(); // looks only (position, pose), never saved
   devSpeed = 1; // dev mode time multiplier
   viewMiddle: { col: number; row: number } | null = null; // the home's tile (fractions allowed) at the middle of the picture, set by the Stage every frame: where a piece out of the tray lands
+  training: Training | null = null; // the training session over the screen (not saved: a restart in the middle pays nothing)
   decor: Decor | null = null; // Decorate mode: null when it is off (not saved: it ends with the visit, and with anything that takes the player off the home's picture)
   note: string | null = null; // Adult Mode: why a button did nothing, shown over the room for a few seconds (not saved)
   onSave: ((byPlayer: boolean) => void) | null = null; // told each time the game is saved on this device (the cloud sync listens, sync/sync.ts)
@@ -257,6 +274,57 @@ export class Game {
     this.note = null;
   }
 
+  // Open a training session (the start card). Says why not when it cannot, in the order of `StartTrainingResult`. View-only: nothing is saved and nothing is marked as changed by the player.
+  // The Arena button asks `whyNot(trainRefusal, trainReason)` first for the sentence; this decides alone. A caller that is not the Arena button must also refuse itself while an App panel
+  // is open: the panel is App state and not visible from here (docs/adult-a3-plan.md section 10, decision 5).
+  startTraining(): StartTrainingResult {
+    if (!isAdultMode(this.save)) return "adult-only";
+    this.tick();
+    const c = this.save.creature;
+    if (this.save.phase !== "alive" || !c) return "no-creature";
+    if (this.training) return "open";
+    if (this.arena || this.view.moment !== null || this.decor) return "elsewhere";
+    const code = trainRefusal(c);
+    if (code !== null) return code;
+    this.training = { bornAt: c.bornAt, stage: trainStageOf(c), phase: "ready", run: null, result: null };
+    this.listeners.forEach((listener) => listener());
+    return "started";
+  }
+
+  // The start card's Go: the run begins. The seed is from Math.random, never the save's own generator, so a session leaves the save as it was.
+  beginTraining(): void {
+    const t = this.training;
+    if (!t || t.phase !== "ready") return;
+    t.run = newBugCatch(Math.floor(Math.random() * 2 ** 32), t.stage);
+    t.phase = "playing";
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // The run is over: pay it, once. Does nothing without a session, without a finished run, or when the session already has its result (the guard against a second pay). The game is caught up to
+  // now first (like whyNot), so a creature that died or went away in the gap is not paid; a death ends the session there. This is the only `act` of a session. `act` wakes the screens
+  // before the result is stored, so they are woken again by hand after it.
+  finishTraining(): void {
+    const t = this.training;
+    if (!t || t.phase !== "playing" || !t.run || !t.run.over || t.result !== null) return;
+    this.tick();
+    if (this.training !== t) return;
+    const run = t.run;
+    const result = this.act((save, now) => payTraining(save, save.creature, run, now));
+    if (result === null) this.training = null;
+    else {
+      t.result = result;
+      t.phase = "done";
+    }
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // Put the session away: Done, or Quit (a run in progress pays nothing).
+  closeTraining(): void {
+    if (!this.training) return;
+    this.training = null;
+    this.listeners.forEach((listener) => listener());
+  }
+
   // Adult Mode: before a button does its job, ask the live state why not. The game is caught up to now first, the same moment the action itself
   // would use, so a button that looked lit a moment ago but is not (night began, a job ended) tells the truth. `refusal` gives the code (see
   // availability.ts), `reason` the sentence for it; the sentence is said over the room and the code returned, or null when the tap may go on.
@@ -284,6 +352,7 @@ export class Game {
     this.announceRequests();
     const c = this.save.creature;
     if (this.arena && (this.save.phase !== "alive" || c?.formId !== this.arena.battle.me.formId)) this.arena = null; // the creature is gone or has evolved: that fight is over
+    if (this.training && (this.save.phase !== "alive" || !c || c.bornAt !== this.training.bornAt)) this.training = null; // the creature is gone or another one hatched (an evolution goes on: it pays with the new stage's cap)
     this.listeners.forEach((listener) => listener());
     this.scheduleSave();
   }
@@ -309,6 +378,7 @@ export class Game {
     this.seenDone = save.board.done; // a game put in from the account is not announced
     this.screen = "room";
     this.arena = null;
+    this.training = null; // a save put in from the account or another profile pays nothing
     this.view.moment = null; // a scene belongs to the old game
     this.dropNote();
     this.view.shown = shownOf(save);

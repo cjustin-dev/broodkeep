@@ -22,6 +22,7 @@ import { Nav } from "./Nav";
 import { WhoChip } from "./PlayersSection";
 import { SettingsPanel } from "./SettingsPanel";
 import { ShopPanel } from "./ShopPanel";
+import { TrainGame } from "./TrainGame";
 import { Stage } from "./Stage";
 import { StatBars } from "./StatBars";
 import { useGame } from "./useGame";
@@ -145,6 +146,7 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
       {panel === "book" && <BookPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "forecast" && <ForecastPanel game={game} onClose={() => setPanel(null)} />}
       {panel === "shop" && <ShopPanel game={game} onClose={() => setPanel(null)} />}
+      {game.training && <TrainGame game={game} />}
     </main>
   );
 }

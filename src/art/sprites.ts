@@ -69,7 +69,8 @@ export type IconName =
   | "spark"
   | "decorate"
   | "bin"
-  | "done";
+  | "done"
+  | "bug";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -556,6 +557,17 @@ export const icons: Record<IconName, Sprite> = {
     "...YY...",
     "...YY...",
   ]),
+  // A ladybug seen from above, for the Train button and the plain bug of Bug Catch.
+  bug: icon([
+    "..K..K..",
+    "...KK...",
+    "..KRRK..",
+    ".KRRRRK.",
+    ".KRKKRK.",
+    ".KRRRRK.",
+    "..KRRK..",
+    "...KK...",
+  ]),
 };
 
 // The eggs: the same shape, with different markings for each pattern.
@@ -607,3 +619,19 @@ export const allSprites: Record<string, Sprite> = {
   "egg:striped": eggSprite("striped"),
   "egg:swirled": eggSprite("swirled"),
 };
+
+// The golden bug of Bug Catch: a different shape from the plain bug, not only another colour (wings out, a white star on its back), and bigger (12 by 12).
+export const goldenBug: Sprite = icon([
+  "..K......K..",
+  "...K....K...",
+  "....KYYK....",
+  "LLWKYYYYKWLL",
+  "LWLKYYYYKLWL",
+  "LLWKYWWYKWLL",
+  "LWLKWWWWKLWL",
+  "LLWKYWWYKWLL",
+  "..KKYYYYKK..",
+  "...KKYYKK...",
+  "....KKKK....",
+  "............",
+]);

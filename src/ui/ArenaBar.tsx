@@ -1,6 +1,6 @@
 // The buttons under the arena picture. Before a fight: one big Fight button (a refused tap shows a small icon saying
 // why). In a fight: attack, guard, special and run away. After a fight: a card with what it paid, tap to put it away.
-// Icons only.
+// Icons only in Kid Mode; Adult Mode puts its word under each icon (Fight, and Train, which opens the Bug Catch session, ui/TrainGame.tsx).
 import { useEffect, useRef, useState } from "preact/hooks";
 import { triggerPose } from "../art/idle";
 import type { IconName } from "../art/sprites";
@@ -10,10 +10,11 @@ import type { StartFightResult } from "../game/actions";
 import { fightRefusal } from "../game/combat/fight";
 import type { FightResult } from "../game/combat/fight";
 import { isAdultMode } from "../game/hud";
-import { fightReason } from "../game/reasons";
+import { trainRefusal } from "../game/training";
+import { fightReason, trainReason } from "../game/reasons";
 import type { CombatStat } from "../game/types";
 import type { Game } from "./game";
-import { Icon } from "./Icon";
+import { Icon, Word } from "./Icon";
 
 // Why a tap on Fight did nothing, as a picture.
 const refusalIcon: Partial<Record<StartFightResult["status"], IconName>> = {
@@ -96,6 +97,12 @@ export function ArenaBar({ game }: { game: Game }) {
     }
   };
 
+  // Train (Adult Mode): ask why not first, which says the sentence over the room; the entry then decides alone (ui/game.ts startTraining).
+  const onTrain = (): void => {
+    if (game.whyNot(trainRefusal, trainReason) !== null) return;
+    game.startTraining();
+  };
+
   // The note row is there in every state, so the picture does not move when a fight starts or ends.
   const noteRow = (
     <div class="bag" role="group" aria-label="Arena">
@@ -139,6 +146,24 @@ export function ArenaBar({ game }: { game: Game }) {
           </button>
           <button class="btn" aria-label="Run away" onClick={() => game.leaveFight()}>
             <Icon name="house" px={32} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (adult) {
+    return (
+      <div class="actions">
+        {noteRow}
+        <div class="trainbtns" role="group" aria-label="Fight or train">
+          <button class="btn labelled" aria-label="Fight a wild creature" aria-disabled={fightRefusal(c) !== null ? true : undefined} onClick={onFight}>
+            <Icon name="swords" px={40} />
+            <Word text="Fight" />
+          </button>
+          <button class="btn labelled" aria-label="Train: catch bugs for Speed" aria-disabled={trainRefusal(c) !== null ? true : undefined} onClick={onTrain}>
+            <Icon name="bug" px={40} />
+            <Word text="Train" />
           </button>
         </div>
       </div>
