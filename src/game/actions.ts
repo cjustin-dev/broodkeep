@@ -17,6 +17,7 @@ import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefus
 import { dishMeal } from "./dishes";
 import type { DishId } from "./dishes";
 import { countCareCells, countServing, noteCare } from "./growth";
+import { earnBond, isAdultSave, taper } from "./bond";
 import { beginJob, endJobEarly, jobRefusal } from "./habitat/jobs";
 import { hungerGrace } from "./perks";
 import type { JobRefusal } from "./habitat/jobs";
@@ -177,11 +178,13 @@ export function tapEgg(save: Save, nowMs: number): EggTapResult {
 
 export type TouchKind = "poke" | "pet" | "tickle";
 export interface TouchResult {
-  gained: number; // happiness gained (0 once the hourly limit is reached)
+  gained: number; // happiness gained (0 once the hourly limit is reached; in Adult Mode it only gets smaller, see game/bond.ts)
   asleep: boolean;
+  levelUp?: number; // the Bond level just reached (Adult Mode); the key exists only when there is one
 }
 
-// Tap reactions. Petting and tickling add happiness, but only up to a limit per hour.
+// Tap reactions. Petting and tickling add happiness, but only up to a limit per hour. In Adult Mode the limit is a taper that never reaches 0, and a pet or a tickle also earns
+// Bond XP (docs/adult-a3-plan.md section 4); Kid Mode is the old rule, unchanged.
 export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   const c = alive(save, nowMs);
   if (!c) return { gained: 0, asleep: false };
@@ -190,16 +193,23 @@ export function touch(save: Save, kind: TouchKind, nowMs: number): TouchResult {
   noteCare(c); // a pet or a tickle is care even when the hourly happiness limit gives nothing more
 
   const a = c.affection;
-  if (nowMs - a.windowStart >= tuning.affection.windowMinutes * MINUTE) {
+  const adult = isAdultSave(save);
+  // (In Adult Mode a clock that went back also restarts the window: the difference would stay negative until the clock caught up with the old end.)
+  if (nowMs - a.windowStart >= tuning.affection.windowMinutes * MINUTE || (adult && nowMs < a.windowStart)) {
     a.windowStart = nowMs;
     a.gained = 0;
   }
   const want = kind === "pet" ? tuning.affection.pet : tuning.affection.tickle;
-  const gained = Math.max(0, Math.min(want, tuning.affection.maxGainPerWindow - a.gained));
+  const gained = adult ? taper(want, a.gained) : Math.max(0, Math.min(want, tuning.affection.maxGainPerWindow - a.gained));
   a.gained += gained;
   const happinessBefore = c.stats.happiness;
   c.stats.happiness = clamp(c.stats.happiness + gained);
   countCareCells(c, c.stats.hunger, happinessBefore, hungerGrace(save.owned)); // (hunger did not change, so it cannot count, mat or no mat)
+  const levelUp = adult ? earnBond(c, kind, nowMs) : null;
+  if (levelUp !== null) {
+    logEvent(save, nowMs, `Bond level ${levelUp}`);
+    return { gained, asleep: false, levelUp };
+  }
   return { gained, asleep: false };
 }
 

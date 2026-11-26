@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+# Mutation runner for the rules of Bond (Broodkeep, adult slice A3.1, docs/adult-a3-plan.md section 4): the levels, what a pet and a tickle earn and the chain (game/bond.ts), the taper
+# and the Kid branch of `touch` (game/actions.ts), the numbers (data/tuning.ts) and what the loader keeps (game/state.ts migrateSave). The screen side (the HUD, the burst, the idle hop)
+# is the UI runner's: mutate-bond-ui.py.
+#
+# It works on a COPY of the repo (bond-unit-copy/), never on the real tree. Each mutant is one exact text replace whose `old` must occur exactly once in its file. Only the test file below
+# runs per mutant: a mutant counts only when ITS named test fails, so the rest of the suite cannot change the verdict. A mutant is CAUGHT only when the test named in `expect` (a substring
+# of its full name, in `expect_file`) fails.
+#
+#   python3 mutate-bond-unit.py --list   checks each `old` occurs once in the real files (the EQUIVALENT ones too), prints the table, runs no tests
+#   python3 mutate-bond-unit.py          makes a fresh copy, runs the baseline, then every mutant, then checks the copy
+#   python3 mutate-bond-unit.py --only id1,id2   the same, for these mutants only
+#   python3 mutate-bond-unit.py --equivalents    runs the EQUIVALENT list (the mutants argued to change nothing) instead: exit 0 only when every one of them leaves every test passing
+#
+# Exit: 0 every mutant CAUGHT; 1 some mutant not CAUGHT (or an occurrence count is not 1); 2 baseline failed, the copy differs at the end, or an unknown or empty --only id.
+# With --equivalents the codes are reversed for the mutants: 0 when every one of them SURVIVED (changed nothing), 1 when one is caught or fails any test; 2 as above.
+import argparse
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REAL = os.path.abspath(os.path.join(HERE, "..", ".."))  # the repo this file is in
+# Everything this runner makes (the copy, the logs) goes to VERIFY_OUT, never into the repo.
+VERIFY_OUT = os.environ.get("VERIFY_OUT") or os.path.join(tempfile.gettempdir(), "broodkeep-verify")
+COPY = os.path.join(VERIFY_OUT, "bond-unit-copy")
+ORIG = os.path.join(VERIFY_OUT, "bond-unit-orig")
+OUT = os.path.join(VERIFY_OUT, "bond-unit-out")
+T_BOND = "tests/bond.test.ts"
+VITEST = ["npx", "vitest", "run", T_BOND, "--cache=false", "--fsModuleCache=false", "--reporter=json"]
+TEST_FILE = T_BOND
+TIMEOUT_S = 600
+EQUIV_MODE = False
+
+F_BOND = "src/game/bond.ts"
+F_ACTIONS = "src/game/actions.ts"
+F_STATE = "src/game/state.ts"
+F_TUNING = "src/data/tuning.ts"
+
+
+def mut(id, file, old, new, expect, test=T_BOND):
+    return dict(id=id, file=file, old=old, new=new, expect=expect, expect_file=test)
+
+
+# Test titles (substrings of the full test names in tests/bond.test.ts)
+LEVELS = "start at 0, 300, 800, 1,500, 3,000, 4,500, 6,500, 9,000, 12,000 and 15,000 XP"
+INFO = "read as the level, the XP inside it, what the level takes and the next level"
+UNLOCKS = "name only the unlocks that exist"
+AGREE = "agrees with the HUD's `isAdultMode`"
+TAPER_PET = "pays a pet 2 eight times, 1 fourteen times, then 0.5"
+TAPER_TICKLE = "pays a tickle 3 five times, 1.5 ten times, then 0.75"
+TAPER_PURE = "is a pure function of the want and the points gained so far"
+WINDOW = "starts the window again after 60 minutes, and also when the clock was set back inside it"
+AT100 = "still pays a heart and XP when happiness is already 100"
+STREAK = "pays a pet 1 XP up to the ninth of a chain and 2 from the tenth"
+TICKLE = "pays a tickle 3 and leaves the chain and the time of the last pet alone"
+GAP = "goes on with a gap of 0 and of 2,000 ms, and starts again after 2,001 ms"
+BACK = "starts the chain again when the clock went back"
+CAP = "stops at 15,000 XP and stays level 10"
+LEVELUP = "reports a level once"
+SHAPE = "gives a result of exactly the old shape when there is no new level"
+ASLEEP = "pays nothing to a creature that is asleep (night or nap), away on a job or an egg"
+KID1 = "pays 15 happiness an hour in all, with no Bond written and the old result shape"
+KID2 = "does not restart its window when the clock goes back"
+KID3 = "leaves Bond data a profile already has as it is"
+HOLD150 = "keeps a hold of 150 pets through a reload"
+COERCE_GOOD = "reads a good Bond as it is and ignores other keys in it"
+COERCE_BAD = "drops a damaged Bond whole"
+LOADER = "is dropped by the loader when damaged and never throws"
+
+# Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every test still passes, which is the proof that the argument holds):
+#  - dropping `before.chain > 0 &&` in earnBond: a Bond with no chain has `at` 0 (or the time of an earlier chain's pet that the chain's end already reached), and the gap from 0 is the whole
+#    epoch time, far over 2,000 ms, so the chain starts at 1 either way; a clock near 0 does not occur in a game (game time is the device's time).
+#  - dropping `Array.isArray(value) ||` in coerceBond: an array has none of the three own keys, so the `hasOwn` line returns first.
+# id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
+EQUIVALENT = [
+    mut("chain-needs-no-previous", F_BOND, "before.chain > 0 && gap >= 0", "gap >= 0", "(none)"),
+    mut("coerce-array-check", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || value === null) return undefined;', "(none)"),
+]
+
+_TAPER = "taper: { full: 15, half: 30, halfFactor: 0.5, quarterFactor: 0.25 },"
+_LEVELS = "levelAt: [0, 300, 800, 1500, 3000, 4500, 6500, 9000, 12000, 15000],"
+_STARTS = [0, 300, 800, 1500, 3000, 4500, 6500, 9000, 12000, 15000]
+
+
+def level_mutants():
+    out = []
+    for i in range(1, 10):
+        starts = list(_STARTS)
+        starts[i] += 1  # one XP late: the table test reads the level just below and at each start
+        out.append(mut("level-%d-starts-one-late" % (i + 1), F_TUNING, _LEVELS, "levelAt: [%s]," % ", ".join(str(x) for x in starts), LEVELS))
+    return out
+
+
+MUTANTS = level_mutants() + [
+    # reading the XP
+    mut("level-needs-more-than-the-start", F_BOND, "if (xp >= (b.levelAt[n] as number)) level = n + 1;", "if (xp > (b.levelAt[n] as number)) level = n + 1;", LEVELS),
+    mut("info-span-one-too-long", F_BOND, "span: (b.levelAt[level] as number) - from,", "span: (b.levelAt[level] as number) - from + 1,", INFO),
+    mut("info-last-level-has-a-next", F_BOND, "return { level, into: xp - from, span: 0, next: null };", "return { level, into: xp - from, span: 0, next: level };", INFO),
+    mut("unlock-of-level-2-missing", F_BOND, '  2: "an idle hop",\n', "", UNLOCKS),
+    mut("unlock-of-level-5-renamed", F_BOND, '5: "a bigger burst when petted",', '5: "a burst",', UNLOCKS),
+    mut("next-unlock-includes-this-level", F_BOND, "for (let n = level + 1; n <= LAST_LEVEL; n++) {", "for (let n = level; n <= LAST_LEVEL; n++) {", UNLOCKS),
+    mut("adult-save-is-truthy", F_BOND, "save.settings.adultMode === true;", "Boolean(save.settings.adultMode);", AGREE),
+    # earning XP
+    mut("streak-from-the-ninth", F_TUNING, "streakFrom: 10,", "streakFrom: 9,", STREAK),
+    mut("streak-from-the-eleventh", F_TUNING, "streakFrom: 10,", "streakFrom: 11,", STREAK),
+    mut("streak-pays-three", F_TUNING, "xpPetStreak: 2,", "xpPetStreak: 3,", STREAK),
+    mut("tickle-pays-two", F_TUNING, "xpTickle: 3,", "xpTickle: 2,", TICKLE),
+    mut("tickle-moves-the-chain", F_BOND, 'if (kind === "pet") {', 'if (kind === "pet" || kind === "tickle") {', TICKLE),
+    mut("pet-does-not-save-its-time", F_BOND, "    at = now;\n", "", STREAK),
+    mut("chain-gap-2001-breaks", F_TUNING, "chainGapMs: 2000,", "chainGapMs: 1999,", GAP),
+    mut("chain-gap-2002-goes-on", F_TUNING, "chainGapMs: 2000,", "chainGapMs: 2001,", GAP),
+    mut("chain-gap-0-breaks", F_BOND, "gap >= 0 && gap <= b.chainGapMs", "gap > 0 && gap <= b.chainGapMs", GAP),
+    mut("chain-allows-a-negative-gap", F_BOND, "gap >= 0 && gap <= b.chainGapMs", "gap <= b.chainGapMs", BACK),
+    mut("chain-is-stored-uncapped", F_BOND, "Math.min(b.streakFrom, before.chain + 1)", "before.chain + 1", STREAK),
+    mut("xp-has-no-cap", F_BOND, "const xp = Math.min(XP_MAX, before.xp + gain);", "const xp = before.xp + gain;", CAP),
+    mut("level-up-every-time", F_BOND, "return after > levelOf(before.xp) ? after : null;", "return after;", LEVELUP),
+    mut("level-up-when-equal", F_BOND, "return after > levelOf(before.xp) ? after : null;", "return after >= levelOf(before.xp) ? after : null;", LEVELUP),
+    # the taper
+    mut("taper-full-under-14", F_TUNING, _TAPER, "taper: { full: 14, half: 30, halfFactor: 0.5, quarterFactor: 0.25 },", TAPER_PET),
+    mut("taper-half-under-29", F_TUNING, _TAPER, "taper: { full: 15, half: 29, halfFactor: 0.5, quarterFactor: 0.25 },", TAPER_PET),
+    mut("taper-half-factor-0.6", F_TUNING, _TAPER, "taper: { full: 15, half: 30, halfFactor: 0.6, quarterFactor: 0.25 },", TAPER_PET),
+    mut("taper-quarter-factor-0.3", F_TUNING, _TAPER, "taper: { full: 15, half: 30, halfFactor: 0.5, quarterFactor: 0.3 },", TAPER_PET),
+    mut("taper-full-up-to-15", F_BOND, "gainedInWindow < t.full ? 1", "gainedInWindow <= t.full ? 1", TAPER_PURE),
+    mut("taper-half-up-to-30", F_BOND, "gainedInWindow < t.half ?", "gainedInWindow <= t.half ?", TAPER_PURE),
+    mut("taper-ignores-the-tickle", F_ACTIONS, "adult ? taper(want, a.gained) :", "adult ? want :", TAPER_TICKLE),
+    # `touch`
+    mut("kid-gets-the-adult-rule", F_ACTIONS, "const adult = isAdultSave(save);", "const adult = true;", KID1),
+    mut("adult-keeps-the-cap", F_ACTIONS, "const gained = adult ? taper(want, a.gained) : Math.max(", "const gained = Math.max(", TAPER_PET),
+    mut("adult-window-ignores-a-clock-set-back", F_ACTIONS, " || (adult && nowMs < a.windowStart)", "", WINDOW),
+    mut("kid-window-follows-a-clock-set-back", F_ACTIONS, "(adult && nowMs < a.windowStart)", "nowMs < a.windowStart", KID2),
+    mut("bond-earned-in-kid-mode", F_ACTIONS, "const levelUp = adult ? earnBond(c, kind, nowMs) : null;", "const levelUp = earnBond(c, kind, nowMs);", KID1),
+    mut("kid-bond-data-is-changed", F_ACTIONS, "const levelUp = adult ? earnBond(c, kind, nowMs) : null;", "const levelUp = adult || c.bond ? earnBond(c, kind, nowMs) : null;", KID3),
+    mut("level-up-not-logged", F_ACTIONS, "    logEvent(save, nowMs, `Bond level ${levelUp}`);\n", "", LEVELUP),
+    mut("result-always-has-a-level-up-key", F_ACTIONS, "  return { gained, asleep: false };\n}\n\n// A new egg takes", "  return { gained, asleep: false, levelUp: undefined };\n}\n\n// A new egg takes", SHAPE),
+    mut("a-sleeper-is-paid", F_ACTIONS, "if (c.sleep) return { gained: 0, asleep: true };", "if (c.sleep && false) return { gained: 0, asleep: true };", ASLEEP),
+    mut("an-away-creature-is-paid", F_ACTIONS, 'return save.phase === "alive" && !save.creature?.job ? save.creature : null;', 'return save.phase === "alive" ? save.creature : null;', ASLEEP),
+    # what is saved
+    mut("loader-keeps-anything", F_STATE, "const bond = coerceBond((value.creature as { bond?: unknown }).bond);", "const bond = (value.creature as { bond?: unknown }).bond as never;", LOADER),
+    mut("loader-drops-a-good-bond", F_STATE, "if (bond) value.creature.bond = bond;", "if (bond && false) value.creature.bond = bond;", HOLD150),
+    mut("coerce-keeps-a-fractional-xp", F_BOND, "!Number.isInteger(xp) || ", "", COERCE_BAD),
+    mut("coerce-keeps-a-negative-xp", F_BOND, "xp < 0 || ", "", COERCE_BAD),
+    mut("coerce-keeps-xp-over-the-cap", F_BOND, "xp > XP_MAX)", "xp > XP_MAX + 1)", COERCE_BAD),
+    mut("coerce-keeps-a-fractional-chain", F_BOND, "!Number.isInteger(chain) || ", "", COERCE_BAD),
+    mut("coerce-keeps-a-negative-chain", F_BOND, "chain < 0 || ", "", COERCE_BAD),
+    mut("coerce-keeps-a-chain-over-ten", F_BOND, "chain > b.streakFrom)", "chain > b.streakFrom + 1)", COERCE_BAD),
+    mut("coerce-keeps-a-time-that-is-not-finite", F_BOND, "!Number.isFinite(at) || ", "", COERCE_BAD),
+    mut("coerce-keeps-a-negative-time", F_BOND, " || at < 0)", ")", COERCE_BAD),
+    mut("coerce-reads-inherited-keys", F_BOND, '  if (!Object.hasOwn(v, "xp") || !Object.hasOwn(v, "chain") || !Object.hasOwn(v, "at")) return undefined;\n', "", COERCE_BAD),
+    mut("coerce-throws-on-null", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || Array.isArray(value)) return undefined;', COERCE_BAD),
+    mut("coerce-keeps-a-wrong-kind-of-xp", F_BOND, 'if (typeof xp !== "number" || ', "if (", COERCE_BAD),
+    mut("coerce-adds-the-other-keys", F_BOND, "return { xp, chain, at };\n}\n", "return { ...v, xp, chain, at } as Bond;\n}\n", COERCE_GOOD),
+]
+
+
+def read(path):
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def write(path, text):
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+
+
+def short(text, width):
+    text = " ".join(str(text).split())
+    return text if len(text) <= width else text[: width - 3] + "..."
+
+
+def short_file(name):
+    for marker in ("/tests/", "/src/"):
+        if marker in name:
+            return name[name.index(marker) + 1 :]
+    return name
+
+
+def top_ignore(directory, names):
+    if os.path.abspath(directory) == REAL:
+        return {n for n in names if n in ("node_modules", "dist", ".git")}
+    return set()
+
+
+def fresh_copy():
+    if os.path.lexists(COPY):
+        shutil.rmtree(COPY)  # a symlink is removed, not followed
+    shutil.copytree(REAL, COPY, ignore=top_ignore, symlinks=True)
+    os.symlink(os.path.join(REAL, "node_modules"), os.path.join(COPY, "node_modules"))
+
+
+def run_vitest(name):
+    jpath = os.path.join(OUT, name + ".json")
+    if os.path.exists(jpath):
+        os.remove(jpath)
+    with open(os.path.join(OUT, name + ".log"), "w", encoding="utf-8") as log:
+        # its own process group, so a timeout or Ctrl-C kills vitest's node children too, not only the npx parent
+        proc = subprocess.Popen(VITEST + ["--outputFile=" + jpath], cwd=COPY, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            rc = proc.wait(timeout=TIMEOUT_S)
+        except BaseException:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait()
+            raise
+    data = None
+    if os.path.exists(jpath):
+        with open(jpath, encoding="utf-8") as f:
+            data = json.load(f)
+    return rc, data
+
+
+def failures(data):
+    out = []
+    for tr in data.get("testResults", []):
+        got = False
+        for a in tr.get("assertionResults", []):
+            if a.get("status") == "failed":
+                out.append((short_file(tr["name"]), a["fullName"]))
+                got = True
+        if tr.get("status") == "failed" and not got:
+            out.append((short_file(tr["name"]), "<suite failed to load>"))
+    return out
+
+
+def verdict(m, rc, data):
+    if data is None:
+        return "ERROR", "no JSON report (exit %s)" % rc, []
+    fails = failures(data)
+    if rc not in (0, 1):
+        return "ERROR", "vitest exit %s" % rc, fails
+    if (rc == 1) != bool(fails):
+        return "ERROR", "exit %s does not match %d failed tests" % (rc, len(fails)), fails
+    want_file = m.get("expect_file", TEST_FILE)  # a mutant in a helper shared with startNewEgg is guarded by that test, in another file
+    matched = [f for f in fails if f[0].endswith(want_file) and m["expect"] in f[1]]
+    if matched:
+        return "CAUGHT", "", fails
+    if fails:
+        return "CAUGHT-BY-OTHER", "named test did not fail", fails
+    return "SURVIVED", "", fails
+
+
+def occurrences(m):
+    return read(os.path.join(REAL, m["file"])).count(m["old"])
+
+
+def do_list():
+    bad = 0
+    print("%-32s %5s  %-22s %-22s %s" % ("id", "count", "file", "expect_file", "expect (title substring)"))
+    rows = MUTANTS if EQUIV_MODE else MUTANTS + EQUIVALENT  # (the default list checks the five EQUIVALENT texts too: they must occur once as well)
+    for m in rows:
+        n = occurrences(m)
+        if n != 1:
+            bad += 1
+        print("%-32s %5d  %-22s %-22s %s" % (m["id"], n, m["file"], m.get("expect_file", TEST_FILE).split("/")[-1], m["expect"]))
+    print("LIST total=%d bad=%d" % (len(rows), bad))
+    return 0 if bad == 0 else 1
+
+
+def do_run():
+    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(ORIG, exist_ok=True)
+    if not os.path.isdir(os.path.join(REAL, "node_modules")):
+        print("node_modules missing in the real repo; cannot run vitest")
+        return 2
+    fresh_copy()
+    print("copy made: %s (node_modules symlinked to the real repo)" % COPY)
+
+    # Baseline: no mutation, must pass.
+    try:
+        rc, data = run_vitest("baseline")
+    except Exception as e:  # a hung or missing vitest is a stop (exit 2), not a traceback
+        print("BASELINE FAILED to run: %r" % (e,))
+        return 2
+    if rc != 0 or data is None or data.get("numFailedTests") != 0 or data.get("numPassedTests", 0) == 0:
+        print("BASELINE FAILED: exit %s, failed %s, passed %s (see %s)" % (rc, data and data.get("numFailedTests"), data and data.get("numPassedTests"), os.path.join(OUT, "baseline.log")))
+        return 2
+    print("BASELINE ok: exit 0, %d tests passed" % data["numPassedTests"])
+
+    results = []
+    fatal = None
+    for m in MUTANTS:
+        path = os.path.join(COPY, m["file"])
+        orig = read(path)
+        n = orig.count(m["old"])
+        if n != 1:
+            results.append((m, "ERROR", "old occurs %d times in the copy" % n, []))
+            continue
+        write(os.path.join(ORIG, m["file"].replace("/", "__")), orig)
+        try:
+            write(path, orig.replace(m["old"], m["new"], 1))
+            rc, data = run_vitest(m["id"])
+            v, note, fails = verdict(m, rc, data)
+        except Exception as e:  # a runner problem is an ERROR, the loop goes on
+            v, note, fails = "ERROR", "runner exception: %r" % (e,), []
+        finally:
+            write(path, orig)
+            if read(path) != orig:
+                fatal = "restore failed for " + m["file"]
+        results.append((m, v, note, fails))
+        print("%-32s %s" % (m["id"], v), flush=True)
+        if fatal:
+            break
+    if fatal:
+        print("FATAL:", fatal)
+        return 2
+
+    # The copy must match the real tree again.
+    same = True
+    for sub in ("src", "tests"):
+        d = subprocess.run(["diff", "-r", os.path.join(REAL, sub), os.path.join(COPY, sub)], capture_output=True, text=True)
+        if d.returncode != 0:
+            same = False
+            print("DIFF in %s (rc %d):\n%s" % (sub, d.returncode, d.stdout[:2000] + d.stderr[:500]))
+    print("COPY CHECK: src and tests %s the real repo" % ("identical to" if same else "DIFFER from"))
+
+    print()
+    print("%-32s %-17s %-55s %s" % ("id", "verdict", "expect (title substring)", "failed titles (shortened)"))
+    counts = {"CAUGHT": 0, "CAUGHT-BY-OTHER": 0, "SURVIVED": 0, "ERROR": 0}
+    for m, v, note, fails in results:
+        counts[v] += 1
+        shown = [short(t, 70) for _, t in fails[:2]]
+        if len(fails) > 2:
+            shown.append("(+%d more)" % (len(fails) - 2))
+        extra = (" [" + note + "]") if note else ""
+        print("%-32s %-17s %-55s %s%s" % (m["id"], v, short(m["expect"], 55), " | ".join(shown), extra))
+    print()
+    print("SUMMARY caught=%d other=%d survived=%d error=%d of %d" % (counts["CAUGHT"], counts["CAUGHT-BY-OTHER"], counts["SURVIVED"], counts["ERROR"], len(MUTANTS)))
+    if not same:
+        return 2
+    if EQUIV_MODE:
+        return 0 if counts["SURVIVED"] == len(MUTANTS) else 1
+    return 0 if counts["CAUGHT"] == len(MUTANTS) else 1
+
+
+def main():
+    global EQUIV_MODE
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--list", action="store_true", help="check the occurrences and print the mutants; run no tests")
+    ap.add_argument("--equivalents", action="store_true", help="run the EQUIVALENT mutants instead: each must leave every test passing (SURVIVED), else the argument for leaving it out is wrong")
+    ap.add_argument("--only", help="run only these mutants (comma separated ids), after the same baseline; the summary counts only them (an unknown or empty id stops the run, exit 2)")
+    args = ap.parse_args()
+    if args.equivalents:
+        EQUIV_MODE = True
+        MUTANTS[:] = EQUIVALENT
+    if args.only is not None:
+        ids = [i.strip() for i in args.only.split(",")]
+        known = {m["id"] for m in MUTANTS}
+        bad = [i for i in ids if i not in known]  # (an empty id is never known)
+        if bad:
+            print("unknown or empty mutant id: %s" % bad)
+            return 2
+        MUTANTS[:] = [m for m in MUTANTS if m["id"] in ids]
+    if args.list:
+        return do_list()
+    return do_run()
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))  # SystemExit runs the restore in each `finally`
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("interrupted: the copy's current file was restored in its finally")
+        sys.exit(130)

@@ -9,6 +9,7 @@ import type { HomeSave } from "../data/home";
 import { isHatId, isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
 import { freshBoard, migrateBoard } from "./board";
+import { coerceBond } from "./bond";
 import type { Board } from "./board";
 import { makeRng } from "./rng";
 import type { CombatStat, EggPattern, FieldId, FoodId, Place } from "./types";
@@ -56,6 +57,13 @@ export interface Haul {
   amount: number;
 }
 
+// What petting has built with this creature: the XP (a whole number up to the last level's), the pets in a row (up to the streak's length) and the game time of the last pet.
+export interface Bond {
+  xp: number;
+  chain: number;
+  at: number;
+}
+
 export interface Creature {
   formId: string;
   eggPattern: EggPattern; // the egg it hatched from: it names the field a baby grows toward if never taken to one
@@ -72,6 +80,7 @@ export interface Creature {
   wellnessZeroMinutes: number;
   recentCandy: number[]; // times candy was eaten lately
   affection: { windowStart: number; gained: number };
+  bond?: Bond; // Adult Mode's Bond (game/bond.ts); missing means level 1 with nothing earned (optional so older saves still load)
   counters: Counters;
   job?: Job | null; // set while the creature is away working (optional so older saves still load)
   hp?: number; // battle HP right now; missing means full (it recovers by resting, see game/combat/recovery.ts)
@@ -246,5 +255,12 @@ export function migrateSave(value: unknown): Save | null {
   const home = coerceHome(value.home);
   if (home) value.home = ownedWalls(home, value.owned);
   else delete value.home;
+  // A creature from before Bond has none. Only a whole, well-formed one is kept (the creature itself is passed through as it is, so a damaged `bond` from storage or the cloud would
+  // otherwise go straight into the rules), and this must never throw.
+  if (typeof value.creature === "object" && value.creature !== null) {
+    const bond = coerceBond((value.creature as { bond?: unknown }).bond);
+    if (bond) value.creature.bond = bond;
+    else delete value.creature.bond;
+  }
   return value;
 }
