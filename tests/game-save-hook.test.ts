@@ -1,7 +1,7 @@
 // Game tells the cloud sync each time it saves, and whether the player did something since the last save (ui/game.ts).
 // A save that only carries the clock forward must not count, or a device left open and idle would beat the one in use (sync/sync.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { feed } from "../src/game/actions";
+import { feed, touch } from "../src/game/actions";
 import { MINUTE } from "../src/game/time";
 import { writeSave } from "../src/sync/local";
 import { Game } from "../src/ui/game";
@@ -49,6 +49,17 @@ describe("the save hook", () => {
     game.act((save, now) => feed(save, "meat", now));
     game.saveNow();
     expect(told).toEqual([true]);
+  });
+
+  it("says an Adult Mode pet (which earns Bond XP) is the player's, and the clock moving on afterwards (an idle device) is not and leaves the XP as it was", () => {
+    game.save.settings.adultMode = true;
+    game.act((save, now) => touch(save, "pet", now));
+    game.saveNow();
+    expect(game.save.creature?.bond?.xp).toBe(1);
+    clockMovesOn(5);
+    game.saveNow();
+    expect(told).toEqual([true, false]);
+    expect(game.save.creature?.bond?.xp).toBe(1);
   });
 
   it("says a save is not the player's when only the clock moved on", () => {

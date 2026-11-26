@@ -72,7 +72,11 @@ export interface Mood {
   dead?: boolean;
   hungry?: boolean;
   sleepy?: boolean;
+  fond?: boolean; // Bond level 2 or more in Adult Mode (game/bond.ts)
 }
+
+// A fond creature in a good mood bounces for joy on its own, once in about eight of its choices.
+export const FOND_CHANCE = 0.12;
 
 // How long each timed reaction lasts, in seconds.
 const poseLengths: Partial<Record<Pose, number>> = {
@@ -395,9 +399,18 @@ function chooseNext(view: View, mood: Mood, rand: () => number): void {
     else setPose(view, "idle", 2 + rand() * 3);
     return;
   }
-  if (rest < 0.45) startWalk(view, rand);
-  else if (rest < 0.7) setPose(view, "hop");
-  else if (rest < 0.85) {
+  let calm = rest; // (what is left of the roll once the bounce's share is taken out)
+  if (mood.fond) {
+    if (rest < FOND_CHANCE) {
+      setPose(view, "happy");
+      addHeart(view);
+      return;
+    }
+    calm = (rest - FOND_CHANCE) / (1 - FOND_CHANCE);
+  }
+  if (calm < 0.45) startWalk(view, rand);
+  else if (calm < 0.7) setPose(view, "hop");
+  else if (calm < 0.85) {
     view.facing = view.facing === 1 ? -1 : 1;
     setPose(view, "idle", 1 + rand() * 2);
   } else setPose(view, "idle", 1 + rand() * 2);

@@ -1,4 +1,4 @@
-# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a; the shop's foods, A2.2b; the request board, A2.3; the home, H0, H1 and H2a)
+# tools/verify: browser checks and mutation runs (Retire, A1.4; habitat cards and call back, A2.1; the shop, A2.2a; the shop's foods, A2.2b; the request board, A2.3; the home, H0, H1 and H2a; Bond, A3.1)
 
 These scripts are not part of the game, the build or `npm test`. They check the Retire card in the Creature Book (A1.4) and the habitat's spot
 card, job card and call back (A2.1), the shop (A2.2a), its foods in the Feed tray (A2.2b) and the request board (A2.3) on a real browser, and check the checks: a mutation run breaks the code on purpose and the named check must fail. What they found and how often they were run is
@@ -52,6 +52,12 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 | `mutate-decorate-unit.py` | Mutation run for Decorate mode's pure side (`src/art/homeEdit.ts`, `src/ui/game.ts`, `src/art/idle.ts`; 55 mutants): each must fail its named test in `tests/home-edit.test.ts`, `game-decor.test.ts` or `idle-home.test.ts` (only those run per mutant). `--list` checks every `old` occurs once. Works on `$VERIFY_OUT/decorate-unit-copy`. |
 | `mutate-walls-unit.py` | Mutation run for the pure side of the wallpaper for each room (H2c: `wallOfRoom`, `wallRoomOf`, `withoutWall`, `ownedWalls`, `coerceHome`'s `walls`, `migrateSave`, `undoBuy`, `lookOf`, `Game.selectWall` and `setWall`; 47 mutants in `src/data/home.ts`, `src/game/state.ts`, `src/game/shop.ts`, `src/art/room.ts` and `src/ui/game.ts`): each must fail its named test in `tests/home-walls.test.ts` (only it and `game-decor.test.ts` run per mutant). `--list` checks every `old` occurs once. Works on `$VERIFY_OUT/walls-unit-copy`. |
 | `run-sheet-home.sh`, `sheet-home.mjs`, `stitch-home.py` | The home contact sheet (the states, the camera at each end and zoom, the pages round the picture) at three widths, as `$VERIFY_OUT/sheets-home-h1/sheet-<W>x<H>-<group>.png` (its own folder: the mock writes to `sheets-home/`). It has no assertions: look at it first. |
+| `run-bond.sh`, `bond-browser.mjs` | The Bond checks (8 ids: `bond-hold`, `bond-card`, `bond-kid`, `bond-poke`, `bond-burst`, `bond-fit`, `bond-reload`, `bond-motion`) against `dist/`, with real touch events (CDP) on a frozen clock: a held finger and its XP, the level-up and the chip's pop, the card and the chip's finger target, Kid Mode showing nothing and throwing no sparkles with level 5 data, a poke and a tickle, the level 5 and level-up sparkles (counted as pixels of the exact sparkle colour), the fit of the chip and card at 320, 360 and 390 wide (ratios 1, 2 and 3), a new page on a saved game, and the pop's motion in a normal window and one that asks for reduced motion. Extra arguments go to the checker: `--only`, `--sizes`, `--modes`. Needs `npm run build` first. The fit check measures against the window's width the run set, not `window.innerWidth`: a page that overflows widens `innerWidth` to its own width in this mobile window. |
+| `mutate-bond-unit.py` | Mutation run for Bond's pure rules (`src/game/bond.ts`, `actions.ts`, `state.ts`, `hud.ts`, `src/art/idle.ts`, `scene.ts`): each of its mutants must fail its named test in `tests/bond.test.ts` or `game-save-hook.test.ts`. `--list` checks every `old` occurs once (the equivalent ones too); `--equivalents` runs the 4 mutants argued to change nothing, which must all survive. Works on a copy. |
+| `mutate-bond-ui.py` | Mutation run for Bond's screen side (the chip, the card, the pop and its motion, the finger target, the bursts, Kid Mode: 27 mutants): each is rebuilt and served on port 4180 and only its named check ids run at 360x640@2. `--check-targets` proves every `old` text occurs exactly once. Works on `$VERIFY_OUT/bond-ui-copy`, made once: delete it after any change to `src/`. |
+| `run-sheet-bond.sh`, `sheet-bond.mjs` | The Bond contact sheet: the chip and card in 7 states (no Bond yet, 920 XP, the top level with the worst bag, the card open at 2999 XP and at 15000 XP, mid-pop after a level-up, the keyboard focus) at 320x568@2, 360x640@2 and 390x844@3, as `$VERIFY_OUT/sheet-bond/<state>-<W>x<H>@<ratio>.png`. It has no assertions: look at it first. |
+| `bond-mock.mjs` | Measures where the Bond display could go in the Adult header (a chip in the bag row, a row under the stat cells, a line in the stat card) with the real `app.css`, before any screen code. The row's height and font are inputs the mock invents, so only its fit verdict is a measurement. No assertions. |
+| `growth-bond.ts` | Measures how many clock hours a young creature takes to earn its five happy cells (growth) under four kinds of player, in Kid Mode (the old rule, 15 happiness an hour) and in Adult Mode (the taper), until it grows up (48 clock hours) or 72 hours pass. Prints one line per player and mode. Run it with the esbuild line in its header. No assertions. |
 | `lib.sh` | Shared by the run scripts: where output goes, and a server that refuses a port that already answers. |
 
 ## The usual order
@@ -110,6 +116,13 @@ tools/verify/run-decorate.sh
 python3 tools/verify/mutate-decorate-unit.py
 python3 tools/verify/mutate-walls-unit.py
 python3 tools/verify/mutate-decorate-ui.py
+tools/verify/run-kid.sh
+
+# Bond (A3.1), the same order; the browser run needs `npm run build` first
+tools/verify/run-sheet-bond.sh
+tools/verify/run-bond.sh
+python3 tools/verify/mutate-bond-unit.py
+python3 tools/verify/mutate-bond-ui.py
 tools/verify/run-kid.sh
 ```
 

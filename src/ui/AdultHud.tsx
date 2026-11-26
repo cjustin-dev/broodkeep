@@ -1,10 +1,14 @@
 // Adult Mode's header: a strip (who, stage, clock, coins and materials, Book, settings), five stat cells with real numbers, and one line
 // that says what matters now. Everything it says is worked out in game/hud.ts, where tests check it against the simulation.
 // Kid Mode keeps its own header (App.tsx). The plan is docs/adult-a1-plan.md.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getForm } from "../data/forms";
 import { materialIds, materials } from "../data/habitat";
+import { bondLevel } from "../game/bond";
 import {
+  bondLabel,
+  bondLines,
+  bondPercent,
   bookPercent,
   callCell,
   cellSpan,
@@ -48,12 +52,33 @@ interface Props {
   onBook: () => void;
   onSettings: () => void;
   onForecast: () => void;
+  bondOpen: boolean;
+  onBond: () => void;
 }
 
-function StatusStrip({ game, roster, now, onSwitch, onBook, onSettings, onForecast }: Props & { now: number }) {
+// How long the chip pops after a new Bond level, in ms.
+const POP_MS = 1600;
+
+function StatusStrip({ game, roster, now, onSwitch, onBook, onSettings, onForecast, bondOpen, onBond }: Props & { now: number }) {
   useRoster(roster);
   const { save } = game;
   const c = save.creature;
+  // The chip pops for a moment when the Bond level goes up (not when the screen opens at a level, and not when a different creature is shown).
+  const alive = save.phase === "alive" && c !== null;
+  const level = alive ? bondLevel(c) : 0;
+  const seen = useRef({ level, formId: c?.formId, bornAt: c?.bornAt });
+  const [pop, setPop] = useState(false);
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = { level, formId: c?.formId, bornAt: c?.bornAt };
+    if (!alive || before.formId !== c?.formId || before.bornAt !== c?.bornAt || level <= before.level) {
+      setPop(false); // (a pop still running when the creature changes had its timer cleared just now: end it here, so it is not left on for the next creature)
+      return;
+    }
+    setPop(true);
+    const timer = window.setTimeout(() => setPop(false), POP_MS);
+    return () => window.clearTimeout(timer);
+  }, [level, alive, c?.formId, c?.bornAt]);
   const name = save.phase === "egg" ? "Egg" : c ? getForm(c.formId).name : "";
   const stage = save.phase === "dead" ? "Passed away" : save.phase === "alive" && c ? stageLabel(c) : "";
   const bag = materialIds.filter((id) => (save.inventory[id] ?? 0) > 0);
@@ -98,6 +123,15 @@ function StatusStrip({ game, roster, now, onSwitch, onBook, onSettings, onForeca
               {save.inventory[id]}
             </span>
           ))}
+          {alive && c && (
+            <button class="chip tight bond-chip" aria-label={bondLabel(c)} aria-expanded={bondOpen} data-pop={pop ? "true" : "false"} onClick={onBond}>
+              <Icon name="wellness" px={20} />
+              <span class="bond-level">{level}</span>
+              <span class="bond-bar" aria-hidden="true">
+                <span class="bond-fill" style={{ width: `${bondPercent(c)}%` }} />
+              </span>
+            </button>
+          )}
         </div>
         {roster.canSwitch && (
           <button class="btn strip-btn strip-who" onClick={onSwitch} aria-label={`Playing as ${openName(roster)}. Switch player`}>
@@ -182,15 +216,38 @@ function AdultStats({ game }: { game: Game }) {
   );
 }
 
-export function AdultHeader({ game, roster, onSwitch, onBook, onSettings, onForecast }: Props) {
+export function AdultHeader({ game, roster, onSwitch, onBook, onSettings, onForecast }: Omit<Props, "bondOpen" | "onBond">) {
   useSecond();
   const now = game.now();
+  const [bondOpen, setBondOpen] = useState(false);
+  const bondC = game.save.phase === "alive" ? game.save.creature : null;
+  // No creature, no card: it closes, and does not open again by itself for the next creature.
+  useEffect(() => {
+    if (bondC === null) setBondOpen(false);
+  }, [bondC === null]);
   // A fight is not in the save: the arena screen's own state says which foe it is.
   const fight: FightInfo | null =
     game.fighting && game.arena ? { foeName: getForm(game.arena.battle.foe.formId).name, rung: game.arena.battle.rung } : null;
   return (
     <header class="adult-top">
-      <StatusStrip game={game} roster={roster} now={now} onSwitch={onSwitch} onBook={onBook} onSettings={onSettings} onForecast={onForecast} />
+      <StatusStrip
+        game={game}
+        roster={roster}
+        now={now}
+        onSwitch={onSwitch}
+        onBook={onBook}
+        onSettings={onSettings}
+        onForecast={onForecast}
+        bondOpen={bondOpen && bondC !== null}
+        onBond={() => setBondOpen(!bondOpen)}
+      />
+      {bondOpen && bondC && (
+        <section class="astat-card bond-card" aria-label="Bond details">
+          {bondLines(bondC).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </section>
+      )}
       <AdultStats game={game} />
       <p class="adult-ctx">{contextLine(game.save, now, game.screen, fight)}</p>
     </header>

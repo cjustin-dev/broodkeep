@@ -83,6 +83,19 @@ export const tuning = {
   // Petting and tickling make the creature happier, but only so much per hour.
   affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 3 },
 
+  // Bond (Adult Mode, docs/adult-a3-plan.md section 4). `levelAt[n]` is the XP at which level n + 1 starts (level 1 at 0, level 10 at the last). A pet is worth `xpPet`, or
+  // `xpPetStreak` from the `streakFrom`th pet of a chain; a chain goes on while pets come within `chainGapMs` of each other and is stored up to `streakFrom`. A tickle is `xpTickle`, always.
+  // The taper replaces the hourly cap in Adult Mode: a gain is full while the window's gained points are under `full`, times `halfFactor` while under `half`, times `quarterFactor` after.
+  bond: {
+    levelAt: [0, 300, 800, 1500, 3000, 4500, 6500, 9000, 12000, 15000],
+    xpPet: 1,
+    xpPetStreak: 2,
+    xpTickle: 3,
+    streakFrom: 10,
+    chainGapMs: 2000,
+    taper: { full: 15, half: 30, halfFactor: 0.5, quarterFactor: 0.25 },
+  },
+
   // Growing up (Paradise rules, see docs/paradise-plan.md section 2). Hours are real hours since the stage began.
   growth: {
     // Awake minutes in a field that make one cell, and how many cells in one field end the baby stage.

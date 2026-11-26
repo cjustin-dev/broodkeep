@@ -8,6 +8,7 @@ import { combatTuning } from "../data/combat";
 import { getForm } from "../data/forms";
 import { specialId } from "../data/special";
 import { tuning } from "../data/tuning";
+import { bondInfo, bondOf, nextUnlock } from "./bond";
 import { statChangePerMinute } from "./care";
 import type { DrainStat } from "./care";
 import { sulkChance } from "./combat/battle";
@@ -215,6 +216,30 @@ export function stageLabel(c: Creature): string {
   if (c.formId === specialId) return "Special"; // a kid by size, but it grows no further
   const stage = getForm(c.formId).stage;
   return stage[0]!.toUpperCase() + stage.slice(1);
+}
+
+// ---- Bond (game/bond.ts, docs/adult-a3-plan.md section 4) ----
+
+// What a screen reader says for the Bond chip: the level and what is left to the next one.
+export function bondLabel(c: Creature): string {
+  const { level, into, span, next } = bondInfo(bondOf(c).xp);
+  return next === null ? `Bond level ${level}, the top level` : `Bond level ${level}, ${into} of ${span} to level ${next}`;
+}
+
+// How far through its level the Bond is, 0 to 100 (the top level is full).
+export function bondPercent(c: Creature): number {
+  const { into, span, next } = bondInfo(bondOf(c).xp);
+  return next === null ? 100 : Math.floor((100 * into) / span);
+}
+
+// The lines of the card the chip opens: where it stands, the next thing a level gives that the game really has, and what each way of touching does.
+export function bondLines(c: Creature): string[] {
+  const { level, into, span, next } = bondInfo(bondOf(c).xp);
+  const lines = [`Bond level ${level} of ${tuning.bond.levelAt.length}.`, next === null ? "The top level." : `${into} of ${span} to level ${next}.`];
+  const unlock = nextUnlock(level);
+  if (unlock) lines.push(`Level ${unlock.level}: ${unlock.text}.`);
+  lines.push("Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention.");
+  return lines;
 }
 
 export const bookPercent = (save: Save): number => Math.min(100, Math.floor((100 * save.book.length) / bookTotal()));
