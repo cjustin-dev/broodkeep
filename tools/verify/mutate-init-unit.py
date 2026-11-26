@@ -130,11 +130,13 @@ def row(name, tail="makes none"):
 #  - dropping `|| a.i - b.i` in preferenceOf: `Array.prototype.sort` is stable, and the kinds start in the order play, craving, gift, so equal weights keep that order all the same.
 #  - dropping `i.food === null ||` in isMoot: `feedRefusal(c, null)` finds null off the menu and answers "off-menu", which is not null, so a craving with no food is moot all the same.
 #  - dropping `i.kind === "craving" &&` in Game.feed: only a craving has a food; a play or a gift has food null, which never equals a food id, so `answers` is false for both all the same.
+#  - drawing the next wait one tick late (`this.initiativeWait = null` after making one): the first unblocked tick draws it (a blocked tick returns before the draw), from the same `rand`, before it subtracts, so the same wait is counted from the same tick; the only change is when the draw is taken, which a `rand` that gives the same value (or a queue, read in the same order) cannot see.
 EQUIVALENT = [
     mut("pick-zero-weight-guard", F_RULES, "if (w > 0 && left < w) return kind;", "if (left < w) return kind;", "(none)"),
     mut("pref-tie-break-dropped", F_RULES, "order.sort((a, b) => b.w - a.w || a.i - b.i);", "order.sort((a, b) => b.w - a.w);", "(none)"),
     mut("moot-null-food", F_RULES, 'i.kind === "craving" && (i.food === null || feedRefusal(c, i.food) !== null);', 'i.kind === "craving" && feedRefusal(c, i.food as FoodId) !== null;', "(none)"),
     mut("feed-kind-guard", F_GAME, 'const answers = i !== null && i.kind === "craving" && i.food === food && !this.initiativeBlocked();', "const answers = i !== null && i.food === food && !this.initiativeBlocked();", "(none)"),
+    mut("next-wait-drawn-late", F_GAME, "this.initiativeWait = nextDelay(this.rand); // from this start to the next one", "this.initiativeWait = null;", "(none)"),
 ]
 
 MUTANTS = [
@@ -197,10 +199,11 @@ MUTANTS = [
     # the clock and the countdown, in Game
     mut("step-cap-dropped", F_GAME, "Math.max(0, Math.min(dtMs, initiativeTuning.clockCapMs))", "Math.max(0, dtMs)", CAP, T_GAME),
     mut("step-cap-longer", F_DATA, "clockCapMs: 2000,", "clockCapMs: 3000,", CAP, T_GAME),
+    mut("step-cap-2500", F_DATA, "clockCapMs: 2000,", "clockCapMs: 2500,", CAP, T_GAME),
+    mut("step-cap-1999", F_DATA, "clockCapMs: 2000,", "clockCapMs: 1999,", CAP, T_GAME),
     mut("step-negative-allowed", F_GAME, "Math.max(0, Math.min(dtMs, initiativeTuning.clockCapMs))", "Math.min(dtMs, initiativeTuning.clockCapMs)", BACK, T_GAME),
     mut("tick-steps-with-dev-speed", F_GAME, "this.stepInitiative(elapsed);", "this.stepInitiative(elapsed * this.devSpeed);", DEVSPEED, T_GAME),
     mut("tick-never-steps", F_GAME, "this.stepInitiative(elapsed);", "", FIRST, T_GAME),
-    mut("next-wait-drawn-late", F_GAME, "this.initiativeWait = nextDelay(this.rand); // from this start to the next one", "this.initiativeWait = null;", FADES, T_GAME),
     mut("wait-counts-while-unseen", F_GAME, "if (!this.view.inView) return; // out of the camera's view: the countdown holds (a showing initiative goes on fading)", "", UNSEEN, T_GAME),
     mut("fade-not-checked", F_GAME, "i.bornAt !== c.bornAt || isOver(i, this.initiativeClock) || isMoot(i, c)", "i.bornAt !== c.bornAt || isMoot(i, c)", FADES, T_GAME),
     mut("other-creature-not-checked", F_GAME, "i.bornAt !== c.bornAt || isOver(i, this.initiativeClock) || isMoot(i, c)", "isOver(i, this.initiativeClock) || isMoot(i, c)", RETIRECLEAR, T_GAME),
@@ -216,7 +219,7 @@ MUTANTS = [
     # the gate, one row at a time
     mut("gate-adult-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (this.save.phase !== \"alive\" || !c) return true;", "makes none while Kid Mode", T_GAME),
     mut("gate-alive-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || !c) return true;", "makes none while a dead creature", T_GAME),
-    mut("gate-creature-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || this.save.phase !== \"alive\") return true;", "makes none while no creature (an egg)", T_GAME),
+    mut("gate-creature-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || this.save.phase !== \"alive\") return true;", "an alive save with no creature (a damaged one that loaded) makes none and does not throw", T_GAME),
     mut("gate-job-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.sleep || c.call !== null) return true;", row("away on a job", "makes none for 120 seconds"), T_GAME),
     mut("gate-sleep-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.job || c.call !== null) return true;", "makes none while asleep", T_GAME),
     mut("gate-call-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.job || c.sleep) return true;", row("a call", "makes none for 120 seconds"), T_GAME),
@@ -260,7 +263,7 @@ MUTANTS = [
     mut("screen-not-cleared", F_GAME, "    this.clearInitiative(); // (the listeners are woken below)\n", "", SCREENCLEAR, T_GAME),
     mut("decor-not-cleared", F_GAME, "    reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)\n    this.clearInitiative();\n", "    reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)\n", SCREENCLEAR, T_GAME),
     mut("training-not-cleared", F_GAME, "    this.clearInitiative();\n    this.listeners.forEach((listener) => listener());\n    return \"started\";", "    this.listeners.forEach((listener) => listener());\n    return \"started\";", SCREENCLEAR, T_GAME),
-    mut("replace-not-cleared", F_GAME, "    this.clearInitiative();\n    this.initiativeClock = 0;", "    this.initiativeClock = 0;", REPLACE, T_GAME),
+    mut("replace-not-cleared", F_GAME, "    this.clearInitiative();\n    this.initiativeClock = 0;", "    this.initiativeClock = 0;", "puts a different game in while an offer shows: it is gone at once", T_GAME),
     mut("replace-wait-kept", F_GAME, "    this.initiativeWait = null; // (a new game draws its own wait)\n", "", REPLACE, T_GAME),
     mut("replace-clock-kept", F_GAME, "    this.initiativeClock = 0;\n    this.initiativeWait = null; // (a new game draws its own wait)", "    this.initiativeWait = null; // (a new game draws its own wait)", REPLACE, T_GAME),
     mut("fade-counts-seen-time-only", F_GAME, "    this.initiativeClock += dt;\n", "    if (this.view.inView) this.initiativeClock += dt;\n", UNSEEN, T_GAME),

@@ -323,6 +323,15 @@ async function drag(cdp, from, to, steps = 12) {
   await sleep(80);
 }
 
+// A mouse drag: the pointer events a mouse makes, which the browser never takes over for scrolling (it does for a finger's drag in a one-line picture, and then fires `pointercancel`).
+async function mouseDrag(page, from, to, steps = 8) {
+  await page.mouse.move(from[0], from[1]);
+  await page.mouse.down();
+  await page.mouse.move(to[0], to[1], { steps });
+  await page.mouse.up();
+  await sleep(80);
+}
+
 // Runs in the page: the colour of one device pixel of the canvas at a point given in CSS pixels from the canvas's top left corner.
 function pixelAt({ x, y }) {
   const canvas = document.querySelector("canvas.room");
@@ -679,9 +688,12 @@ const CHECKS = {
       out = (await state(page)).find;
     }
     expectTrue(out, "the Find button shows after the camera was dragged away");
-    await runSecs(page, 200);
-    const away = await state(page);
-    expectEq([away.hasKind, away.find], [false, true], "an offer after 200 s with the creature out of view");
+    // 200 s out of view, looked at every second (an offer shows for 30 s, so one look at the end could fall between two)
+    for (let s = 1; s <= 200; s++) {
+      await run(page, 1000);
+      if ((await state(page)).hasKind) throw new Error(`an offer on the canvas ${s} s after the creature left the camera's view`);
+    }
+    expectEq((await state(page)).find, true, "the Find button after 200 s out of view");
     const find = await page.evaluate(boxOf, { selector: "button.find", scroll: false });
     await tapAt(page, [find.x, find.y], 600);
     expectEq((await state(page)).find, false, "the Find button after a tap on it");
@@ -701,6 +713,13 @@ const CHECKS = {
     await run(page, 100, 50);
     expectEq(xpOf(await savedGame(page)), 0, "the Bond XP after a finger left the ball and lifted elsewhere");
     expectEq((await state(page)).kind, "play", "the play after that");
+    // the same with a mouse (a finger's drag here is taken over by the page's scroll, which cancels it before any lift)
+    const again = (await state(page)).bubble;
+    if (!again) throw new Error("no bubble after the finger's drag");
+    await mouseDrag(page, [again.x, again.y], [again.x - 60, again.y + 60]);
+    await run(page, 100, 50);
+    expectEq(xpOf(await savedGame(page)), 0, "the Bond XP after a mouse drag that left the ball and let go elsewhere");
+    expectEq((await state(page)).kind, "play", "the play after the mouse drag");
     await tapBubble(page);
     expectEq(xpOf(await savedGame(page)), 2, "the Bond XP after a tap on the ball");
     expectEq(errors, [], "page errors");

@@ -11,6 +11,7 @@ Usage:
   python3 mutate-init-ui.py    --check-targets   verify each `old` occurs exactly once in the copy; print the table
   python3 mutate-init-ui.py                      clean baseline, every mutant, final clean rebuild
   python3 mutate-init-ui.py    --equivalents     clean baseline, then the EQUIVALENT mutants: every check must still pass (SURVIVED) for the run to be OK
+  python3 mutate-init-ui.py    --only id1,id2    clean baseline, then only those mutants (combine with --equivalents to pick among those)
 
 Exit codes: 0 every mutant CAUGHT (with --equivalents: every one SURVIVED) and the final checks pass; 1 some mutant not as expected, or a final check
 failed; 2 the run stopped (copy out of sync, clean build failed its own checks, build or serve broke).
@@ -102,8 +103,6 @@ MUTANTS = [
          edits=[(STAGE, "  if (!i || !c || c.call || c.sleep || c.job) return null;\n  return bubbleBox(", '  if (!i || i.kind === "craving" || !c || c.call || c.sleep || c.job) return null;\n  return bubbleBox(')]),
     dict(id="bubble-tap-also-pokes", expect=["init-play"], kid_only=False, size="360x640@2", what="a tap on the ball also reaches the creature's poke and tickle count",
          edits=[(STAGE, "        return; // ...and a bubble tap never pokes or counts toward a tickle\n", "")]),
-    dict(id="home-drag-answers", expect=["init-hit"], kid_only=False, size="360x640@2", what="in the home a drag that began on the ball answers it when the finger lifts",
-         edits=[(STAGE, "        if (result.tap) answer(); // (a drag that began on the bubble answers nothing)", "        answer();")]),
     dict(id="field-release-elsewhere-answers", expect=["init-field"], kid_only=False, size="360x640@2", what="in the one-line picture a finger that left the ball answers it when it lifts",
          edits=[(STAGE, "      if (isOnBubble(e)) answer(); // (the one-line picture has no pan: a finger that has left the bubble answers nothing)", "      answer();")]),
     # --- what the canvas says (for the checks, and for a screen reader)
@@ -135,8 +134,8 @@ MUTANTS = [
     dict(id="first-wait-is-zero", expect=["init-reload", "init-appear"], kid_only=False, size="360x640@2", what="a game that has just loaded makes its first offer at once",
          edits=[(GAME, "    if (this.initiativeWait === null) this.initiativeWait = nextDelay(this.rand);\n    if (!this.view.inView) return;", "    if (this.initiativeWait === null) this.initiativeWait = 0;\n    if (!this.view.inView) return;")]),
     # --- the layout
-    dict(id="note-pushed-off-the-picture", expect=["init-fit"], kid_only=False, size="320x568@1", what="the note over the picture starts 260 px in",
-         edits=[(CSS, ".reason {\n  margin: 0;\n  max-width: 100%;", ".reason {\n  margin: 0 0 0 260px;\n  max-width: 100%;")]),
+    dict(id="note-pushed-off-the-picture", expect=["init-fit"], kid_only=False, size="320x568@1", what="the note over the picture starts 260 px in and does not wrap",
+         edits=[(CSS, ".reason {\n  margin: 0;\n  max-width: 100%;", ".reason {\n  margin: 0 0 0 260px;\n  flex-shrink: 0;\n  white-space: nowrap;\n  max-width: 100%;")]),
     dict(id="bond-card-pushed-off", expect=["init-fit"], kid_only=False, size="320x568@1", what="the lines of the Bond card start 300 px in",
          edits=[(CSS, ".astat-card p {\n  margin: 0;\n  font-size: 0.85rem;", ".astat-card p {\n  margin: 0 0 0 300px;\n  font-size: 0.85rem;")]),
     dict(id="bond-card-no-preference", expect=["init-fit"], kid_only=False, size="360x640@2", what="the Bond card does not say what the creature prefers",
@@ -148,6 +147,9 @@ MUTANTS = [
 # unit tests of the Game own it), the draw order of an initiative against a call (the Game never has both).
 # Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every check still passes, which is the proof that the argument holds):
 EQUIVALENT = [
+    # a move past the slop is a pan, and the pan ends the hold (`act` calls `endHold()`), so the lift of a drag finds no hold and never reaches `result.tap`; the guard is a second defence
+    dict(id="home-drag-answers", expect=["init-hit"], kid_only=False, size="360x640@2", what="in the home a drag that began on the ball answers it when the finger lifts",
+         edits=[(STAGE, "        if (result.tap) answer(); // (a drag that began on the bubble answers nothing)", "        answer();")]),
     # NOT truly equivalent, a blind spot: an action (a feed, a pet) runs the catch-up itself (`alive()` calls `simulateTo`), so a call can start between two ticks while the offer is still set, and the
     # label then carries both for up to one tick. No check starts a call, so this mutant survives; `--equivalents` proves no more than that
     dict(id="label-says-offer-during-a-call", expect=["init-a11y"], kid_only=False, size="360x640@2", what="the accessible name says the offer even while a call is on",
@@ -449,6 +451,13 @@ def run(args):
         raise Stop("coverage: " + "; ".join(gaps))
     if args.equivalents:
         MUTANTS[:] = EQUIVALENT  # (the coverage check above ran on the real list)
+    if args.only:
+        wanted = [i for i in args.only.split(",") if i]
+        known = {m["id"] for m in MUTANTS}
+        unknown = [i for i in wanted if i not in known]
+        if not wanted or unknown:
+            raise Stop(f"--only names no mutant or an unknown one: {unknown or '(empty)'}")
+        MUTANTS[:] = [m for m in MUTANTS if m["id"] in wanted]  # (the baseline still runs first; the summary counts only these)
     if not args.check_targets:
         gen = subprocess.run([os.path.join(HERE, "gen-saves.sh")], capture_output=True, text=True)
         if gen.returncode != 0:
@@ -523,6 +532,7 @@ def main():
     ap = argparse.ArgumentParser(description="Mutation runner for the Initiatives screen checks (A3.3).")
     ap.add_argument("--check-targets", action="store_true",
                     help="only verify that each old text occurs exactly once in the copy, and print the table")
+    ap.add_argument("--only", help="run only these mutants (comma separated ids), after the same baseline")
     ap.add_argument("--equivalents", action="store_true", help="run the EQUIVALENT mutants instead: each must leave every check passing (SURVIVED)")
     args = ap.parse_args()
     assert PORT in range(4180, 4190), "this runner may use only ports 4180-4189"

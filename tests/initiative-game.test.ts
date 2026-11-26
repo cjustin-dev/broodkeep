@@ -143,9 +143,10 @@ describe("making an initiative", () => {
     start();
     game.stepInitiative(100_000);
     for (let k = 0; k < 28; k++) game.stepInitiative(2000);
-    expect(game.initiative).toBeNull(); // 58,000 ms so far
-    game.stepInitiative(2000);
-    expect(game.initiative).not.toBeNull(); // 60,000 ms
+    game.stepInitiative(1999);
+    expect(game.initiative).toBeNull(); // 2,000 + 56,000 + 1,999 = 59,999 ms so far (a cap of 2,500 or 3,000 would have made one; a cap of 1,999 is 2 ms behind)
+    game.stepInitiative(1);
+    expect(game.initiative).not.toBeNull(); // 60,000 ms exactly (a cap of 1,999 still has 1 ms to go)
   });
 
   it("counts a step backwards (the system clock set back) as nothing, not as time to wait again", () => {
@@ -189,9 +190,9 @@ describe("making an initiative", () => {
     start({ form: "gravelhorn" });
     const c = game.save.creature!;
 
-    game.rand = seq(0, CRAVING_DRAW, 0, 0); // a delay of 60 s, a craving, the first food, then the delay
+    game.rand = seq(0, CRAVING_DRAW, 0.375, 0); // a delay of 60 s, a craving, meat (0.375 x 4 = 1.5: the second of pellet, meat, carrot, worm), then the delay
     run(60);
-    expect(game.initiative?.kind).toBe("craving");
+    expect([game.initiative?.kind, game.initiative?.food]).toEqual(["craving", "meat"]);
     expect(game.view.invite).toBe(game.initiative?.food);
     expect(cravingFoods(c)).toContain(game.initiative?.food);
 
@@ -315,6 +316,13 @@ describe("what blocks an initiative", () => {
       expect([game.initiative, game.view.invite]).toEqual([null, null]);
     });
   }
+
+  it("an alive save with no creature (a damaged one that loaded) makes none and does not throw", () => {
+    start();
+    game.save.creature = null; // (isSave does not ask for a creature when the phase is alive)
+    expect(() => game.stepInitiative(1000)).not.toThrow();
+    expect([game.initiative, game.view.invite]).toEqual([null, null]);
+  });
 
   it("is not stopped by a creature out in a field (a clear game makes one at 60 s); the feed tray and a held finger are checked in the browser (init-craving, with a mutant for each)", () => {
     start({ set: { place: "land" } });
@@ -684,10 +692,22 @@ describe("what ends an initiative with no cost", () => {
     expect(game.initiative?.at).toBe(60_000); // (the clock began again at 0: it was 40,000 when the game was put in)
   });
 
+  it("puts a different game in while an offer shows: it is gone at once (the same creature in the other game does not keep it)", () => {
+    start();
+    run(60);
+    expect(game.initiative).not.toBeNull();
+    const other = careState(stageForm("adult"), {}, T0);
+    other.settings.adultMode = true;
+    game.replaceSave(other);
+    expect([game.initiative, game.view.invite]).toEqual([null, null]);
+  });
+
   it("is not changed by a dev speed: the wait counts real time, not game time", () => {
     start();
     game.devSpeed = 10;
-    run(59);
+    run(31);
+    expect(game.initiative).toBeNull(); // (a clock that ran ten times as fast, capped at 2 s a tick, would have made one at the 30th tick)
+    run(28);
     expect(game.initiative).toBeNull();
     run(1);
     expect(game.initiative).not.toBeNull();
