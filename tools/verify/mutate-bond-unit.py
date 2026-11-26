@@ -39,6 +39,7 @@ EQUIV_MODE = False
 F_BOND = "src/game/bond.ts"
 F_ACTIONS = "src/game/actions.ts"
 F_STATE = "src/game/state.ts"
+F_SIM = "src/game/sim.ts"
 F_TUNING = "src/data/tuning.ts"
 
 
@@ -55,7 +56,7 @@ TAPER_PET = "pays a pet 2 eight times, 1 fourteen times, then 0.5"
 TAPER_TICKLE = "pays a tickle 3 five times, 1.5 ten times, then 0.75"
 TAPER_PURE = "is a pure function of the want and the points gained so far"
 WINDOW = "starts the window again after 60 minutes, and also when the clock was set back inside it"
-AT100 = "still pays a heart and XP when happiness is already 100"
+AT100 = "still pays XP and the taper's amount when happiness is already 100"
 STREAK = "pays a pet 1 XP up to the ninth of a chain and 2 from the tenth"
 TICKLE = "pays a tickle 3 and leaves the chain and the time of the last pet alone"
 GAP = "goes on with a gap of 0 and of 2,000 ms, and starts again after 2,001 ms"
@@ -63,7 +64,7 @@ BACK = "starts the chain again when the clock went back"
 CAP = "stops at 15,000 XP and stays level 10"
 LEVELUP = "reports a level once"
 SHAPE = "gives a result of exactly the old shape when there is no new level"
-ASLEEP = "pays nothing to a creature that is asleep (night or nap), away on a job or an egg"
+ASLEEP = "pays nothing to a creature that is asleep (night or nap), away on a job, dead or an egg"
 KID1 = "pays 15 happiness an hour in all, with no Bond written and the old result shape"
 KID2 = "does not restart its window when the clock goes back"
 KID3 = "leaves Bond data a profile already has as it is"
@@ -71,14 +72,23 @@ HOLD150 = "keeps a hold of 150 pets through a reload"
 COERCE_GOOD = "reads a good Bond as it is and ignores other keys in it"
 COERCE_BAD = "drops a damaged Bond whole"
 LOADER = "is dropped by the loader when damaged and never throws"
+BOUNDARY = "keeps the window at 59 minutes and starts it again at exactly 60"
+SHARED = "shares the window with Kid Mode"
+NEVER = "never goes down, whichever touch comes and whatever the clock does"
+NEXT = "starts again with the next creature"
+FIELD = "pays a creature in a field as at home"
 
 # Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every test still passes, which is the proof that the argument holds):
-#  - dropping `before.chain > 0 &&` in earnBond: a Bond with no chain has `at` 0 (or the time of an earlier chain's pet that the chain's end already reached), and the gap from 0 is the whole
-#    epoch time, far over 2,000 ms, so the chain starts at 1 either way; a clock near 0 does not occur in a game (game time is the device's time).
+#  - dropping `before.chain > 0 &&` in earnBond: with no chain the sum is `0 + 1`, so the chain is 1 whether or not the gap passes the test, and the else branch is 1 as well.
 #  - dropping `Array.isArray(value) ||` in coerceBond: an array has none of the three own keys, so the `hasOwn` line returns first.
+#  - dropping the `typeof ... !== "number"` guard on xp, chain or at in coerceBond: `Number.isInteger` and `Number.isFinite` do not convert, so each is false for a string or any other
+#    non-number and the same `return undefined` follows. (The guards stay because they narrow the type for the comparisons after them; esbuild, which runs the tests, does not check types.)
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 EQUIVALENT = [
     mut("chain-needs-no-previous", F_BOND, "before.chain > 0 && gap >= 0", "gap >= 0", "(none)"),
+    mut("coerce-xp-typeof", F_BOND, 'if (typeof xp !== "number" || ', "if (", "(none)"),
+    mut("coerce-chain-typeof", F_BOND, 'if (typeof chain !== "number" || ', "if (", "(none)"),
+    mut("coerce-at-typeof", F_BOND, 'if (typeof at !== "number" || ', "if (", "(none)"),
     mut("coerce-array-check", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || value === null) return undefined;', "(none)"),
 ]
 
@@ -127,7 +137,7 @@ MUTANTS = level_mutants() + [
     mut("taper-quarter-factor-0.3", F_TUNING, _TAPER, "taper: { full: 15, half: 30, halfFactor: 0.5, quarterFactor: 0.3 },", TAPER_PET),
     mut("taper-full-up-to-15", F_BOND, "gainedInWindow < t.full ? 1", "gainedInWindow <= t.full ? 1", TAPER_PURE),
     mut("taper-half-up-to-30", F_BOND, "gainedInWindow < t.half ?", "gainedInWindow <= t.half ?", TAPER_PURE),
-    mut("taper-ignores-the-tickle", F_ACTIONS, "adult ? taper(want, a.gained) :", "adult ? want :", TAPER_TICKLE),
+    mut("adult-touch-skips-the-taper", F_ACTIONS, "adult ? taper(want, a.gained) :", "adult ? want :", TAPER_TICKLE),
     # `touch`
     mut("kid-gets-the-adult-rule", F_ACTIONS, "const adult = isAdultSave(save);", "const adult = true;", KID1),
     mut("adult-keeps-the-cap", F_ACTIONS, "const gained = adult ? taper(want, a.gained) : Math.max(", "const gained = Math.max(", TAPER_PET),
@@ -152,8 +162,26 @@ MUTANTS = level_mutants() + [
     mut("coerce-keeps-a-negative-time", F_BOND, " || at < 0)", ")", COERCE_BAD),
     mut("coerce-reads-inherited-keys", F_BOND, '  if (!Object.hasOwn(v, "xp") || !Object.hasOwn(v, "chain") || !Object.hasOwn(v, "at")) return undefined;\n', "", COERCE_BAD),
     mut("coerce-throws-on-null", F_BOND, 'if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;', 'if (typeof value !== "object" || Array.isArray(value)) return undefined;', COERCE_BAD),
-    mut("coerce-keeps-a-wrong-kind-of-xp", F_BOND, 'if (typeof xp !== "number" || ', "if (", COERCE_BAD),
     mut("coerce-adds-the-other-keys", F_BOND, "return { xp, chain, at };\n}\n", "return { ...v, xp, chain, at } as Bond;\n}\n", COERCE_GOOD),
+    # the window and the numbers of `touch`
+    mut("window-is-59-minutes", F_TUNING, "affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 3 },", "affection: { windowMinutes: 59, maxGainPerWindow: 15, pet: 2, tickle: 3 },", BOUNDARY),
+    mut("window-is-61-minutes", F_TUNING, "affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 3 },", "affection: { windowMinutes: 61, maxGainPerWindow: 15, pet: 2, tickle: 3 },", BOUNDARY),
+    mut("window-restarts-only-after-more-than-60", F_ACTIONS, "nowMs - a.windowStart >= tuning.affection.windowMinutes * MINUTE", "nowMs - a.windowStart > tuning.affection.windowMinutes * MINUTE", BOUNDARY),
+    mut("a-pet-is-worth-3-happiness", F_TUNING, "affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 3 },", "affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 3, tickle: 3 },", TAPER_PET),
+    mut("a-tickle-is-worth-4-happiness", F_TUNING, "affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 3 },", "affection: { windowMinutes: 60, maxGainPerWindow: 15, pet: 2, tickle: 4 },", TAPER_TICKLE),
+    mut("kid-has-its-own-window", F_ACTIONS, "tuning.affection.maxGainPerWindow - a.gained", "tuning.affection.maxGainPerWindow", SHARED),
+    mut("taper-full-rate-is-double", F_BOND, "gainedInWindow < t.full ? 1 :", "gainedInWindow < t.full ? 2 :", TAPER_PURE),
+    mut("a-poke-is-paid", F_ACTIONS, '  if (kind === "poke") return { gained: 0, asleep: false };\n', "", FIELD),
+    mut("result-key-for-every-touch", F_ACTIONS, "if (levelUp !== null) {", "if (true) {", SHAPE),
+    mut("a-dead-creature-is-paid", F_ACTIONS, 'return save.phase === "alive" && !save.creature?.job ? save.creature : null;', 'return !save.creature?.job ? save.creature : null;', ASLEEP),
+    # XP and the chain
+    mut("a-pet-is-worth-2-xp", F_TUNING, "xpPet: 1,", "xpPet: 2,", STREAK),
+    mut("streak-needs-more-than-ten", F_BOND, "gain = chain >= b.streakFrom ?", "gain = chain > b.streakFrom ?", STREAK),
+    mut("xp-starts-again-with-the-chain", F_BOND, "const xp = Math.min(XP_MAX, before.xp + gain);", "const xp = Math.min(XP_MAX, (chain === 1 ? 0 : before.xp) + gain);", NEVER),
+    mut("hatched-creature-carries-a-bond", F_SIM, "    affection: { windowStart: t, gained: 0 },\n", "    affection: { windowStart: t, gained: 0 },\n    bond: { xp: 1, chain: 0, at: 0 },\n", NEXT),
+    # the loader
+    mut("loader-reads-bond-of-a-null-creature", F_STATE, 'if (typeof value.creature === "object" && value.creature !== null) {', 'if (typeof value.creature === "object") {', LOADER),
+    mut("loader-keeps-a-damaged-bond", F_STATE, "    else delete value.creature.bond;\n", "", LOADER),
 ]
 
 
@@ -252,7 +280,7 @@ def occurrences(m):
 def do_list():
     bad = 0
     print("%-32s %5s  %-22s %-22s %s" % ("id", "count", "file", "expect_file", "expect (title substring)"))
-    rows = MUTANTS if EQUIV_MODE else MUTANTS + EQUIVALENT  # (the default list checks the five EQUIVALENT texts too: they must occur once as well)
+    rows = MUTANTS if EQUIV_MODE else MUTANTS + EQUIVALENT  # (the default list checks the EQUIVALENT texts too: they must occur once as well)
     for m in rows:
         n = occurrences(m)
         if n != 1:

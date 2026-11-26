@@ -2,12 +2,14 @@
 // The expected numbers are worked out by hand in the comments, not read from the code.
 import { describe, expect, it } from "vitest";
 import { startJob, startNewEgg, touch } from "../src/game/actions";
-import { bondInfo, coerceBond, isAdultSave, levelOf, nextUnlock, taper, unlockAt } from "../src/game/bond";
+import { bondInfo, coerceBond, earnBond, isAdultSave, levelOf, nextUnlock, taper, unlockAt } from "../src/game/bond";
 import { isAdultMode } from "../src/game/hud";
 import { killCreature, setPlace, setStat } from "../src/game/dev";
-import { migrateSave } from "../src/game/state";
+import { simulateTo } from "../src/game/sim";
+import { migrateSave, newSave } from "../src/game/state";
 import type { Save } from "../src/game/state";
 import { MINUTE } from "../src/game/time";
+import { tuning } from "../src/data/tuning";
 import { aliveSave, at } from "./helpers";
 
 const T = at(10);
@@ -33,11 +35,21 @@ describe("the levels", () => {
     expect(bondInfo(15000 + 40)).toEqual({ level: 10, into: 40, span: 0, next: null });
   });
 
-  it("are never closer than 300 XP, and one touch is worth 3 at most, so a touch cannot skip a level", () => {
-    const starts = [0, 300, 800, 1500, 3000, 4500, 6500, 9000, 12000, 15000];
+  it("are never closer than 300 XP, and one touch (3 XP at most, read from earnBond) cannot skip a level", () => {
+    const starts = tuning.bond.levelAt;
     const gaps = starts.slice(1).map((x, i) => x - (starts[i] as number));
-    expect(gaps).toEqual([300, 500, 700, 1500, 1500, 2000, 2500, 3000, 3000]);
-    expect(Math.min(...gaps)).toBe(300);
+    expect(gaps).toEqual([300, 500, 700, 1500, 1500, 2000, 2500, 3000, 3000]); // (by hand)
+    // The most one touch can earn: a tickle, and a pet at the tenth of a chain, each from a creature with no XP.
+    const earned = (kind: "pet" | "tickle", chain: number): number => {
+      const c = aliveSave("pebblin", T).creature!;
+      c.bond = { xp: 0, chain, at: T };
+      earnBond(c, kind, T + 800);
+      return c.bond.xp;
+    };
+    const most = Math.max(earned("tickle", 0), earned("pet", 10), earned("pet", 0));
+    expect(most).toBe(3);
+    expect(Math.min(...gaps)).toBeGreaterThan(most);
+    for (let xp = 0; xp <= 15000; xp++) expect(levelOf(xp + most) - levelOf(xp)).toBeLessThanOrEqual(1);
   });
 
   it("name only the unlocks that exist: an idle hop at level 2 and a bigger burst at level 5", () => {
@@ -86,7 +98,29 @@ describe("the taper (Adult Mode)", () => {
     expect(touch(save, "pet", T + 30 * MINUTE).gained).toBe(2); // (the clock went back: a new window, not a negative difference that never ends)
   });
 
-  it("still pays a heart and XP when happiness is already 100, and happiness stays 100", () => {
+  it("keeps the window at 59 minutes and starts it again at exactly 60 (a creature's window starts when it hatches)", () => {
+    const save = adultSave();
+    setStat(save, "happiness", 0);
+    for (let i = 0; i < 30; i++) touch(save, "pet", T);
+    expect(touch(save, "pet", T + 59 * MINUTE).gained).toBe(0.5);
+    expect(touch(save, "pet", T + 60 * MINUTE).gained).toBe(2);
+  });
+
+  it("shares the window with Kid Mode: 30 Adult pets leave a Kid pet in the same hour nothing, and the reverse", () => {
+    const save = adultSave();
+    setStat(save, "happiness", 0);
+    for (let i = 0; i < 30; i++) touch(save, "pet", T); // the window has gained 30 (8 x 2 + 14 x 1)
+    save.settings.adultMode = false;
+    expect(touch(save, "pet", T).gained).toBe(0); // over the Kid cap of 15
+    const kid = aliveSave("pebblin", T);
+    setStat(kid, "happiness", 0);
+    for (let i = 0; i < 8; i++) touch(kid, "pet", T); // 8 x 2 = 16 is over the Kid cap, which stops the eighth at 1 (7 x 2 + 1 = 15)
+    expect(kid.creature?.affection.gained).toBe(15);
+    kid.settings.adultMode = true;
+    expect(touch(kid, "pet", T).gained).toBe(1); // 15 gained is the half rate: 2 x 0.5
+  });
+
+  it("still pays XP and the taper's amount when happiness is already 100, and happiness stays 100", () => {
     const save = adultSave();
     setStat(save, "happiness", 100);
     const result = touch(save, "pet", T);
@@ -101,6 +135,26 @@ describe("what a pet and a tickle earn (Adult Mode)", () => {
     const save = adultSave();
     for (let i = 0; i < 12; i++) touch(save, "pet", T + i * 800);
     expect(bond(save)).toEqual({ xp: 15, chain: 10, at: T + 11 * 800 });
+  });
+
+  it("lets a tickle come first: the Bond has no chain yet, and the first pet after it is chain 1", () => {
+    const save = adultSave();
+    touch(save, "tickle", T);
+    expect(bond(save)).toMatchObject({ xp: 3, chain: 0 });
+    touch(save, "pet", T + 800);
+    expect(bond(save)).toEqual({ xp: 4, chain: 1, at: T + 800 });
+  });
+
+  it("never goes down, whichever touch comes and whatever the clock does", () => {
+    const save = adultSave();
+    let last = 0;
+    [0, 800, 400, 5_000_000, 10, 1600, 1600, 3_700_000, 0].forEach((dt, i) => {
+      touch(save, i % 3 === 2 ? "tickle" : "pet", T + dt);
+      const xp = bond(save)?.xp ?? 0;
+      expect(xp).toBeGreaterThanOrEqual(last);
+      last = xp;
+    });
+    expect(last).toBeGreaterThan(5);
   });
 
   it("pays a tickle 3 and leaves the chain and the time of the last pet alone", () => {
@@ -151,7 +205,7 @@ describe("what a pet and a tickle earn (Adult Mode)", () => {
     expect(levelOf(bond(save)?.xp ?? 0)).toBe(10);
   });
 
-  it("reports a level once: 299 XP and a pet is level 2 and the next pet reports nothing; a tickle at 297 gets there too", () => {
+  it("reports a level once: 299 XP and a pet is level 2 and the next pet reports nothing; a tickle at 797 gets to level 3 the same way", () => {
     const save = adultSave();
     touch(save, "pet", T);
     (save.creature as { bond: { xp: number } }).bond.xp = 299;
@@ -169,7 +223,7 @@ describe("what a pet and a tickle earn (Adult Mode)", () => {
     expect(Object.keys(result).sort()).toEqual(["asleep", "gained"]);
   });
 
-  it("pays nothing to a creature that is asleep (night or nap), away on a job or an egg, and writes no Bond", () => {
+  it("pays nothing to a creature that is asleep (night or nap), away on a job, dead or an egg, and writes no Bond", () => {
     const night = aliveSave("pebblin", at(19));
     night.settings.adultMode = true;
     expect(touch(night, "pet", at(21))).toEqual({ gained: 0, asleep: true });
@@ -184,6 +238,18 @@ describe("what a pet and a tickle earn (Adult Mode)", () => {
     startJob(away, "meadow", T);
     expect(touch(away, "pet", T)).toEqual({ gained: 0, asleep: false });
     expect(bond(away)).toBeUndefined();
+
+    const dead = adultSave();
+    killCreature(dead, T + 1000);
+    expect(dead.phase).toBe("dead");
+    expect(touch(dead, "pet", T + 2000)).toEqual({ gained: 0, asleep: false });
+    expect(bond(dead)).toBeUndefined();
+
+    const egg = newSave(T, 1);
+    egg.settings.adultMode = true;
+    expect(touch(egg, "tickle", T)).toEqual({ gained: 0, asleep: false });
+    expect(egg.phase).toBe("egg");
+    expect(bond(egg)).toBeUndefined();
   });
 
   it("pays a creature in a field as at home (the Stage is what refuses the habitat and the arena), and a poke pays nothing", () => {
@@ -196,13 +262,17 @@ describe("what a pet and a tickle earn (Adult Mode)", () => {
     expect(bond(save)?.xp).toBe(1);
   });
 
-  it("starts again with the next creature: a new egg has none, and a creature that hatches has no `bond` key", () => {
+  it("starts again with the next creature: after a death and a new egg, the creature that hatches has no `bond` key and is level 1", () => {
     const save = adultSave();
     touch(save, "pet", T);
-    killCreature(save, "hunger", T + 1000);
+    expect(bond(save)?.xp).toBe(1);
+    killCreature(save, T + 1000);
     expect(startNewEgg(save, T + 2000)).toBe(true);
     expect(save.creature).toBeNull();
-    expect(bond(aliveSave("pebblin", T))).toBeUndefined();
+    simulateTo(save, T + 2000 + (tuning.egg.minutes + 1) * MINUTE);
+    expect(save.phase).toBe("alive");
+    expect("bond" in (save.creature as object)).toBe(false);
+    expect(levelOf(bond(save)?.xp ?? 0)).toBe(1);
   });
 
   it("does not form a chain at 3 times the dev time speed (a held finger's 800 ms is 2,400 game ms), which is known and dev mode only", () => {
@@ -294,6 +364,7 @@ describe("what is saved", () => {
       Object.create({ xp: 5, chain: 1, at: 0 }),
       { constructor: { xp: 5, chain: 1, at: 0 } },
     ];
+    expect(() => coerceBond(null)).not.toThrow();
     for (const value of bad) expect(coerceBond(value)).toBeUndefined();
   });
 
