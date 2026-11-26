@@ -5,15 +5,15 @@
 //   drag               -> moves the camera over the home (docs/home-plan.md section 3.2); two fingers pinch it bigger or smaller
 // While Decorate mode is on (docs/home-plan.md section 12) the creature is not touched at all: a finger on a piece of furniture carries it on the tile grid (a tap selects it),
 // a finger anywhere else pans, and a tap there lets go of the selection. The arrow keys move the selected piece; Escape lets go of it.
-// The habitat, the arena and a field keep the old 128 x 128 picture (no camera); the home is 768 x 192 and the camera shows a square part of it.
+// The habitat, the arena and a field keep the old 128 x 128 picture (no camera); the home is 768 x 192 (1032 x 192 once the Playroom is built) and the camera shows a square part of it.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { drawArena } from "../art/arena";
 import { clampCamera, clampZoom, defaultZoom, frameOn, inView, panBy, snapZoom, stepCamera, toGame, zoomAbout } from "../art/camera";
 import type { Box, Camera, Point } from "../art/camera";
-import { HOME, layoutInForce, roomOf, useLayout } from "../art/home";
+import { HOME, layoutInForce, roomOf, roomsInForce, useLayout } from "../art/home";
 import { drop, follow, lift, tileOf } from "../art/homeEdit";
 import type { Lift } from "../art/homeEdit";
-import { layoutOf } from "../art/homeLayout";
+import { layoutOfSave } from "../art/homeLayout";
 import { addHeart, addSparkles, reseat, triggerPose, updateView } from "../art/idle";
 import { ROOM } from "../art/layout";
 import { stepMoment } from "../art/moment";
@@ -29,7 +29,7 @@ import type { IconName } from "../art/sprites";
 import { fields } from "../data/fields";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
-import { PIECE_NAMES, TILE, wallRoomOf } from "../data/home";
+import { PIECE_NAMES, TILE, roomsBuilt, wallRoomOf } from "../data/home";
 import { tapEgg, touch } from "../game/actions";
 import { isAdultMode } from "../game/hud";
 import type { CallKind, Save } from "../game/state";
@@ -73,7 +73,7 @@ function describe(save: Save, game: Game): string {
   return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`) + room;
 }
 
-export const roomNames = { bedroom: "bedroom", living: "living room", kitchen: "kitchen" } as const;
+export const roomNames = { bedroom: "bedroom", living: "living room", kitchen: "kitchen", playroom: "playroom" } as const;
 
 // Which space the picture is in: the home, or the old one-line picture (a field, the habitat, the arena).
 function worldOf(game: Game): World {
@@ -181,9 +181,10 @@ export function Stage({ game }: { game: Game }) {
       last = now;
       const world = worldOf(game);
       game.view.world = world;
-      const layout = layoutOf(game.save.home); // (the furniture was moved: the walking is done on the new floor, and the creature is put on a free tile)
-      if (layout !== layoutInForce()) {
-        useLayout(layout);
+      const layout = layoutOfSave(game.save); // (the furniture was moved, or a room was built or given back: the walking is done on the new floor, and the creature is put on a free tile)
+      const rooms = roomsBuilt(game.save.owned);
+      if (layout !== layoutInForce() || rooms !== roomsInForce()) {
+        useLayout(layout, rooms);
         reseat(game.view);
       }
       stepMoment(game.view, game.save, dt);
@@ -242,7 +243,7 @@ export function Stage({ game }: { game: Game }) {
       c.fillStyle = "#120c20"; // (what shows where the home is smaller than the picture)
       c.fillRect(0, 0, vp.w, vp.h);
       c.setTransform(cam.zoom, 0, 0, cam.zoom, Math.round(vp.w / 2 - cam.x * cam.zoom), Math.round(vp.h / 2 - cam.y * cam.zoom));
-      const layout = layoutOf(game.save.home);
+      const layout = layoutOfSave(game.save);
       const carried = lifting.current?.held ?? null;
       drawScene(c, game.save, game.view, game.now(), carried ? { ...layout, [carried.kind]: null } : undefined); // (a carried piece is left out here and drawn on top below)
       if (game.decor) {
@@ -361,7 +362,7 @@ export function Stage({ game }: { game: Game }) {
   // Decorate mode: a finger that lands on a piece takes it, and selects it.
   const grab = (e: PointerEvent): void => {
     const tile = tileUnder(e);
-    const held = tile ? lift(layoutOf(game.save.home), game.save.owned.includes("feeding-mat"), tile.col, tile.row) : null;
+    const held = tile ? lift(layoutOfSave(game.save), game.save.owned.includes("feeding-mat"), tile.col, tile.row) : null;
     if (!held) return;
     lifting.current = { id: e.pointerId, held };
     game.select(held.kind);
@@ -416,7 +417,7 @@ export function Stage({ game }: { game: Game }) {
     if (carrying?.id === e.pointerId) {
       // The piece follows only once the finger has left the slop: a finger that stays within it is a tap, which selects the piece and moves nothing.
       const tile = tracker.current.mode === "tap" ? null : tileUnder(e);
-      if (tile) carrying.held = follow(layoutOf(game.save.home), carrying.held, tile.col, tile.row);
+      if (tile) carrying.held = follow(layoutOfSave(game.save), carrying.held, tile.col, tile.row, roomsBuilt(game.save.owned));
       return; // (the finger carries a piece: the home does not pan under it)
     }
     act(actions, scale);
@@ -433,9 +434,10 @@ export function Stage({ game }: { game: Game }) {
         // changes and it is back where it was.
         lifting.current = null;
         if (result.tap) return;
-        const layout = layoutOf(game.save.home);
+        const layout = layoutOfSave(game.save);
+        const rooms = roomsBuilt(game.save.owned);
         const tile = tileUnder(e);
-        const next = drop(layout, tile ? follow(layout, carrying.held, tile.col, tile.row) : carrying.held);
+        const next = drop(layout, tile ? follow(layout, carrying.held, tile.col, tile.row, rooms) : carrying.held, rooms);
         if (next) game.setLayout(next);
         return;
       }
@@ -444,7 +446,7 @@ export function Stage({ game }: { game: Game }) {
         if (result.tap) {
           // A tap on a room's bare wall selects that wall (the dock offers wallpapers); a tap anywhere else lets go of the piece or the wall.
           const tile = tileUnder(e);
-          const room = tile ? wallRoomOf(tile.col, tile.row) : null;
+          const room = tile ? wallRoomOf(tile.col, tile.row, roomsBuilt(game.save.owned)) : null;
           if (room) game.selectWall(room);
           else game.select(null);
         }

@@ -3,7 +3,7 @@
 // these catches the save up to "now" first (a job that ended before now has paid by then). `nowMs` is game time.
 
 import { materialIds, materials } from "../data/habitat";
-import { withoutWall } from "../data/home";
+import { ROOMS, withoutRoom, withoutWall } from "../data/home";
 import type { MaterialId } from "../data/habitat";
 import { isHatId, isItemId, isWallId, items } from "../data/shop";
 import type { ItemId } from "../data/shop";
@@ -101,7 +101,9 @@ export function undoBuy(save: Save, nowMs: number): UndoResult {
   save.owned = save.owned.filter((id) => id !== item.id);
   if (save.wall === item.id) save.wall = last.wall;
   if (save.hat === item.id) save.hat = null; // (buying a hat never put it on, so there is no hat to give back)
-  const home = withoutWall(save.home, item.id); // (a room that shows it loses it: it is not owned any more)
+  let home = withoutWall(save.home, item.id); // (a room that shows it loses it: it is not owned any more)
+  const room = item.kind === "room" ? ROOMS.find((r) => r.item === item.id) : undefined;
+  if (room) home = withoutRoom(home, room.id); // (a room given back puts away what stood in it and loses its wallpaper)
   if (home) save.home = home;
   logEvent(save, nowMs, `Undid ${item.name}`);
   return "undone";

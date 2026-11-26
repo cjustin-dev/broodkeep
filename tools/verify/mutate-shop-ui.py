@@ -59,6 +59,7 @@ MUTANT_TIMEOUT = 240
 ALL_IDS = [
     "nav-shop", "open-close", "buy-exact", "buy-poor", "double-tap", "undo-live", "preview-room", "room-looks", "hud-bed", "reload-keeps",
     "fit-scroll", "fit-clip", "fit-tap", "btn-look", "hat-wear", "hat-preview", "hat-places", "hat-reload", "hat-bed", "hat-kid",
+    "room-buy", "room-undo", "room-kid",
 ]
 
 NAV = "src/ui/Nav.tsx"
@@ -72,6 +73,8 @@ STATE = "src/game/state.ts"
 CSS = "src/ui/app.css"
 HABITAT = "src/art/habitat.ts"
 ARENA = "src/art/arena.ts"
+STAGE = "src/ui/Stage.tsx"
+HOME_DATA = "src/data/home.ts"
 
 # edits: (file, old, new), applied in order. `old` must occur exactly once in that file of the copy.
 # expect: check ids that must FAIL for the mutant to count as caught. kid_only: the checker runs --modes kid.
@@ -133,14 +136,14 @@ MUTANTS = [
          edits=[(SHOP, 'if (item.kind === "wallpaper") return { ...look, walls: { ...look.walls, living: id } };', 'if (item.kind === "wallpaper") return { ...look };')]),
     dict(id="preview-not-redrawn", expect=["preview-room"], kid_only=False,
          what="the preview canvas is redrawn only when the hour changes",
-         edits=[(SHOP, "}, [look.walls[room], look.bed, look.mat, hour, room, wearing?.formId, wearing?.hat]);", "}, [hour]);")]),
+         edits=[(SHOP, "}, [look.walls[room], look.bed, look.mat, look.rooms, hour, room, wearing?.formId, wearing?.hat]);", "}, [hour]);")]),
     dict(id="picked-card-not-pressed", expect=["preview-room"], kid_only=False,
          what="the card being previewed is not marked pressed",
          edits=[(SHOP, "aria-pressed={selected}", "aria-pressed={false}")]),
     dict(id="room-ignores-wallpaper", expect=["room-looks"], kid_only=False,
          what="the home is always drawn with the plain wall (drawHomeBack; the old one-line room's drawRoom, shown only while the creature is away, is not what these checks read)",
          edits=[(ROOM, "const wall = wallColours(look.walls[span.id]);", "const wall = wallColours(null);"),
-                (ROOM, "const wall = wallColours(look.walls[wallRoomOf(col, 0) as RoomId]);", "const wall = wallColours(null);")]),
+                (ROOM, "const wall = wallColours(look.walls[wallRoomOf(col, 0, ROOMS.length) as RoomId]);", "const wall = wallColours(null);")]),
     dict(id="room-ignores-bed", expect=["room-looks"], kid_only=False,
          what="the home never draws the Comfy Bed (drawBed)",
          edits=[(ROOM, '// pillow\n  if (look.bed) {\n    rect(ctx, "#ffe9f0", bed + 13, y + 7, 8, 5);', '// pillow\n  if (false) {\n    rect(ctx, "#ffe9f0", bed + 13, y + 7, 8, 5);')]),
@@ -236,6 +239,31 @@ MUTANTS = [
     dict(id="hat-hidden-in-kid-mode", expect=["hat-kid"], kid_only=True,
          what="Kid Mode draws no hat",
          edits=[(SCENE, "const hat = dead ? null : hatOf(save);", "const hat = dead || !save.settings.adultMode ? null : hatOf(save);")]),
+    # The Playroom (H3, docs/home-plan.md section 16)
+    dict(id="room-card-says-owned", expect=["room-buy"], kid_only=False,
+         what="the card of a built room says Owned, not Built",
+         edits=[(SHOP, ': item.kind === "room" ? "Built" : "Owned"}', ': "Owned"}')]),
+    dict(id="room-picture-is-the-kitchen", expect=["room-buy"], kid_only=False,
+         what="the Playroom's picture is the part of the home the kitchen's items show",
+         edits=[(SHOP, 'items[id].kind === "room" ? "playroom" :', 'items[id].kind === "room" ? "kitchen" :')]),
+    dict(id="room-picture-has-three-rooms", expect=["room-buy"], kid_only=False,
+         what="the Playroom's picture is drawn with the rooms the player has built (three), so it shows nothing before the room is bought",
+         edits=[(SHOP, 'if (item.kind === "room") return { ...look, rooms: Math.max(look.rooms, ROOMS.length) };', 'if (item.kind === "room") return { ...look };')]),
+    dict(id="stage-sizes-the-home-for-three-rooms", expect=["room-buy"], kid_only=False,
+         what="the Stage walks and sizes the home for three rooms whatever is owned",
+         edits=[(STAGE, "useLayout(layout, rooms);", "useLayout(layout);")]),
+    dict(id="stage-looks-at-the-layout-only", expect=["room-buy"], kid_only=False,
+         what="the Stage rebuilds the floor when the layout changes, not when a room is built (a profile with no saved layout has the same starter layout at three rooms and four)",
+         edits=[(STAGE, "if (layout !== layoutInForce() || rooms !== roomsInForce()) {", "if (layout !== layoutInForce()) {")]),
+    dict(id="room-undo-leaves-what-stood-in-it", expect=["room-undo"], kid_only=False,
+         what="the undo of the Playroom leaves the dresser that stood in it where it was",
+         edits=[(RULES, "if (room) home = withoutRoom(home, room.id);", "")]),
+    dict(id="room-undo-keeps-its-wall", expect=["room-undo"], kid_only=False,
+         what="the undo of the Playroom keeps the wallpaper entry of the room",
+         edits=[(HOME_DATA, "Object.entries(home.walls ?? {}).filter(([key]) => key !== id)", "Object.entries(home.walls ?? {})")]),
+    dict(id="kid-home-stays-three-rooms", expect=["room-kid"], kid_only=True,
+         what="Kid Mode walks and sizes the home for three rooms, whatever the saved game owns",
+         edits=[(STAGE, "const rooms = roomsBuilt(game.save.owned);\n      if (layout !== layoutInForce() || rooms !== roomsInForce()) {", "const rooms = game.save.settings.adultMode ? roomsBuilt(game.save.owned) : 3;\n      if (layout !== layoutInForce() || rooms !== roomsInForce()) {")]),
 ]
 
 

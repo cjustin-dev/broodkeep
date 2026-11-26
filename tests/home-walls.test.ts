@@ -191,10 +191,10 @@ describe("lookOf: each room's wallpaper", () => {
     save.owned = ["wall-meadow", "wall-dusk"];
     save.wall = "wall-meadow";
     save.home = homeOf(layoutOf(save.home), { kitchen: "wall-dusk", bedroom: null });
-    expect(lookOf(save).walls).toEqual({ bedroom: null, living: "wall-meadow", kitchen: "wall-dusk" });
-    expect(plainLook.walls).toEqual({ bedroom: null, living: null, kitchen: null });
+    expect(lookOf(save).walls).toEqual({ bedroom: null, living: "wall-meadow", kitchen: "wall-dusk", playroom: "wall-meadow" });
+    expect(plainLook.walls).toEqual({ bedroom: null, living: null, kitchen: null, playroom: null });
     save.home = homeOf(layoutOf(save.home), { living: "wall-dusk" });
-    expect(lookOf(save).walls).toEqual({ bedroom: "wall-meadow", living: "wall-dusk", kitchen: "wall-meadow" });
+    expect(lookOf(save).walls).toEqual({ bedroom: "wall-meadow", living: "wall-dusk", kitchen: "wall-meadow", playroom: "wall-meadow" });
   });
 });
 
@@ -264,7 +264,7 @@ describe("Decorate mode: selecting a wall and giving it a wallpaper", () => {
     expect(game.save.home).toEqual({ pieces: STARTER_PIECES, walls: { bedroom: "wall-meadow" } });
     vi.advanceTimersByTime(1000);
     expect(writeSave).toHaveBeenCalledTimes(1);
-    expect(lookOf(game.save).walls).toEqual({ bedroom: "wall-meadow", living: null, kitchen: null });
+    expect(lookOf(game.save).walls).toEqual({ bedroom: "wall-meadow", living: null, kitchen: null, playroom: null });
   });
 
   it("gives a room the plain wall while the rest of the home has a wallpaper", () => {
@@ -275,7 +275,7 @@ describe("Decorate mode: selecting a wall and giving it a wallpaper", () => {
     game.startDecor();
     expect(game.setWall("kitchen", null)).toBe(true);
     expect(game.save.home?.walls).toEqual({ kitchen: null });
-    expect(lookOf(game.save).walls).toEqual({ bedroom: "wall-dusk", living: "wall-dusk", kitchen: null });
+    expect(lookOf(game.save).walls).toEqual({ bedroom: "wall-dusk", living: "wall-dusk", kitchen: null, playroom: "wall-dusk" });
   });
 
   it("refuses what is not owned, what is not a wallpaper, and what the room already shows; nothing is saved", () => {
@@ -329,6 +329,6 @@ describe("Decorate mode: selecting a wall and giving it a wallpaper", () => {
     game.startDecor();
     game.setWall("bedroom", "wall-meadow");
     game.save.wall = "wall-dusk";
-    expect(lookOf(game.save).walls).toEqual({ bedroom: "wall-meadow", living: "wall-dusk", kitchen: "wall-dusk" });
+    expect(lookOf(game.save).walls).toEqual({ bedroom: "wall-meadow", living: "wall-dusk", kitchen: "wall-dusk", playroom: "wall-dusk" });
   });
 });

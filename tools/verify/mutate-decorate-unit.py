@@ -95,9 +95,9 @@ I_BEDWALK = "calls off the walk to bed it was on"
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 MUTANTS = [
     # which layouts a move may make
-    mut("moved-skips-the-rules", F_EDIT, "return problemWith(next) === null ? next : null;", "return next;", M_OVERLAP, T_EDIT),
+    mut("moved-skips-the-rules", F_EDIT, "return problemWith(next, rooms) === null ? next : null;", "return next;", M_OVERLAP, T_EDIT),
     mut("moved-changes-its-input", F_EDIT, "const next: Layout = { ...layout, [kind]: at === null ? null : { col: at.col, row: at.row } };", "const next: Layout = Object.assign(layout, { [kind]: at === null ? null : { col: at.col, row: at.row } });", M_FREE, T_EDIT),
-    mut("moved-lets-the-bed-go", F_EDIT, "return problemWith(next) === null ? next : null;", "return at === null && kind === \"bed\" ? next : problemWith(next) === null ? next : null;", M_AWAY, T_EDIT),
+    mut("moved-lets-the-bed-go", F_EDIT, "return problemWith(next, rooms) === null ? next : null;", "return at === null && kind === \"bed\" ? next : problemWith(next, rooms) === null ? next : null;", M_AWAY, T_EDIT),
     # the tray
     mut("tray-reversed", F_EDIT, "KINDS.filter((kind) => layout[kind] === null", "[...KINDS].reverse().filter((kind) => layout[kind] === null", TRAY_EMPTY, T_EDIT),
     mut("tray-offers-the-mat-always", F_EDIT, '(kind !== "mat" || matOwned));', "true);", TRAY_MAT, T_EDIT),
@@ -116,16 +116,16 @@ MUTANTS = [
     # where a piece from the tray lands
     mut("spot-farthest-first", F_EDIT, "spots.sort((a, b) => a.d - b.d ||", "spots.sort((a, b) => b.d - a.d ||", SPOT_OLD, T_EDIT),
     mut("spot-lower-of-two-first", F_EDIT, "a.d - b.d || a.row - b.row ||", "a.d - b.d || b.row - a.row ||", SPOT_UPPER, T_EDIT),
-    mut("spot-ignores-the-rules", F_EDIT, "spots.find((s) => moved(layout, kind, s) !== null)", "spots.find(() => true)", SPOT_RULES, T_EDIT),
+    mut("spot-ignores-the-rules", F_EDIT, "spots.find((s) => moved(layout, kind, s, rooms) !== null)", "spots.find(() => true)", SPOT_RULES, T_EDIT),
     mut("spot-measured-from-the-corner", F_EDIT, "d: Math.hypot(col + cols / 2 - near.col, row + rows / 2 - near.row)", "d: Math.hypot(col - near.col, row - near.row)", SPOT_OLD, T_EDIT),
     # carrying and dropping
     mut("lift-forgets-the-grip", F_EDIT, "grip: { col: col - from.col, row: row - from.row }", "grip: { col: 0, row: 0 }", LIFT, T_EDIT),
     mut("lift-starts-refused", F_EDIT, "at: { ...from }, grip: { col: col - from.col, row: row - from.row }, valid: true }", "at: { ...from }, grip: { col: col - from.col, row: row - from.row }, valid: false }", LIFT, T_EDIT),
     mut("follow-jumps-to-the-finger", F_EDIT, "const at = { col: col - held.grip.col, row: row - held.grip.row };", "const at = { col, row };", FOLLOW, T_EDIT),
-    mut("follow-always-valid", F_EDIT, "valid: moved(layout, held.kind, at) !== null };", "valid: true };", FOLLOW_BAD, T_EDIT),
+    mut("follow-always-valid", F_EDIT, "valid: moved(layout, held.kind, at, rooms) !== null };", "valid: true };", FOLLOW_BAD, T_EDIT),
     mut("follow-makes-a-new-lift-every-time", F_EDIT, "if (at.col === held.at.col && at.row === held.at.row) return held;\n", "", FOLLOW_SAME, T_EDIT),
     mut("drop-on-its-own-tile-writes", F_EDIT, "if (held.at.col === held.from.col && held.at.row === held.from.row) return null;\n  ", "", DROP, T_EDIT),
-    mut("drop-skips-the-rules", F_EDIT, "return moved(layout, held.kind, held.at);\n}", "return { ...layout, [held.kind]: held.at };\n}", DROP, T_EDIT),
+    mut("drop-skips-the-rules", F_EDIT, "return moved(layout, held.kind, held.at, rooms);\n}", "return { ...layout, [held.kind]: held.at };\n}", DROP, T_EDIT),
     # what is saved
     mut("home-of-shares-the-placement", F_DATA, "layout[kind] ? { col: layout[kind].col, row: layout[kind].row } : null", "layout[kind]", HOME_COPY, T_EDIT),
     mut("home-of-leaves-out-put-away", F_DATA, "layout[kind] ? { col: layout[kind].col, row: layout[kind].row } : null", "layout[kind] ? { col: layout[kind].col, row: layout[kind].row } : undefined", HOME_WRITES, T_EDIT),
@@ -142,16 +142,16 @@ MUTANTS = [
     mut("leaving-the-room-keeps-the-mode", F_GAME, "    this.screen = screen;\n    this.dropDecor();\n", "    this.screen = screen;\n", G_LEAVE, T_GAME),
     mut("a-new-game-keeps-the-mode", F_GAME, "    this.save = save;\n    this.dropDecor();\n", "    this.save = save;\n", G_LEAVE, T_GAME),
     mut("select-wakes-for-the-same-piece", F_GAME, "if (!this.decor || (this.decor.selected === kind && this.decor.wall === null)) return;", "if (!this.decor) return;", G_SELECT, T_GAME),
-    mut("selected-piece-put-away-elsewhere-still-counts", F_GAME, "return kind !== null && layoutOf(this.save.home)[kind] !== null ? kind : null;", "return kind;", G_GONE, T_GAME),
+    mut("selected-piece-put-away-elsewhere-still-counts", F_GAME, "return kind !== null && layoutOfSave(this.save)[kind] !== null ? kind : null;", "return kind;", G_GONE, T_GAME),
     mut("set-layout-writes-nothing", F_GAME, "save.home = homeOf(layout, save.home?.walls);", "void homeOf(layout, save.home?.walls);", G_OUT, T_GAME),
     mut("bring-out-does-not-select", F_GAME, "this.setLayout({ ...layout, [kind]: at });\n    this.select(kind);\n", "this.setLayout({ ...layout, [kind]: at });\n", G_OUT, T_GAME),
     mut("bring-out-what-is-out", F_GAME, "const at = this.decor && layout[kind] === null && (kind", "const at = this.decor && (kind", G_OUT_RULES, T_GAME),
     mut("bring-out-the-unowned-mat", F_GAME, '(kind !== "mat" || this.save.owned.includes("feeding-mat"))', "true", G_OUT_RULES, T_GAME),
     mut("bring-out-with-the-mode-off", F_GAME, "const at = this.decor && layout[kind] === null", "const at = layout[kind] === null", G_OUT_RULES, T_GAME),
-    mut("put-away-the-bed", F_GAME, "const next = kind ? moved(layoutOf(this.save.home), kind, null) : null;", "const next = kind ? { ...layoutOf(this.save.home), [kind]: null } : null;", G_BED, T_GAME),
+    mut("put-away-the-bed", F_GAME, "const next = kind ? moved(layoutOfSave(this.save), kind, null, roomsBuilt(this.save.owned)) : null;", "const next = kind ? { ...layoutOfSave(this.save), [kind]: null } : null;", G_BED, T_GAME),
     mut("put-away-keeps-the-selection", F_GAME, "    this.setLayout(next);\n    this.select(null);\n", "    this.setLayout(next);\n", G_AWAY, T_GAME),
-    mut("nudge-ignores-the-rules", F_GAME, "const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }) : null;", "const next = kind && from ? { ...layout, [kind]: { col: from.col + dcol, row: from.row + drow } } : null;", G_NUDGE_BAD, T_GAME),
-    mut("nudge-swaps-the-axes", F_GAME, "{ col: from.col + dcol, row: from.row + drow }) : null;", "{ col: from.col + drow, row: from.row + dcol }) : null;", G_NUDGE, T_GAME),
+    mut("nudge-ignores-the-rules", F_GAME, "const next = kind && from ? moved(layout, kind, { col: from.col + dcol, row: from.row + drow }, roomsBuilt(this.save.owned)) : null;", "const next = kind && from ? { ...layout, [kind]: { col: from.col + dcol, row: from.row + drow } } : null;", G_NUDGE_BAD, T_GAME),
+    mut("nudge-swaps-the-axes", F_GAME, "{ col: from.col + dcol, row: from.row + drow }, roomsBuilt(this.save.owned)) : null;", "{ col: from.col + drow, row: from.row + dcol }, roomsBuilt(this.save.owned)) : null;", G_NUDGE, T_GAME),
     # the creature stands still
     mut("still-lets-a-walk-go-on", F_IDLE, 'if (stay && view.pose === "walk") {', 'if (false && stay && view.pose === "walk") {', I_CALLOFF, T_IDLE),
     mut("still-keeps-the-path", F_IDLE, "    view.path = [];\n    view.toBed = false;\n    setPose(view, \"idle\", 1);\n  }\n\n  if (mood.asleep) {", "    view.toBed = false;\n    setPose(view, \"idle\", 1);\n  }\n\n  if (mood.asleep) {", I_CALLOFF, T_IDLE),

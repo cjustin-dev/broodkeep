@@ -2,7 +2,7 @@
 // a bed, a food bowl and a rug. PLACEHOLDER ART made from simple rectangles.
 // Phase 4 replaces this with a room you can decorate.
 
-import { COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, SHAPES, STARTER, TILE, WALL_ROWS, bedOf, piecesOf, wallOfRoom, wallRoomOf } from "../data/home";
+import { BASE_ROOMS, COLS, DOOR_ROWS, PARTITIONS, ROOMS, ROWS, SHAPES, STARTER, TILE, WALL_ROWS, bedOf, colsOf, piecesOf, roomsBuilt, wallOfRoom, wallRoomOf } from "../data/home";
 import type { Layout, Piece, PieceKind, Placement, RoomId } from "../data/home";
 import { plainWall, walls } from "../data/shop";
 import type { Wall } from "../data/shop";
@@ -24,23 +24,30 @@ export function sky(hour: number): { color: string; body: "sun" | "moon"; stars:
 }
 
 // What the shop changed in the room (data/shop.ts): the wallpaper on each room's wall (null: the plain wall; the old one-line room shows the living room's), and whether the Comfy
-// Bed and the Feeding Mat are in; and, in the home, where the furniture stands (the old one-line room ignores that).
+// Bed and the Feeding Mat are in; and, in the home, where the furniture stands and how many rooms are built (the old one-line room ignores both).
 export interface Look {
   walls: Record<RoomId, string | null>;
   bed: boolean;
   mat: boolean;
   layout: Layout;
+  rooms: number;
 }
 
-export const plainLook: Look = { walls: { bedroom: null, living: null, kitchen: null }, bed: false, mat: false, layout: STARTER };
+export const plainLook: Look = { walls: { bedroom: null, living: null, kitchen: null, playroom: null }, bed: false, mat: false, layout: STARTER, rooms: BASE_ROOMS };
 
 const wallColours = (id: string | null): Wall => (id !== null && Object.hasOwn(walls, id) ? walls[id as keyof typeof walls] : plainWall);
 
 export const lookOf = (save: Save): Look => ({
-  walls: { bedroom: wallOfRoom(save.wall, save.home, "bedroom"), living: wallOfRoom(save.wall, save.home, "living"), kitchen: wallOfRoom(save.wall, save.home, "kitchen") },
+  walls: {
+    bedroom: wallOfRoom(save.wall, save.home, "bedroom"),
+    living: wallOfRoom(save.wall, save.home, "living"),
+    kitchen: wallOfRoom(save.wall, save.home, "kitchen"),
+    playroom: wallOfRoom(save.wall, save.home, "playroom"),
+  },
   bed: save.owned.includes("comfy-bed"),
   mat: save.owned.includes("feeding-mat"),
-  layout: layoutOf(save.home),
+  layout: layoutOf(save.home, roomsBuilt(save.owned)),
+  rooms: roomsBuilt(save.owned),
 });
 
 export function drawRoom(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
@@ -127,6 +134,12 @@ const woodFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   }
 };
 
+// A soft green carpet, so the Playroom reads as a different room from the wood floors.
+const carpetFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void => {
+  rect(ctx, "#a9d49a", x, y, w, h);
+  for (let yy = y, row = 0; yy < y + h; yy += 12, row++) for (let xx = x + (row % 2) * 12; xx < x + w; xx += 24) rect(ctx, "#97c488", xx, yy, 12, 12);
+};
+
 const tileFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void => {
   rect(ctx, "#e8e0d0", x, y, w, h);
   for (let xx = x; xx < x + w; xx += 12) rect(ctx, "#cfc5ae", xx, y, 1, h);
@@ -135,16 +148,16 @@ const tileFloor = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 // The columns of each room's wall, in pixels: a partition belongs to the room on its left (data/home.ts wallRoomOf), so the bedroom's wall runs to the end of column 10.
 const WALL_SPANS = ROOMS.map((r) => {
-  const cols = Array.from({ length: COLS }, (_, col) => col).filter((col) => wallRoomOf(col, 0) === r.id);
+  const cols = Array.from({ length: COLS }, (_, col) => col).filter((col) => wallRoomOf(col, 0, ROOMS.length) === r.id);
   return { id: r.id, x0: (cols[0] as number) * TILE, x1: ((cols[cols.length - 1] as number) + 1) * TILE };
 });
 
 export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: Look = plainLook): void {
-  const w = COLS * TILE;
+  const w = colsOf(look.rooms) * TILE;
   const floorTop = WALL_ROWS * TILE;
   // The wall of each room, with its baseboard: the whole wall is painted in the room's own wallpaper inside a clip of the room's columns, so rooms with the same wallpaper
   // draw exactly what one wall across the home drew.
-  for (const span of WALL_SPANS) {
+  for (const span of WALL_SPANS.slice(0, look.rooms)) {
     const wall = wallColours(look.walls[span.id]);
     ctx.save();
     ctx.beginPath();
@@ -155,18 +168,20 @@ export function drawHomeBack(ctx: CanvasRenderingContext2D, hour: number, look: 
     rect(ctx, wall.board, 0, floorTop - 4, w, 4);
     ctx.restore();
   }
-  // The floors: wood in the bedroom and the living room, tiles in the kitchen.
-  for (const r of ROOMS) {
+  // The floors: wood in the bedroom and the living room, tiles in the kitchen, a carpet in the Playroom.
+  for (const r of ROOMS.slice(0, look.rooms)) {
     const x = r.from * TILE;
     const width = (r.to - r.from + 1) * TILE;
     if (r.id === "kitchen") tileFloor(ctx, x, floorTop, width, ROWS * TILE - floorTop);
+    else if (r.id === "playroom") carpetFloor(ctx, x, floorTop, width, ROWS * TILE - floorTop);
     else woodFloor(ctx, x, floorTop, width, ROWS * TILE - floorTop);
   }
   drawWindow(ctx, 105, 5, hour); // (a window of the bedroom, between the bed and the dresser)
   drawWindow(ctx, 418, 5, hour); // (and one of the living room, past the sofa)
+  if (look.rooms > BASE_ROOMS) drawWindow(ctx, 893, 5, hour); // (and one in the middle of the Playroom)
   // The two partitions: a wall from the top to the bottom with a doorway two tiles high, the floor going through it.
-  for (const col of PARTITIONS) {
-    const wall = wallColours(look.walls[wallRoomOf(col, 0) as RoomId]);
+  for (const col of PARTITIONS.filter((c) => c < w / TILE)) {
+    const wall = wallColours(look.walls[wallRoomOf(col, 0, ROOMS.length) as RoomId]);
     const x = col * TILE;
     for (let row = 0; row < ROWS; row++) {
       const y = row * TILE;
@@ -305,6 +320,7 @@ const previewCrop: Record<RoomId, { x: number; y: number }> = {
   bedroom: { x: 24, y: 8 }, // the bed and the bedroom's window
   living: { x: 336, y: 0 }, // the sofa, the window and the wall, which the wallpapers colour
   kitchen: { x: 560, y: 64 }, // the bowl and the Feeding Mat
+  playroom: { x: 848, y: 0 }, // the empty room to the right of the kitchen: its window, wall and carpet
 };
 
 export function drawHomePreview(ctx: CanvasRenderingContext2D, hour: number, look: Look, room: RoomId): void {

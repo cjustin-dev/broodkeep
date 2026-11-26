@@ -611,7 +611,7 @@ const checks = {
       await openShop(page);
       const found = await page.evaluate(cardsFit);
       if (found.problems.length > 0) throw new Error(`${scenario}: ${found.problems.join("; ")}`);
-      expectEq(found.cards, 13, `${scenario}: the cards on the screen`);
+      expectEq(found.cards, 14, `${scenario}: the cards on the screen`);
       lines += found.lines;
     }
     if (lines === 0) throw new Error("no text line was measured");

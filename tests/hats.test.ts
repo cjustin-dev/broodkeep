@@ -279,7 +279,7 @@ describe("the catalogue's hats (edges 18, 27, 30)", () => {
   });
 
   it("edge 18: the hats are items 10 to 13, 12 coins and 2 of one material each, with no dish, and are not wallpaper", () => {
-    expect(itemIds.slice(9)).toEqual(HATS);
+    expect(itemIds.slice(9, 13)).toEqual(HATS);
     expect(HATS.map((id) => items[id].price)).toEqual([
       { coins: 12, materials: { fiber: 2 } },
       { coins: 12, materials: { wood: 2 } },

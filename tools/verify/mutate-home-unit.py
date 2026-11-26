@@ -59,6 +59,7 @@ SOLID = "takes the floor under every solid piece and none under a rug or a mat"
 FOOT = "is 1 tile wide up to a kid"
 CENTRE = "centres a picture on its footprint"
 FITS = "fits a 2-wide footprint through a doorway column and not against furniture"
+FITS_WRAP = "never reads past the last column of the widest home as the next row's first tile"  # (H3: FITS reads column 32, which with three rooms built is inside the array and never floor; the wrap is at column 43)
 BACK = "reads a position back to the anchor it was made from"
 NEAREST = "moves a position that is on furniture to the nearest free anchor"
 NEAREST_EDGE = "starts from the nearest tile inside the home when the position is off the edge"
@@ -173,7 +174,7 @@ UNTOUCHED = "is a new egg that nothing has happened to"
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 MUTANTS = [
     # the floor plan
-    mut("floor-wall-row-one", F_HOME, "if (row < WALL_ROWS) return false;", "if (row < WALL_ROWS - 1) return false;", WALL, T_HOME),
+    mut("floor-wall-row-one", F_HOME, "if (col >= cols || row < WALL_ROWS) return false;", "if (col >= cols || row < WALL_ROWS - 1) return false;", WALL, T_HOME),
     mut("floor-partition-closed", F_HOME, "if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;", "if (PARTITIONS.includes(col)) return false;", WALL, T_HOME),
     mut("floor-partition-open", F_HOME, "if (PARTITIONS.includes(col) && !DOOR_ROWS.includes(row)) return false;", "if (false) return false;", WALL, T_HOME),
     mut("floor-rug-blocks", F_HOME, "const solid = piecesOf(layout).filter((p) => p.solid);", "const solid = piecesOf(layout);", SOLID, T_HOME),
@@ -181,10 +182,10 @@ MUTANTS = [
     mut("floor-furniture-one-short", F_HOME, "col < p.col + p.cols && row >= p.row && row < p.row + p.rows", "col < p.col + p.cols - 1 && row >= p.row && row < p.row + p.rows", SOLID, T_HOME),
     mut("footprint-floor", F_HOME, "Math.ceil(size / TILE)", "Math.floor(size / TILE)", FOOT, T_HOME),
     mut("fits-first-tile-only", F_HOME, "for (let i = 0; i < f; i++) if", "for (let i = 0; i < 1; i++) if", FITS, T_HOME),
-    mut("fits-past-the-right-wall", F_HOME, "col < COLS && row >= 0", "col <= COLS && row >= 0", FITS, T_HOME),
+    mut("fits-past-the-right-wall", F_HOME, "col < COLS && row >= 0", "col <= COLS && row >= 0", FITS_WRAP, T_HOME),
     mut("anchor-not-centred", F_HOME, "x: a.col * TILE + (footprintOf(size) * TILE - size) / 2,", "x: a.col * TILE,", CENTRE, T_HOME),
     mut("anchor-feet-at-top", F_HOME, "y: (a.row + 1) * TILE };", "y: a.row * TILE };", CENTRE, T_HOME),
-    mut("nearest-not-clamped", F_HOME, "const start = { col: Math.max(0, Math.min(COLS - 1, col)), row: Math.max(0, Math.min(ROWS - 1, row)) };", "const start = { col, row };", NEAREST_EDGE, T_HOME),
+    mut("nearest-not-clamped", F_HOME, "const start = { col: Math.max(0, Math.min(colsOf(ROOMS_BUILT) - 1, col)), row: Math.max(0, Math.min(ROWS - 1, row)) };", "const start = { col, row };", NEAREST_EDGE, T_HOME),
     mut("nearest-order-swapped", F_HOME, "  [1, 0],\n  [-1, 0],\n", "  [-1, 0],\n  [1, 0],\n", NEAREST_EDGE, T_HOME),
     mut("nearest-ignores-footprint", F_HOME, "if (fits(here.col, here.row, f)) return here;", "if (isFloor(here.col, here.row)) return here;", NEAREST_EDGE, T_HOME),
     mut("anchor-of-no-centring", F_HOME, "Math.round((x - (f * TILE - size) / 2) / TILE)", "Math.round(x / TILE)", NEAREST, T_HOME),
@@ -200,7 +201,7 @@ MUTANTS = [
     mut("wander-last-goal-missed", F_HOME, "Math.min(goals.length - 1, Math.floor(rand() * goals.length))", "Math.min(goals.length - 2, Math.floor(rand() * goals.length))", WANDER, T_HOME),
     # rooms, food, fixed spots
     mut("room-partition-swapped", F_HOME, '? "bedroom" : "kitchen"; // (a partition column', '? "kitchen" : "bedroom"; // (a partition column', ROOM, T_HOME),
-    mut("room-by-rounding", F_HOME, "const col = Math.max(0, Math.min(COLS - 1, Math.floor(x / TILE)));", "const col = Math.max(0, Math.min(COLS - 1, Math.round(x / TILE)));", ROOM, T_HOME),
+    mut("room-by-rounding", F_HOME, "const col = Math.max(0, Math.min(colsOf(ROOMS_BUILT) - 1, Math.floor(x / TILE)));", "const col = Math.max(0, Math.min(colsOf(ROOMS_BUILT) - 1, Math.round(x / TILE)));", ROOM, T_HOME),
     mut("food-facing-ignored", F_HOME, "const order = facing === 1 ? [right, left] : [left, right];", "const order = [right, left];", FOOD, T_HOME),
     mut("food-right-side-of-a-1-wide", F_HOME, "const right = { col: a.col + f, row: a.row };", "const right = { col: a.col + 1, row: a.row };", FOOD, T_HOME),
     mut("food-no-tile-below", F_HOME, "[...order, { col: a.col, row: a.row + 1 }]", "[...order]", FOOD, T_HOME),
@@ -339,11 +340,11 @@ MUTANTS = [
     mut("rule5-two-wide-only", F_RULES, "for (const size of [24, 48]) {", "for (const size of [48]) {", R5_DOOR, T_LAYOUT),
     mut("rule5-reach-never-checked", F_RULES, "if (fits(col, row, f) && !reached.has(row * COLS + col))", "if (fits(col, row, f) && false)", R5_DOOR, T_LAYOUT),
     mut("rule5-every-tile-must-be-reached", F_RULES, "if (fits(col, row, f) && !reached.has(row * COLS + col))", "if (!reached.has(row * COLS + col))", R5_OPEN, T_LAYOUT),
-    mut("layout-half-kept", F_RULES, "const result = problemWith(layout) === null ? layout : STARTER;", "const result = layout;", LAYOUT_WHOLE, T_LAYOUT),
-    mut("layout-never-kept", F_RULES, "const result = problemWith(layout) === null ? layout : STARTER;", "const result = STARTER;", LAYOUT_OVER, T_LAYOUT),
+    mut("layout-half-kept", F_RULES, "const result = problemWith(layout, rooms) === null ? layout : (mended(layout, rooms) ?? STARTER);", "const result = layout;", LAYOUT_WHOLE, T_LAYOUT),
+    mut("layout-never-kept", F_RULES, "const result = problemWith(layout, rooms) === null ? layout : (mended(layout, rooms) ?? STARTER);", "const result = STARTER;", LAYOUT_OVER, T_LAYOUT),
     mut("layout-put-away-reads-as-starter", F_RULES, "layout[kind] = at === null ? null :", "layout[kind] = at === null ? STARTER[kind] :", LAYOUT_OVER, T_LAYOUT),
     mut("layout-new-object-each-time", F_RULES, "if (kept) return kept;", "if (false) return kept;", LAYOUT_SAME, T_LAYOUT),
-    mut("layout-one-key-for-all", F_RULES, "const key = JSON.stringify(home.pieces);", 'const key = "home";', LAYOUT_COPY, T_LAYOUT),
+    mut("layout-one-key-for-all", F_RULES, "const key = `${rooms}:${JSON.stringify(home.pieces)}`;", 'const key = "home";', LAYOUT_COPY, T_LAYOUT),
     mut("layout-shares-the-saved-cell", F_RULES, "{ col: at.col, row: at.row };\n  }", "at;\n  }", LAYOUT_ALIAS, T_LAYOUT),
     mut("layout-no-home-copies-starter", F_RULES, "if (!home) return STARTER;", "if (!home) return { ...STARTER };", LAYOUT_NONE, T_LAYOUT),
     mut("coerce-array-is-a-home", F_DATA, "if (typeof value !== \"object\" || value === null || Array.isArray(value)) return undefined;\n  const raw =", "if (typeof value !== \"object\" || value === null) return undefined;\n  const raw =", COERCE_BAD, T_LAYOUT),
@@ -358,9 +359,9 @@ MUTANTS = [
     mut("bed-front-column-of-the-bed", F_DATA, "front: { col: at.col + 1, row: at.row + 2 } }", "front: { col: at.col, row: at.row + 2 } }", BED_DERIVED, T_LAYOUT),
     mut("bed-walk-to-the-starter-front", F_HOME, "nearestFree(bedNow().front.col, bedNow().front.row,", "nearestFree(bedOf(STARTER.bed as Placement).front.col, bedOf(STARTER.bed as Placement).front.row,", BED_MOVED, T_LAYOUT),
     mut("bed-lying-on-the-starter-bed", F_HOME, "({ x: bedNow().left + BED_WIDTH / 2 - size / 2, y: bedNow().y + 16 - size });", "({ x: bedOf(STARTER.bed as Placement).left + BED_WIDTH / 2 - size / 2, y: bedOf(STARTER.bed as Placement).y + 16 - size });", BED_MOVED, T_LAYOUT),
-    mut("floor-not-remade-for-a-new-layout", F_HOME, "  LAYOUT = layout;\n  FLOOR = floorOf(layout);", "  LAYOUT = layout;", FLOOR_MOVED, T_LAYOUT),
-    mut("layout-not-put-back-after-a-trial", F_HOME, "    return fn();\n  } finally {\n    useLayout(before);\n  }", "    return fn();\n  } finally {\n  }", FLOOR_TRIAL, T_LAYOUT),
-    mut("layout-not-put-back-after-a-throw", F_HOME, "  try {\n    return fn();\n  } finally {\n    useLayout(before);\n  }", "  const result = fn();\n  useLayout(before);\n  return result;", FLOOR_TRIAL, T_LAYOUT),
+    mut("floor-not-remade-for-a-new-layout", F_HOME, "  LAYOUT = layout;\n  ROOMS_BUILT = rooms;\n  FLOOR = floorOf(layout, rooms);", "  LAYOUT = layout;\n  ROOMS_BUILT = rooms;", FLOOR_MOVED, T_LAYOUT),
+    mut("layout-not-put-back-after-a-trial", F_HOME, "    return fn();\n  } finally {\n    useLayout(before, roomsBefore);\n  }", "    return fn();\n  } finally {\n  }", FLOOR_TRIAL, T_LAYOUT),
+    mut("layout-not-put-back-after-a-throw", F_HOME, "  try {\n    return fn();\n  } finally {\n    useLayout(before, roomsBefore);\n  }", "  const result = fn();\n  useLayout(before, roomsBefore);\n  return result;", FLOOR_TRIAL, T_LAYOUT),
     mut("reseat-in-the-one-line-room", F_IDLE, 'if (view.world !== "home") return;\n  view.path = [];\n  view.toBed = false;', 'view.path = [];\n  view.toBed = false;', RESEAT_BETWEEN, T_IDLE),
     mut("reseat-keeps-the-path", F_IDLE, "  view.path = [];\n  view.toBed = false;\n  const at = anchorPos(view.pose", "  view.toBed = false;\n  const at = anchorPos(view.pose", RESEAT_CALLOFF, T_IDLE),
     mut("reseat-keeps-toBed", F_IDLE, "  view.path = [];\n  view.toBed = false;\n  const at = anchorPos(view.pose", "  view.path = [];\n  const at = anchorPos(view.pose", RESEAT_BED, T_IDLE),

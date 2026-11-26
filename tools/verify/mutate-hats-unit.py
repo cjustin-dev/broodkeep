@@ -75,7 +75,7 @@ MIG_NONE = "edge 14: a save with no hat field reads as none; an owned hat is kep
 MIG_BAD = "edge 14: a hat that is not owned, a wallpaper, an unknown id, a prototype name, a number and an object all read as none"
 FRESH = "edge 15: a fresh save wears none"
 EVOLVE = "edge 28: evolving while wearing a hat keeps it, and the size follows the new form's stage"
-THIRTEEN = "has thirteen items at these prices, in this order, with the care items' words"
+FOURTEEN = "has fourteen items at these prices, in this order, with the care items' words"
 SAVED_DOC = "edge 17: the hat, the purchase and the coins it cost are fields of the one saved document"
 POOL_HATS = "with only the four hats left to own, a buy request names a hat the creature can pay for and a reward is a hat"
 REWARD_HAT = "a hat paid as the item arrives owned and not worn"
@@ -128,7 +128,7 @@ MUTANTS = [
     mut("hat-has-a-dish", F_DATA, 'effect: "A red knit cap with a pom-pom. For looks only.",\n    price: { coins: 12, materials: { fiber: 2 } },', 'effect: "A red knit cap with a pom-pom. For looks only.",\n    price: { coins: 12, materials: { fiber: 2 } },\n    dish: { food: 0 },', PRICES),
     mut("hat-is-a-wallpaper", F_DATA, 'kind: "hat",\n    effect: "A yellow fisher\'s hat with a brim. For looks only.",', 'kind: "wallpaper",\n    effect: "A yellow fisher\'s hat with a brim. For looks only.",', PRICES),
     mut("hat-words-changed", F_DATA, 'effect: "A grey crown with three points. For looks only.",', 'effect: "A grey crown with three points.",', CARDS),
-    mut("items-in-reverse", F_DATA, "export const itemIds = Object.keys(items) as ItemId[];", "export const itemIds = (Object.keys(items) as ItemId[]).reverse();", THIRTEEN, T_SHOP),
+    mut("items-in-reverse", F_DATA, "export const itemIds = Object.keys(items) as ItemId[];", "export const itemIds = (Object.keys(items) as ItemId[]).reverse();", FOURTEEN, T_SHOP),
     mut("is-hat-id-takes-any-item", F_DATA, 'isItemId(id) && items[id].kind === "hat"', "isItemId(id)", ISHAT),
     mut("hat-of-is-always-none", F_HAT, "(isHatId(save.hat) ? save.hat : null)", "null", "edge 16: a retire and a new egg leave the hat"),
     # wearing, buying and undoing
@@ -147,7 +147,7 @@ MUTANTS = [
     mut("migrate-forgets-the-hat", F_STATE, "isHatId(value.hat) && value.owned.includes(value.hat) ? value.hat : null", "null", SAVED_DOC),
     # the request board (a hat can be asked for and paid as a reward; a reward is owned and not worn)
     mut("buy-request-pool-without-hats", F_REQ, "pool = itemIds.filter((id) => !save.owned.includes(id) && !carried.has(id) && payable(save, c, id));", 'pool = itemIds.filter((id) => !save.owned.includes(id) && !carried.has(id) && payable(save, c, id) && !id.startsWith("hat-"));', POOL_HATS, T_REQ),
-    mut("reward-pool-without-hats", F_REQ, "const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id));", 'const pool = itemIds.filter((id) => !save.owned.includes(id) && !named.has(id) && !id.startsWith("hat-"));', POOL_HATS, T_REQ),
+    mut("reward-pool-without-hats", F_REQ, "const pool = itemIds.filter((id) => items[id].kind !== \"room\" && !save.owned.includes(id) && !named.has(id));", 'const pool = itemIds.filter((id) => items[id].kind !== "room" && !save.owned.includes(id) && !named.has(id) && !id.startsWith("hat-"));', POOL_HATS, T_REQ),
     mut("reward-wears-the-hat", F_REQ, "save.owned.push(r.item);", 'save.owned.push(r.item);\n    if (r.item.startsWith("hat-")) save.hat = r.item;', REWARD_HAT, T_REQ),
 ]
 

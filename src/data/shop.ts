@@ -1,4 +1,4 @@
-// What the shop sells (adult track A2.2, A2.4). Thirteen items: two for the room's care rules (A2.2a), two wallpapers (A2.2a), five foods (A2.2b) and four hats (A2.4). Prices were
+// What the shop sells (adult track A2.2, A2.4, home slice H3). Fourteen items: two for the room's care rules (A2.2a), two wallpapers (A2.2a), five foods (A2.2b), four hats (A2.4) and a room (H3). Prices were
 // set from a measured day of play (tools/verify/run-income.sh, docs/adult-a2-plan.md sections 9 and 10): a day is the three-visit player's 12 coins.
 // All of them are `[tune]`. What an item does is in game/perks.ts (the care rules), game/dishes.ts (the foods), art/room.ts (the picture) and art/hat.ts (the hats);
 // this file is only the list, the prices and the words.
@@ -9,6 +9,7 @@ import { tuning } from "./tuning";
 import type { MaterialId } from "./habitat";
 
 export type HatId = "hat-knit" | "hat-acorn" | "hat-fisher" | "hat-crown";
+export type RoomItemId = "room-play";
 export type ItemId =
   | "comfy-bed"
   | "feeding-mat"
@@ -19,8 +20,9 @@ export type ItemId =
   | "sweet-bowl"
   | "stew"
   | "garden-mix"
+  | RoomItemId
   | HatId;
-export type ItemKind = "furniture" | "wallpaper" | "food" | "hat";
+export type ItemKind = "furniture" | "wallpaper" | "food" | "hat" | "room";
 
 // Which of a field's three foods (the order of `plan.foods` in data/fields.ts): the filling one, the light one, the sweet one.
 export type FoodKind = 0 | 1 | 2;
@@ -165,6 +167,15 @@ export const items: Record<ItemId, Item> = {
     effect: "A grey crown with three points. For looks only.",
     price: { coins: 12, materials: { stone: 2 } },
   },
+  // A room is built when it is owned (data/home.ts `ROOMS`): the home grows to the right of the kitchen. It starts empty; what goes in it is the player's (Decorate mode). Three days of
+  // the measured income, the most the price rule of tests/shop.test.ts allows (docs/home-plan.md section 16).
+  "room-play": {
+    id: "room-play",
+    name: "Playroom",
+    kind: "room",
+    effect: "A fourth room, to the right of the kitchen. It starts empty.",
+    price: { coins: 36, materials: { wood: 4, stone: 4 } },
+  },
 };
 export const itemIds = Object.keys(items) as ItemId[];
 
@@ -172,6 +183,7 @@ export const itemIds = Object.keys(items) as ItemId[];
 export const isItemId = (id: unknown): id is ItemId => typeof id === "string" && Object.hasOwn(items, id);
 export const isWallId = (id: unknown): id is ItemId => isItemId(id) && items[id].kind === "wallpaper";
 export const isHatId = (id: unknown): id is HatId => isItemId(id) && items[id].kind === "hat";
+export const isRoomItemId = (id: unknown): id is RoomItemId => isItemId(id) && items[id].kind === "room";
 
 // The wall colours: the plain wall (the room's own), and each wallpaper's base, stripe and baseboard.
 export interface Wall {

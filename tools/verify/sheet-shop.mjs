@@ -72,6 +72,14 @@ const openShopToEnd = async (page) => {
   await openShop(page);
   await page.locator(".shop-scroll").evaluate((el) => el.scrollTo(0, el.scrollHeight));
 };
+// The home with the Playroom is 1032 game pixels wide: the camera is panned to its right end (the keys stop there), then back by `back` presses to show the doorway.
+const panRight = async (page, back = 0) => {
+  await page.evaluate(() => { Math.random = () => 0.99; });
+  await page.locator("canvas.room").focus();
+  for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowRight");
+  for (let i = 0; i < back; i++) await page.keyboard.press("ArrowLeft");
+  await page.clock.runFor(300);
+};
 const pick = (page, name) => page.locator(`.shop-pick[aria-label^="${name}"]`).click({ timeout: 5000 });
 // A stand-in for the Switch button that shows with two or more profiles on an account (it needs a cloud session to be real): the same classes and
 // two lines of text, put in the bag row, so the header can be seen at its fullest.
@@ -95,6 +103,10 @@ const STATES = {
   "room-kid-plain": ["rich", "kid", async () => {}, false],
   "room-hat-worn": ["hat-worn", "adult", async () => {}, false],
   "room-hat-kid": ["hat-worn", "kid", async () => {}, false],
+  "room-play-owned": ["room-owned", "adult", (p) => panRight(p), false],
+  "room-play-kid": ["room-owned", "kid", (p) => panRight(p), false],
+  "room-play-pieces": ["room-just-bought", "adult", (p) => panRight(p), false],
+  "room-play-door": ["room-owned", "adult", (p) => panRight(p, 4), false],
   "shop-rich": ["rich", "adult", openShop, true],
   "shop-rich-dusk": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Wallpaper: Dusk"); }, true],
   "shop-rich-bed": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Comfy Bed"); }, true],
@@ -104,6 +116,11 @@ const STATES = {
   "shop-longname-fisher": ["long-name", "adult", async (p) => { await openShop(p); await pick(p, "Fisher Hat"); }, true],
   "shop-hats-owned": ["hats-owned", "adult", openShopToEnd, true],
   "shop-hat-worn": ["hat-worn", "adult", openShopToEnd, true],
+  "shop-rich-playroom": ["rich", "adult", async (p) => { await openShop(p); await pick(p, "Playroom"); }, true],
+  "shop-room-exact": ["room-exact", "adult", async (p) => { await openShopToEnd(p); await pick(p, "Playroom"); }, true],
+  "shop-room-bought": ["room-exact", "adult", async (p) => { await openShop(p); await p.locator('button[aria-label="Buy Playroom"]').click({ timeout: 5000 }); await pick(p, "Playroom"); }, true],
+  "shop-room-owned": ["room-owned", "adult", openShopToEnd, true],
+  "shop-poor-end": ["poor", "adult", openShopToEnd, true],
   "shop-poor": ["poor", "adult", openShop, true],
   "shop-mixed": ["mixed", "adult", openShop, true],
   "shop-owned-walls": ["owned-walls", "adult", openShop, true],

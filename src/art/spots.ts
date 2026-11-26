@@ -1,5 +1,5 @@
 // Where the fixed things are, for each of the two worlds a creature can stand in: the old ONE-LINE room (128 x 128, in the fields too: layout.ts) and the HOME
-// (768 x 192, on a tile grid: home.ts). The drawing code asks this for a position instead of reading `ROOM` or the home directly, so one piece of code draws both.
+// (768 x 192 with three rooms built, 1032 x 192 with four, on a tile grid: home.ts). The drawing code asks this for a position instead of reading `ROOM` or the home directly, so one piece of code draws both.
 // A creature's standing picture has its top at `view.y - size`; `view.y` is its feet line (the old room's `ROOM.groundY`, always, in the line world).
 
 import { AWAY_BUBBLE } from "../data/home";
@@ -32,7 +32,9 @@ const line: Spots = {
 };
 
 const home: Spots = {
-  w: HOME.w,
+  get w() {
+    return HOME.w; // (the width of the home built now)
+  },
   egg: eggSpot(),
   poop: poopSpot,
   bed: bedLying,

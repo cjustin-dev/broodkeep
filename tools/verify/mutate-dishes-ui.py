@@ -107,7 +107,7 @@ MUTANTS = [
          edits=[(CSS, ".btn.food.dish {\n  position: relative;\n}", ".btn.food.dish {\n  position: relative;\n}\n\n.btn.food.dish .count {\n  width: 10px;\n  min-width: 0;\n  padding: 0;\n  white-space: nowrap;\n}")]),
     dict(id="owned-line-says-owned-only", expect=["shop-buy-shows"], kid_only=False,
          what="a food card says Owned and not where to find it",
-         edits=[(SHOP, '{item.kind === "food" ? "Owned: find it under Feed" : "Owned"}', "Owned")]),
+         edits=[(SHOP, '{item.kind === "food" ? "Owned: find it under Feed" : item.kind === "room" ? "Built" : "Owned"}', "Owned")]),
     dict(id="food-card-previews-the-mat", expect=["shop-preview-food"], kid_only=False,
          what="the preview of any item that is not the Comfy Bed shows the Feeding Mat (a food's picture is the kitchen, where the mat is; the bed is not in that picture, so a bed in a food's preview cannot be seen and is not a mutant)",
          edits=[(SHOP, 'return { ...look, bed: look.bed || id === "comfy-bed", mat: look.mat || id === "feeding-mat" };', 'return { ...look, bed: look.bed || id === "comfy-bed", mat: look.mat || id !== "comfy-bed" };')]),
