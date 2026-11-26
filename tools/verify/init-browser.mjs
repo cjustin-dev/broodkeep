@@ -14,7 +14,7 @@
 // function (its `rand` is `Math.random` as it was when the game was built); after the page is up the global is swapped for a constant 0.99 (the Stage's per-frame draws read the global each
 // time), so only the game takes from the queue. The first wait is drawn at start from an empty queue: floor(0.99 x 30,001) + 60,000 = 89,700 ms, less the fake time that ran before the pause, so
 // the first offer shows between 60 and 91 seconds after the pause (the rule's own range; the exact figure is printed). After that the draws come from the queue in this order: the kind (and a
-// craving's food, or a gift's coin or material), then the next wait. Literals (worked out by hand; tests/initiatives.test.ts pins the rules):
+// craving's food, or a gift's coin or material), then the next wait. Literals (worked out by hand; tests/initiatives.test.ts pins those weights as literals):
 //   - Gravelhorn at Bond level 1 weighs play 5, craving 4, gift 4 (total 13): a draw of 0.1 is a play, 0.5385 a craving (the middle of its slice), 0.8462 a gift. Its menu is pellet, meat, carrot,
 //     worm: a food draw of 0.375 is meat (index 1). A gift draw under a third (0.1) is 2 coins; otherwise the material by a draw (fiber 0.1, herb 0.3, wood 0.5, fish 0.7, stone 0.9). A next wait
 //     draw of 0 is 60,000 ms.
@@ -98,6 +98,7 @@ const NOT_COIN = 0.5;
 const FIBER = 0.1;
 const HERB = 0.3;
 const SOON = 0; // the wait to the next offer: 60,000 ms
+const PAD = 14; // how far past a target's box a touch still counts, in CSS pixels (Stage.tsx PET_PAD_CSS; in a field it is 6 game pixels instead)
 
 // ---------- small helpers ----------
 
@@ -346,11 +347,13 @@ async function savedGame(page) {
 const xpOf = (save) => save.creature.bond?.xp ?? 0;
 
 // A tap on a button of the dock by its accessible name (scrolled into view first: the page scrolls as a whole).
-async function tapButton(page, label) {
+async function tapButton(page, label, after = 100) {
   const box = await page.evaluate(boxOf, { selector: `button[aria-label="${label}"]`, scroll: true });
   if (!box) throw new Error(`no button "${label}" on the screen`);
-  await tapAt(page, [box.x, box.y], 100);
+  await tapAt(page, [box.x, box.y], after);
 }
+
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // ---------- the checks ----------
 
@@ -385,30 +388,41 @@ const CHECKS = {
     return `the first offer showed at ${first} s of the fake clock, faded in 30 s, the next one came 60 s after it`;
   },
 
-  // Ignoring everything costs nothing: 280 s with no touch, three offers come and go (none lasts past 31 s, none overlaps), and the saved game has no coins, no Bond XP and none of the lines an
-  // answer writes.
+  // Ignoring everything costs nothing: 300 s with no touch, three offers (a play, a craving and a gift, in that order) come and go, each next one starts 75 s after the start of the one before (a wait
+  // draw of 0.5 = 60,000 + floor(0.5 x 30,001) = 75,000 ms), none lasts past 31 s, none overlaps, and the saved game has no coins, no Bond XP and none of the lines an answer writes. The first
+  // comes in the rule's range (the first wait is drawn at start from an empty queue); a fourth would come at about 312 s.
   "init-ignore": async (open) => {
-    const { page, errors } = await open(adult(), []);
-    let starts = 0;
+    const WAIT = 0.5;
+    const { page, errors } = await open(adult(), [PLAY, WAIT, CRAVING, MEAT, WAIT, GIFT, COIN, WAIT, PLAY, WAIT]);
+    const starts = [];
+    const kinds = [];
     let showing = false;
     let shownFor = 0;
     let longest = 0;
-    for (let s = 1; s <= 280; s++) {
+    for (let s = 1; s <= 300; s++) {
       await run(page, 1000);
-      const now = (await state(page)).hasKind;
-      if (now && !showing) starts++;
-      shownFor = now ? shownFor + 1 : 0;
+      const st = await state(page);
+      if (st.hasKind && !showing) {
+        starts.push(s);
+        kinds.push(st.kind);
+      }
+      shownFor = st.hasKind ? shownFor + 1 : 0;
       longest = Math.max(longest, shownFor);
-      showing = now;
+      showing = st.hasKind;
     }
-    if (starts < 3 || starts > 4) throw new Error(`${starts} offers in 280 s: the rule gives 3 or 4`);
+    expectEq(kinds, ["play", "craving", "gift"], `the offers in 300 s (they started at ${starts.join(", ")} s)`);
+    if (starts[0] < 60 || starts[0] > 91) throw new Error(`the first offer came at ${starts[0]} s: the rule says 60 to 90 s (plus the clock's own second)`);
+    for (const i of [1, 2]) {
+      const gap = starts[i] - starts[i - 1];
+      if (Math.abs(gap - 75) > 2) throw new Error(`offer ${i + 1} came ${gap} s after offer ${i}: a wait draw of 0.5 is 75 s (starts at ${starts.join(", ")} s)`);
+    }
     if (longest > 31) throw new Error(`an offer was on the canvas for ${longest} s: it fades after 30`);
     const save = await savedGame(page);
-    expectEq([save.coins, xpOf(save)], [0, 0], "the coins and the Bond XP after ignoring everything");
+    expectEq([save.coins, xpOf(save), save.inventory], [0, 0, {}], "the coins, the Bond XP and the bag after ignoring everything");
     const lines = save.log.map((l) => l.text).filter((t) => /^Found |^Bond level/.test(t));
     expectEq(lines, [], "the log lines an answer would have written");
     expectEq(errors, [], "page errors");
-    return `${starts} offers in 280 s, the longest on show ${longest} s, nothing paid or logged`;
+    return `a play, a craving and a gift at ${starts.join(", ")} s, the longest on show ${longest} s, nothing paid or logged`;
   },
 
   // A play: each tap on the ball pays 2 Bond XP (three taps 6, not 9: no poke, no tickle), six tosses at most (12), the sixth ends it, and a seventh tap pays nothing.
@@ -420,12 +434,15 @@ const CHECKS = {
     await tapBubble(page);
     await tapBubble(page);
     expectEq(xpOf(await savedGame(page)), 6, "the Bond XP after three taps on the ball (a tickle would have made it 9)");
-    for (let toss = 4; toss <= 6; toss++) await tapBubble(page);
+    let lastBall;
+    for (let toss = 4; toss <= 6; toss++) lastBall = (await tapBubble(page)).bubble;
     const done = await state(page);
     expectEq([done.hasKind, done.hasBubble], [false, false], "the play after the sixth toss");
     expectEq(xpOf(await savedGame(page)), 12, "the Bond XP after six tosses");
+    await tapAt(page, [lastBall.x, lastBall.y]); // a seventh tap where the ball was: the play is over, the touch is the creature's (a poke)
+    expectEq(xpOf(await savedGame(page)), 12, "the Bond XP after a seventh tap where the ball was");
     expectEq(errors, [], "page errors");
-    return `${env.w}x${env.h}@${env.dpr}: six taps paid 12 Bond XP (6 after three), the sixth ended the play`;
+    return `${env.w}x${env.h}@${env.dpr}: six taps paid 12 Bond XP (6 after three), the sixth ended the play and a seventh paid nothing`;
   },
 
   // A gift: one tap pays it once (2 coins, or 1 herb), the note says what it was, the saved game has it, and a second tap on the same place adds nothing.
@@ -467,7 +484,7 @@ const CHECKS = {
     // a finger held on the bubble's lower edge, where the creature's own hit zone reaches (a pet starts after 450 ms)
     const b = (await state(page)).bubble;
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: b.x, y: b.b - 2 }] });
-    await run(page, 700, 50);
+    await run(page, 1500, 50); // long enough for a pet (450 ms) and for at least one tick of the game's clock to see a finger held
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await run(page, 100, 50);
     const held = await state(page);
@@ -476,7 +493,7 @@ const CHECKS = {
     await tapButton(page, "Feed");
     await run(page, 1500); // the tray stays open for a moment, as it does while a player picks: it must not stop the craving
     expectEq((await state(page)).kind, "craving", "the craving after the feed tray was open for 1.5 s");
-    await tapButton(page, "Meat");
+    await tapButton(page, "Meat", 50); // read within three frames: the meal on the plate would drop a craving that stayed at the next tick, so a longer wait could hide it
     const fed = await state(page);
     expectEq([fed.hasKind, fed.hasBubble], [false, false], "the craving after a meal of the food it asked for");
     expectEq(xpOf(await savedGame(page)), 8, "the Bond XP after the meal it asked for");
@@ -511,7 +528,7 @@ const CHECKS = {
     if (!close) throw new Error("no Close button on the Settings panel");
     await tapAt(page, [close.x, close.y]);
     await runSecs(page, 20);
-    expectEq((await state(page)).hasKind, false, "an offer 20 s after Settings closed (the countdown was held: about 57 s were left)");
+    expectEq((await state(page)).hasKind, false, "an offer 20 s after Settings closed (the countdown was held: about 59 s were left, none counted while it was open)");
     await runSecs(page, 42);
     expectEq((await state(page)).hasKind, true, "an offer 62 s after Settings closed");
     await tapButton(page, "Habitat");
@@ -551,10 +568,17 @@ const CHECKS = {
     // the creature's body: left of the bubble's left edge and under its bottom edge, beyond the bubble's slack (14 CSS pixels past its box)
     await tapAt(page, [first.l - 4 * f, first.b + 16], 100);
     expectEq((await state(page)).kind, "play", "the play after a tap on the creature");
-    // the poke started the creature's startle: the bubble is higher now (proof the pose is on); a tap on it where it is now pays
+    // the poke started the creature's startle: the bubble is higher now (proof the pose is on)
     const moved = (await state(page)).bubble;
-    if (!(moved.t <= first.t - 2)) throw new Error(`the bubble did not move up with the startle: it was at ${first.t.toFixed(1)}, it is at ${moved.t.toFixed(1)}`);
-    await tapAt(page, [moved.x, moved.y]);
+    const lifted = first.t - moved.t;
+    if (!(lifted >= 2)) throw new Error(`the bubble did not move up with the startle: it was at ${first.t.toFixed(1)}, it is at ${moved.t.toFixed(1)}`);
+    // a touch just under the lifted bubble's slack (14 CSS pixels past its box) is the creature's, not the ball's; where the bubble stands still it would be inside the slack, so a hit test that
+    // ignored the pose would take it for the ball (the touch stays inside the slack of the unlifted box because it is only lifted / 2 under the lifted slack)
+    await tapAt(page, [moved.x, moved.b + PAD + lifted / 2], 100);
+    expectEq(xpOf(await savedGame(page)), 0, "the Bond XP after a touch under the lifted bubble's slack (the ball is where it is drawn now, not where it stands)");
+    // a tap on the bubble where it is now pays
+    const moved2 = (await state(page)).bubble;
+    await tapAt(page, [moved2.x, moved2.y]);
     expectEq(xpOf(await savedGame(page)), 2, "the Bond XP after a tap on the creature and a tap on the bubble while it moved (4 would mean the creature's tap answered the ball)");
     // a drag that begins on the ball
     await run(page, 400, 50);
@@ -566,8 +590,18 @@ const CHECKS = {
     // a plain tap, from wherever the ball is now (the drag moved the camera)
     await tapBubble(page);
     expectEq(xpOf(await savedGame(page)), 4, "the Bond XP after a plain tap");
+    // the slack: a touch 8 CSS pixels over the ball's top edge (inside the 14 a touch gets) pays, one 30 over it (outside) does not
+    await run(page, 800, 50);
+    const rest = await state(page);
+    if (!(rest.bubble.t - 30 > rest.canvas.t + 4)) throw new Error(`no room above the ball for the slack probe: it is at ${rest.bubble.t.toFixed(1)}, the picture starts at ${rest.canvas.t.toFixed(1)}`);
+    await tapAt(page, [rest.bubble.x, rest.bubble.t - 8]);
+    expectEq(xpOf(await savedGame(page)), 6, "the Bond XP after a touch 8 px over the ball (inside its slack)");
+    await run(page, 800, 50);
+    const rest2 = (await state(page)).bubble;
+    await tapAt(page, [rest2.x, rest2.t - 30]);
+    expectEq(xpOf(await savedGame(page)), 6, "the Bond XP after a touch 30 px over the ball (outside its slack)");
     expectEq(errors, [], "page errors");
-    return `${env.w}x${env.h}@${env.dpr}: the creature's tap paid 0, the ball paid while it moved, the drag paid 0, the tap paid`;
+    return `${env.w}x${env.h}@${env.dpr}: the creature's tap paid 0, a touch under the lifted ball paid 0, the ball paid while it moved, the drag paid 0, the tap paid, 8 px over it paid, 30 px over it paid 0`;
   },
 
   // A reload with an offer showing leaves none and has paid nothing.
@@ -598,10 +632,11 @@ const CHECKS = {
     for (const [kind, queue, words] of wants) {
       const { page, errors } = await open(adult(), queue);
       const quiet = await state(page);
-      expectEq(quiet.label, "Gravelhorn is doing fine. In the living room.", "the accessible name with no offer");
+      expectTrue(/^Gravelhorn is doing fine\. In the [a-z ]+\.$/.test(quiet.label), `the accessible name with no offer: ${quiet.label}`); // (the room is where the creature stands: any room)
       await untilShown(page);
       const s = await state(page);
-      expectEq([s.kind, s.label], [kind, `Gravelhorn is doing fine. ${words} In the living room.`], `the accessible name of a ${kind}`);
+      expectEq(s.kind, kind, `the kind of the ${kind}`);
+      expectTrue(new RegExp(`^Gravelhorn is doing fine\\. ${escapeRe(words)} In the [a-z ]+\\.$`).test(s.label), `the accessible name of a ${kind}: ${s.label}`);
       expectEq(errors, [], "page errors");
     }
     return "the accessible name says the ball, the find and the food, and nothing with no offer";
@@ -668,7 +703,32 @@ const CHECKS = {
     await tapBubble(page);
     expectEq(xpOf(await savedGame(page)), 2, "the Bond XP after a tap on the ball");
     expectEq(errors, [], "page errors");
-    return "an offer shows in a field, a tap pays 2, a finger that left the ball pays 0";
+
+    // a craving in a field: a tap on its bubble and a finger held on its lower edge (the creature's own zone reaches there) pay nothing
+    const craving = await open(adult((c) => (c.place = "land")), [CRAVING, MEAT, SOON]);
+    await untilShown(craving.page);
+    const cs = await state(craving.page);
+    expectEq(cs.kind, "craving", "the kind of the offer drawn at 0.5385 in a field");
+    expectTrue(cs.bubble.inCanvas, `the craving's bubble is inside the picture: ${JSON.stringify(cs.bubble)}`);
+    await tapBubble(craving.page);
+    expectEq(xpOf(await savedGame(craving.page)), 0, "the Bond XP after a tap on a craving's bubble in a field");
+    const cb = (await state(craving.page)).bubble;
+    await craving.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cb.x, y: cb.b - 2 }] });
+    await run(craving.page, 1500, 50);
+    await craving.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await run(craving.page, 100, 50);
+    expectEq((await state(craving.page)).kind, "craving", "the craving after a finger held on its bubble in a field");
+    expectEq(xpOf(await savedGame(craving.page)), 0, "the Bond XP after a finger held on a craving's bubble in a field (a pet would pay)");
+    expectEq(craving.errors, [], "page errors");
+
+    // a gift in a field pays once
+    const gift = await open(adult((c) => (c.place = "land")), [GIFT, COIN, SOON]);
+    await untilShown(gift.page);
+    expectEq((await state(gift.page)).kind, "gift", "the kind of the offer drawn at 0.8462 in a field");
+    await tapBubble(gift.page);
+    expectEq((await savedGame(gift.page)).coins, 2, "the coins after a gift tapped in a field");
+    expectEq(gift.errors, [], "page errors");
+    return "an offer of each kind shows in a field: a tap on the ball pays 2, a finger that left it pays 0, a craving's tap and hold pay 0, a gift pays 2 coins";
   },
 };
 

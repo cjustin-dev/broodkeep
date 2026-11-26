@@ -77,6 +77,11 @@ MUTANTS = [
     dict(id="open-tray-blocks", expect=["init-craving"], kid_only=False, size="360x640@2", what="an open feed tray stops the offers (the craving is gone while a player picks a food)",
          edits=[(ACTION, '  const [tray, setTray] = useState<"food" | "places" | null>(null); // which little list is open above the buttons',
                  '  const [tray, setTray] = useState<"food" | "places" | null>(null); // which little list is open above the buttons\n  game.menuOpen = tray !== null;')]),
+    dict(id="countdown-redrawn-when-blocked", expect=["init-gate"], kid_only=False, size="360x640@2", what="a blocked game throws its countdown away (a new wait is drawn when it is clear again)",
+         edits=[(GAME, "      this.dropInitiative(); // (an initiative that is blocked goes at once, with no cost; the countdown holds)\n      return;", "      this.dropInitiative(); // (an initiative that is blocked goes at once, with no cost; the countdown holds)\n      this.initiativeWait = null;\n      return;")]),
+    dict(id="held-finger-blocks", expect=["init-craving"], kid_only=False, size="360x640@2", what="a finger held on the bubble stops the offers while it is down (a craving held for 1.5 s is gone)",
+         edits=[(STAGE, "        hold.current = { id: e.pointerId, petted: false, bubble: true }; // (no petting timer: a tap answers it)\n        return;", "        hold.current = { id: e.pointerId, petted: false, bubble: true }; // (no petting timer: a tap answers it)\n        game.menuOpen = true;\n        return;"),
+                (STAGE, "    hold.current = null;\n    return h;", "    hold.current = null;\n    game.menuOpen = false;\n    return h;")]),
     dict(id="kid-mode-gets-offers", expect=["init-kid"], kid_only=True, size="360x640@2", what="Kid Mode is not stopped by the Adult Mode check",
          edits=[(GAME, 'if (!isAdultMode(this.save) || this.save.phase !== "alive" || !c) return true;', 'if (this.save.phase !== "alive" || !c) return true;')]),
     dict(id="out-of-view-still-offers", expect=["init-view"], kid_only=False, size="360x640@2", what="the Stage tells the game the creature is always in the camera's view",
@@ -89,7 +94,11 @@ MUTANTS = [
          edits=[(STAGE, "      if (isOnBubble(e)) {\n        endHold();\n        hold.current = { id: e.pointerId, petted: false, bubble: true };", "      if (isOnBubble(e) && !isOnTarget(e)) {\n        endHold();\n        hold.current = { id: e.pointerId, petted: false, bubble: true };")]),
     dict(id="creature-before-bubble-field", expect=["init-field"], kid_only=False, size="360x640@2", what="in the one-line picture a touch where the creature's zone and the bubble overlap goes to the creature",
          edits=[(STAGE, "    const onBall = isOnBubble(e);\n    if (!onBall && !isOnTarget(e)) return;", "    const onBall = isOnBubble(e) && !isOnTarget(e);\n    if (!onBall && !isOnTarget(e)) return;")]),
-    dict(id="craving-tap-falls-through", expect=["init-craving"], kid_only=False, size="360x640@2", what="a craving has no bubble for the touch (the creature under its lower edge is petted)",
+    dict(id="hit-test-without-the-pose", expect=["init-hit"], kid_only=False, size="360x640@2", what="the hit test places the bubble as if the creature were standing still (a touch under the lifted bubble's slack is taken for the ball)",
+         edits=[(STAGE, "  return bubbleBox(game.view, sizeOf(game.save), spotsOf(game.view.world).w);\n}", '  return bubbleBox({ ...game.view, pose: "idle", poseTime: 0 }, sizeOf(game.save), spotsOf(game.view.world).w);\n}')]),
+    dict(id="hit-test-without-slack", expect=["init-hit"], kid_only=False, size="360x640@2", what="a touch counts on the bubble only inside its box (a touch 8 px over it pays nothing)",
+         edits=[(STAGE, "return !!at && !!box && at.x >= box.x - at.pad && at.x <= box.x + box.w + at.pad && at.y >= box.y - at.pad && at.y <= box.y + box.h + at.pad;", "return !!at && !!box && at.x >= box.x && at.x <= box.x + box.w && at.y >= box.y && at.y <= box.y + box.h;")]),
+    dict(id="craving-tap-falls-through", expect=["init-craving", "init-field"], kid_only=False, size="360x640@2", what="a craving has no bubble for the touch (the creature under its lower edge is petted)",
          edits=[(STAGE, "  if (!i || !c || c.call || c.sleep || c.job) return null;\n  return bubbleBox(", '  if (!i || i.kind === "craving" || !c || c.call || c.sleep || c.job) return null;\n  return bubbleBox(')]),
     dict(id="bubble-tap-also-pokes", expect=["init-play"], kid_only=False, size="360x640@2", what="a tap on the ball also reaches the creature's poke and tickle count",
          edits=[(STAGE, "        return; // ...and a bubble tap never pokes or counts toward a tickle\n", "")]),
@@ -139,14 +148,8 @@ MUTANTS = [
 # unit tests of the Game own it), the draw order of an initiative against a call (the Game never has both).
 # Not mutated (each argued from the code; `--equivalents` applies each one and exits 0 only when every check still passes, which is the proof that the argument holds):
 EQUIVALENT = [
-    # the slack is 14 CSS pixels in the home and 6 game pixels in a field; a startle lifts the bubble 8 game pixels at the most, so a test at the box's own place still takes every touch inside the
-    # lifted box except a 2 pixel sliver at its top, and the checks tap its middle
-    dict(id="hit-test-without-the-pose", expect=["init-hit"], kid_only=False, size="360x640@2", what="the hit test places the bubble as if the creature were standing still",
-         edits=[(STAGE, "  return bubbleBox(game.view, sizeOf(game.save), spotsOf(game.view.world).w);\n}", '  return bubbleBox({ ...game.view, pose: "idle", poseTime: 0 }, sizeOf(game.save), spotsOf(game.view.world).w);\n}')]),
-    # every check taps inside the box, most of them in its middle
-    dict(id="hit-test-without-slack", expect=["init-hit", "init-play"], kid_only=False, size="360x640@2", what="a touch counts on the bubble only inside its box",
-         edits=[(STAGE, "return !!at && !!box && at.x >= box.x - at.pad && at.x <= box.x + box.w + at.pad && at.y >= box.y - at.pad && at.y <= box.y + box.h + at.pad;", "return !!at && !!box && at.x >= box.x && at.x <= box.x + box.w && at.y >= box.y && at.y <= box.y + box.h;")]),
-    # a call stops an offer in the Game at its next tick, so the two are on the screen together for under a second; no check has a call
+    # a call can only start in `tick()`'s catch-up, and `stepInitiative` (which drops an offer while a call is on) runs right after it in the same tick, before Preact draws what the listeners queued;
+    # so the label never sees an offer and a call together, and no check has a call
     dict(id="label-says-offer-during-a-call", expect=["init-a11y"], kid_only=False, size="360x640@2", what="the accessible name says the offer even while a call is on",
          edits=[(STAGE, '  if (!i || !c || c.call) return "";\n  if (i.kind === "play")', '  if (!i || !c) return "";\n  if (i.kind === "play")')]),
 ]

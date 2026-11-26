@@ -41,7 +41,10 @@ if (!base) {
 }
 const sizes = (flag("sizes") ?? "320x568@2,360x640@2,390x844@3,740x360@2,844x390@3").split(",").map((s) => {
   const m = /^(\d+)x(\d+)@(\d+)$/.exec(s);
-  if (!m) throw new Error(`bad size ${s}`);
+  if (!m) {
+    console.error(`bad size ${s} (want WxH@ratio)`);
+    process.exit(2);
+  }
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 });
 const only = flag("only")?.split(",") ?? null;
@@ -53,7 +56,7 @@ const adult = (formId) => () => {
   return save;
 };
 
-// The kinds' draws, from the weights of the three forms at Bond level 1 (play, craving, gift): Gravelhorn 5, 4, 4; Murkfang and Ashwing 3, 3, 2 (tests/initiatives.test.ts pins the rule). A kind is the
+// The kinds' draws, from the weights of the three forms at Bond level 1 (play, craving, gift): Gravelhorn 5, 4, 4; Murkfang and Ashwing 3, 3, 2 (tests/initiatives.test.ts pins those weights as literals). A kind is the
 // middle of its slice of the draw; a craving's food is the index in the menu (pellet, then three), a gift is a coin when its draw is under a third, otherwise the material by its place in the list
 // (fiber, herb, wood, fish, stone).
 const GRAVEL = { craving: 0.5385, gift: 0.8462 };
@@ -77,6 +80,13 @@ const states = {
   "bond-card": { save: adult(), queue: [0.1], steps: ["until-shown", "open-bond"] },
   kid: { save: () => load("adult-home-kid.json"), queue: [], steps: ["run-100-seconds"] },
 };
+
+for (const name of only ?? []) {
+  if (!(name in states)) {
+    console.error(`unknown state ${name} (known: ${Object.keys(states).join(", ")})`);
+    process.exit(2);
+  }
+}
 
 async function seedSave(save) {
   const db = await new Promise((resolve, reject) => {
@@ -170,6 +180,7 @@ try {
           return `${canvas?.getAttribute("data-initiative")} ${canvas?.getAttribute("data-bubble")}`;
         });
         const file = join(DIR, `${name}-${w}x${h}@${dpr}.png`);
+        // (the Bond card is in the page's flow, not a fixed layer: it pushes the picture down, so the whole page shows whether the card covers the bubble)
         await page.screenshot({ path: file, animations: "disabled", fullPage: name === "bond-card" });
         written++;
         console.log(`wrote ${file} [${seen}]${notes.length ? ` (${notes.join("; ")})` : ""}`);

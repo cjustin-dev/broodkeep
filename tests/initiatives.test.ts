@@ -53,6 +53,19 @@ describe("the weights by form and Bond level", () => {
         expect(stepOf(form, kind)).toBe(step);
       }
     }
+    // ...and each kind uses all three over the real forms (a modulus of 2 would never give a 2)
+    for (const kind of initiativeKinds) {
+      const seen = [...new Set(Object.keys(forms).map((form) => stepOf(form, kind)))].sort();
+      expect(seen, kind).toEqual([0, 1, 2]);
+    }
+  });
+
+  it("weighs the forms the browser checks draw from as literals: Gravelhorn 5, 4, 4; Murkfang and Ashwing 3, 3, 2; Pebblin 4, 2, 4 (worked out by hand outside the game: FNV-1a over the id and kind)", () => {
+    const weights = (form: string): number[] => initiativeKinds.map((kind) => weightOf(form, 1, kind));
+    expect(weights("gravelhorn")).toEqual([5, 4, 4]);
+    expect(weights("murkfang")).toEqual([3, 3, 2]);
+    expect(weights("ashwing")).toEqual([3, 3, 2]);
+    expect(weights("pebblin")).toEqual([4, 2, 4]);
   });
 
   it("makes the forms differ: more than one weight vector among the real forms, and a pair that differs by name", () => {
@@ -217,7 +230,7 @@ describe("when an initiative is over", () => {
     expect(initiativeTuning.playMs).toBe(15_000);
   });
 
-  it("counts six tosses and takes no seventh, the first one starting the 15 seconds", () => {
+  it("counts six tosses and takes no seventh, the first one recording the clock at which its 15 seconds start (the end is tested above)", () => {
     const i = made("play");
     for (let n = 1; n <= 6; n++) {
       expect(countToss(i, 2000 + n * 100), `toss ${n}`).toBe(true);
@@ -263,8 +276,9 @@ describe("what an answer pays", () => {
   it("pays a gift exactly: 2 coins, or 1 of the material, with its note and one log line", () => {
     const save = aliveSave(stageForm("adult"), T0);
     save.coins = 5;
+    const lines = save.log.length;
     expect(payGift(save, { kind: "coins", amount: 2 }, T0)).toBe("Found 2 coins.");
-    expect([save.coins, save.inventory, save.log.at(-1)?.text]).toEqual([7, {}, "Found 2 coins"]);
+    expect([save.coins, save.inventory, save.log.at(-1)?.text, save.log.length - lines]).toEqual([7, {}, "Found 2 coins", 1]);
     const notes = materialIds.map((id) => payGift(save, { kind: "material", id }, T0));
     expect(notes).toEqual(["Found some fiber.", "Found some herbs.", "Found some wood.", "Found some fish.", "Found some stone."]);
     expect([save.coins, save.inventory]).toEqual([7, { fiber: 1, herb: 1, wood: 1, fish: 1, stone: 1 }]);

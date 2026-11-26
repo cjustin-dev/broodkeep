@@ -5,12 +5,13 @@ import { createView, poseOffsets, triggerPose } from "../src/art/idle";
 import type { Pose } from "../src/art/idle";
 import { bubbleBox } from "../src/art/scene";
 import { materialIds } from "../src/data/habitat";
-import { initiativeKinds } from "../src/data/initiatives";
+import { items } from "../src/data/shop";
 import { tuning } from "../src/data/tuning";
 import { feed, retireCreature, touch } from "../src/game/actions";
 import { bondOf } from "../src/game/bond";
 import { killCreature, setStat } from "../src/game/dev";
-import { cravingFoods, weightOf } from "../src/game/initiatives";
+import { dishIds, dishMeal } from "../src/game/dishes";
+import { cravingFoods } from "../src/game/initiatives";
 import type { Initiative } from "../src/game/initiatives";
 import { menuOf } from "../src/game/growth";
 import { newSave } from "../src/game/state";
@@ -75,6 +76,11 @@ const seq =
   (...values: number[]) =>
   (): number =>
     values.length > 1 ? (values.shift() as number) : (values[0] as number);
+
+// Gravelhorn at Bond level 1 weighs play 5, craving 4, gift 4 (literals, pinned in initiatives.test.ts), so of the draw 0 to 5/13 is a play, to 9/13 a craving, the rest a gift: 0.5385 is the middle
+// of the craving's slice and 0.8462 of the gift's.
+const CRAVING_DRAW = 0.5385;
+const GIFT_DRAW = 0.8462;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -180,29 +186,45 @@ describe("making an initiative", () => {
   });
 
   it("draws a craving, a coin gift and a material gift with their own picture in the bubble", () => {
-    start();
+    start({ form: "gravelhorn" });
     const c = game.save.creature!;
-    const level = 1;
-    const total = initiativeKinds.reduce((sum, kind) => sum + weightOf(c.formId, level, kind), 0);
-    const w = (kind: (typeof initiativeKinds)[number]): number => weightOf(c.formId, level, kind);
-    const kindAt = (before: number, own: number): number => (before + own / 2) / total; // the middle of a kind's slice of the draw
 
-    game.rand = seq(0, kindAt(w("play"), w("craving")), 0, 0); // a delay of 60 s, a craving, the first food, then the delay
+    game.rand = seq(0, CRAVING_DRAW, 0, 0); // a delay of 60 s, a craving, the first food, then the delay
     run(60);
     expect(game.initiative?.kind).toBe("craving");
     expect(game.view.invite).toBe(game.initiative?.food);
     expect(cravingFoods(c)).toContain(game.initiative?.food);
 
-    start();
-    game.rand = seq(0, kindAt(w("play") + w("craving"), w("gift")), 0.1, 0); // a gift, a coin (0.1 is under a third)
+    start({ form: "gravelhorn" });
+    game.rand = seq(0, GIFT_DRAW, 0.1, 0); // a gift, a coin (0.1 is under a third)
     run(60);
     expect([game.initiative?.kind, game.initiative?.gift, game.view.invite]).toEqual(["gift", { kind: "coins", amount: 2 }, "coin"]);
 
-    start();
-    game.rand = seq(0, kindAt(w("play") + w("craving"), w("gift")), 0.5, 0.5, 0); // a gift, a material (the middle one of the five)
+    start({ form: "gravelhorn" });
+    game.rand = seq(0, GIFT_DRAW, 0.5, 0.5, 0); // a gift, a material (the middle one of the five)
     run(60);
     const middle = materialIds[2];
     expect([game.initiative?.gift, game.view.invite]).toEqual([{ kind: "material", id: middle }, middle]);
+  });
+
+  it("shows the item it pays: each of the six gifts has its own icon, and a tap pays that item and says so (a table of literals)", () => {
+    // the coin draw 0.1 is a coin gift; 0.5 is not, and the next draw is the material's place in the five (fiber, herb, wood, fish, stone: 0.1, 0.3, 0.5, 0.7, 0.9)
+    const six = [
+      { draws: [0.1], icon: "coin", note: "Found 2 coins.", coins: 2, item: null },
+      { draws: [0.5, 0.1], icon: "fiber", note: "Found some fiber.", coins: 0, item: "fiber" },
+      { draws: [0.5, 0.3], icon: "herb", note: "Found some herbs.", coins: 0, item: "herb" },
+      { draws: [0.5, 0.5], icon: "wood", note: "Found some wood.", coins: 0, item: "wood" },
+      { draws: [0.5, 0.7], icon: "fish", note: "Found some fish.", coins: 0, item: "fish" },
+      { draws: [0.5, 0.9], icon: "stone", note: "Found some stone.", coins: 0, item: "stone" },
+    ];
+    for (const gift of six) {
+      start({ form: "gravelhorn" });
+      game.rand = seq(0, GIFT_DRAW, ...gift.draws, 0);
+      run(60);
+      expect(game.view.invite, gift.note).toBe(gift.icon);
+      expect(game.answerInitiative(), gift.note).toEqual({ kind: "gift", levelUp: null, over: true });
+      expect([game.note, game.save.coins, game.save.inventory], gift.note).toEqual([gift.note, gift.coins, gift.item ? { [gift.item]: 1 } : {}]);
+    }
   });
 });
 
@@ -294,7 +316,7 @@ describe("what blocks an initiative", () => {
     });
   }
 
-  it("is not stopped by a creature out in a field (a clear game makes one at 60 s); the feed tray and a held finger are the Stage's and the bar's own state, which the game never reads", () => {
+  it("is not stopped by a creature out in a field (a clear game makes one at 60 s); the feed tray and a held finger are checked in the browser (init-craving, with a mutant for each)", () => {
     start({ set: { place: "land" } });
     expect(untilMade(75)).toBe(60);
   });
@@ -491,6 +513,30 @@ describe("feeding and a craving", () => {
     expect(game.initiative?.food).toBe(food);
   });
 
+  it("is answered by a dish of the food it asked for (a kid in a field that owns a booster)", () => {
+    start({ form: stageForm("kid") });
+    const c = game.save.creature!;
+    const id = dishIds.find((d) => items[d].dish!.also === undefined)!; // a booster: one food, counted as a whole cell
+    game.save.owned.push(id);
+    const food = dishMeal(c, id)!.eats;
+    expect(cravingFoods(c)).toContain(food);
+    offer("craving", { food });
+    const first = xpOf();
+    expect(game.feed(food, id)).toEqual({ result: "ate", levelUp: null });
+    expect([xpOf() - first, game.initiative]).toEqual([8, null]);
+  });
+
+  it("pays nothing for a meal refused because the creature is asleep, and leaves the craving for the next step to drop", () => {
+    start({ t: at(23), set: { sleep: "night" } });
+    const food = menuOf(game.save.creature!).find((f) => f !== "treat")!;
+    offer("craving", { food });
+    const first = xpOf();
+    expect(game.feed(food)).toEqual({ result: "sleeping", levelUp: null });
+    expect([xpOf() - first, game.initiative?.food]).toEqual([0, food]);
+    run(1);
+    expect(game.initiative).toBeNull();
+  });
+
   it("pays nothing for a refused meal (full), leaves the craving there, and the next step drops it as moot", () => {
     start();
     const food = cravingFoods(game.save.creature!)[0]!;
@@ -504,10 +550,8 @@ describe("feeding and a craving", () => {
   });
 
   it("answers a craving made by the clock (a real one, from tick to meal)", () => {
-    start();
-    const c = game.save.creature!;
-    const total = initiativeKinds.reduce((sum, kind) => sum + weightOf(c.formId, 1, kind), 0);
-    game.rand = seq(0, (weightOf(c.formId, 1, "play") + weightOf(c.formId, 1, "craving") / 2) / total, 0, 0);
+    start({ form: "gravelhorn" });
+    game.rand = seq(0, CRAVING_DRAW, 0, 0);
     run(60);
     const food = game.initiative!.food!;
     const first = xpOf();
@@ -637,6 +681,7 @@ describe("what ends an initiative with no cost", () => {
     expect(game.initiative).toBeNull(); // (not made after the 20 s left: the wait was drawn again)
     run(1);
     expect(game.initiative).not.toBeNull();
+    expect(game.initiative?.at).toBe(60_000); // (the clock began again at 0: it was 40,000 when the game was put in)
   });
 
   it("is not changed by a dev speed: the wait counts real time, not game time", () => {

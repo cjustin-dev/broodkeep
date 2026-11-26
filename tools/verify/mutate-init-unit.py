@@ -44,10 +44,9 @@ F_GAME = "src/ui/game.ts"
 F_SCENE = "src/art/scene.ts"
 F_HUD = "src/game/hud.ts"
 
-# The row names of the blocker tables in tests/initiative-game.test.ts (the template titles are expanded with them).
+# The row names of the two blocker tables in tests/initiative-game.test.ts: `fixed` (titled "makes none while <name> (120 seconds)") and `rows` (titled "<name>: makes none for 120 seconds, ..."); the template titles are expanded with their own table.
 FIXED_ROWS = ["Kid Mode", "no creature (an egg)", "a dead creature", "asleep"]
 ROWS = ["away on a job", "a call", "the habitat screen", "the arena screen", "a fight", "a training session", "Decorate mode", "a hatch or evolve scene", "a haul card waiting", "an open panel", "a meal in progress"]
-ROW_NAMES = FIXED_ROWS + ROWS
 
 
 def mut(id, file, old, new, expect, test=T_TRAIN):
@@ -71,7 +70,7 @@ GIFTDRAW = "makes a gift of 2 coins when the second draw is under a third and a 
 PLAYMADE = "makes a play with nothing else on it"
 FADE = "fades a craving or a gift 30,000 ms after it was made, to the millisecond"
 PLAYFADE = "fades a play nobody has begun at 30,000 ms, and a play that has begun 15,000 ms after its first toss"
-SIXTOSS = "counts six tosses and takes no seventh, the first one starting the 15 seconds"
+SIXTOSS = "counts six tosses and takes no seventh, the first one recording the clock at which its 15 seconds start"
 NOTOSS = "takes no toss when it is a craving or a gift or the play is already over by time"
 PAYBOND = "pays Bond XP and logs only a level-up, returning the level"
 PAYGIFT = "pays a gift exactly: 2 coins, or 1 of the material, with its note and one log line"
@@ -112,6 +111,9 @@ RETIRECLEAR = "is ended by retiring, by Adult Mode going off, and by another cre
 NOTEVERY = "does not drop on every change: a pet and a meal go through `changed` and a gift stays"
 DEATHCLEAR = "is ended at once, with no tick, by the creature dying or another hatching"
 REPLACE = "zeroes the clock and draws a new wait when a different game is put in (replaceSave), and only then"
+UNSEEN = "holds the countdown while the creature is out of view, keeps an active one, and lets it fade on time"
+CONTROL = "leaves the save and every call the same as a control run with the creature out of view, over 20 minutes"
+GIFTS = "shows the item it pays: each of the six gifts has its own icon, and a tap pays that item and says so"
 DEVSPEED = "is not changed by a dev speed: the wait counts real time, not game time"
 BOXENDS = "sits over the creature's head, 12 by 15, with the call's clamp at the left and right ends"
 BOXPOSE = "follows the creature's pose: the box is the resting box plus the pose's own offset"
@@ -129,13 +131,11 @@ def row(name, tail="makes none"):
 #  - dropping `|| a.i - b.i` in preferenceOf: `Array.prototype.sort` is stable, and the kinds start in the order play, craving, gift, so equal weights keep that order all the same.
 #  - dropping `i.food === null ||` in isMoot: `feedRefusal(c, null)` finds null off the menu and answers "off-menu", which is not null, so a craving with no food is moot all the same.
 #  - dropping `i.kind === "craving" &&` in Game.feed: only a craving has a food; a play or a gift has food null, which never equals a food id, so `answers` is false for both all the same.
-#  - dropping `this.initiativeClock = 0;` in replaceSave: the clock is only ever used as a difference from times taken from it (`at`, `playFrom`), and the replace clears the initiative, so a clock that carries on gives the same answers.
 EQUIVALENT = [
     mut("pick-zero-weight-guard", F_RULES, "if (w > 0 && left < w) return kind;", "if (left < w) return kind;", "(none)"),
     mut("pref-tie-break-dropped", F_RULES, "order.sort((a, b) => b.w - a.w || a.i - b.i);", "order.sort((a, b) => b.w - a.w);", "(none)"),
     mut("moot-null-food", F_RULES, 'i.kind === "craving" && (i.food === null || feedRefusal(c, i.food) !== null);', 'i.kind === "craving" && feedRefusal(c, i.food as FoodId) !== null;', "(none)"),
     mut("feed-kind-guard", F_GAME, 'const answers = i !== null && i.kind === "craving" && i.food === food && !this.initiativeBlocked();', "const answers = i !== null && i.food === food && !this.initiativeBlocked();", "(none)"),
-    mut("replace-clock-kept", F_GAME, "    this.initiativeClock = 0;\n    this.initiativeWait = null; // (a new game draws its own wait)", "    this.initiativeWait = null; // (a new game draws its own wait)", "(none)"),
 ]
 
 MUTANTS = [
@@ -215,11 +215,11 @@ MUTANTS = [
     mut("invite-coin-icon", F_GAME, 'i.gift?.kind === "coins" ? "coin" : (i.gift as { id: IconName }).id', 'i.gift?.kind === "coins" ? "ball" : (i.gift as { id: IconName }).id', PICTURES, T_GAME),
     mut("invite-material-icon", F_GAME, 'i.gift?.kind === "coins" ? "coin" : (i.gift as { id: IconName }).id', 'i.gift?.kind === "coins" ? "coin" : "herb"', PICTURES, T_GAME),
     # the gate, one row at a time
-    mut("gate-adult-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (this.save.phase !== \"alive\" || !c) return true;", row("Kid Mode", "makes none"), T_GAME),
-    mut("gate-alive-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || !c) return true;", row("a dead creature", "makes none"), T_GAME),
-    mut("gate-creature-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || this.save.phase !== \"alive\") return true;", row("no creature (an egg)", "makes none"), T_GAME),
+    mut("gate-adult-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (this.save.phase !== \"alive\" || !c) return true;", "makes none while Kid Mode", T_GAME),
+    mut("gate-alive-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || !c) return true;", "makes none while a dead creature", T_GAME),
+    mut("gate-creature-dropped", F_GAME, "if (!isAdultMode(this.save) || this.save.phase !== \"alive\" || !c) return true;", "if (!isAdultMode(this.save) || this.save.phase !== \"alive\") return true;", "makes none while no creature (an egg)", T_GAME),
     mut("gate-job-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.sleep || c.call !== null) return true;", row("away on a job", "makes none for 120 seconds"), T_GAME),
-    mut("gate-sleep-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.job || c.call !== null) return true;", row("asleep", "makes none"), T_GAME),
+    mut("gate-sleep-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.job || c.call !== null) return true;", "makes none while asleep", T_GAME),
     mut("gate-call-dropped", F_GAME, "if (c.job || c.sleep || c.call !== null) return true;", "if (c.job || c.sleep) return true;", row("a call", "makes none for 120 seconds"), T_GAME),
     mut("gate-screen-dropped", F_GAME, 'if (this.screen !== "room" || this.arena', "if (this.arena", row("the habitat screen", "makes none for 120 seconds"), T_GAME),
     mut("gate-arena-screen-only-habitat", F_GAME, 'if (this.screen !== "room" || this.arena', 'if (this.screen === "habitat" || this.arena', row("the arena screen", "makes none for 120 seconds"), T_GAME),
@@ -263,6 +263,12 @@ MUTANTS = [
     mut("training-not-cleared", F_GAME, "    this.clearInitiative();\n    this.listeners.forEach((listener) => listener());\n    return \"started\";", "    this.listeners.forEach((listener) => listener());\n    return \"started\";", SCREENCLEAR, T_GAME),
     mut("replace-not-cleared", F_GAME, "    this.clearInitiative();\n    this.initiativeClock = 0;", "    this.initiativeClock = 0;", REPLACE, T_GAME),
     mut("replace-wait-kept", F_GAME, "    this.initiativeWait = null; // (a new game draws its own wait)\n", "", REPLACE, T_GAME),
+    mut("replace-clock-kept", F_GAME, "    this.initiativeClock = 0;\n    this.initiativeWait = null; // (a new game draws its own wait)", "    this.initiativeWait = null; // (a new game draws its own wait)", REPLACE, T_GAME),
+    mut("fade-counts-seen-time-only", F_GAME, "    this.initiativeClock += dt;\n", "    if (this.view.inView) this.initiativeClock += dt;\n", UNSEEN, T_GAME),
+    mut("draw-touches-the-save-generator", F_GAME, "    this.initiative = newInitiative(c, this.initiativeClock, this.rand);\n", "    this.initiative = newInitiative(c, this.initiativeClock, this.rand);\n    this.save.rngState = (this.save.rngState + 1) >>> 0;\n", CONTROL, T_GAME),
+    mut("making-one-tells-the-save", F_GAME, "    this.initiative = newInitiative(c, this.initiativeClock, this.rand);\n", "    this.initiative = newInitiative(c, this.initiativeClock, this.rand);\n    this.changed(false);\n", CONTROL, T_GAME),
+    mut("gift-icon-is-not-its-item", F_GAME, '    return i.gift?.kind === "coins" ? "coin" : (i.gift as { id: IconName }).id;', '    return i.gift?.kind === "coins" ? "coin" : "fiber";', GIFTS, T_GAME),
+    mut("gift-pays-another-item", F_RULES, "else save.inventory[gift.id] = (save.inventory[gift.id] ?? 0) + 1;", "else save.inventory.fiber = (save.inventory.fiber ?? 0) + 1;", GIFTS, T_GAME),
     # the bubble's place and the Bond card
     mut("box-not-clamped-right", F_SCENE, "Math.max(0, Math.min(x + size - 2, spotsW - BUBBLE.w))", "Math.max(0, x + size - 2)", BOXENDS, T_GAME),
     mut("box-not-clamped-left", F_SCENE, "Math.max(0, Math.min(x + size - 2, spotsW - BUBBLE.w))", "Math.min(x + size - 2, spotsW - BUBBLE.w)", BOXENDS, T_GAME),
@@ -374,7 +380,8 @@ def titles_of(test_file):
     text = read(os.path.join(REAL, test_file))
     titles = re.findall(r'\bit\(\s*"((?:[^"\\]|\\.)*)"', text)
     for template in re.findall(r"\bit\(\s*`((?:[^`\\]|\\.)*)`", text):
-        for name in ROW_NAMES:
+        # (each template belongs to one table: expanding it with the other table's names would make titles that no test has)
+        for name in FIXED_ROWS if template.startswith("makes none while") else ROWS:
             titles.append(template.replace("${name}", name))
     return titles
 
