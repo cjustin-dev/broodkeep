@@ -13,6 +13,7 @@ import { cleanAtHygiene } from "./availability";
 import type { CleanRefusal, FeedRefusal, GoRefusal, LightsRefusal, MedicineRefusal } from "./availability";
 import type { FightRefusal } from "./combat/fight";
 import type { JobRefusal } from "./habitat/jobs";
+import type { TrainRefusal } from "./training";
 import { backText, napText, shownValue, stageLabel, wakeText } from "./hud";
 import type { Creature, Save } from "./state";
 import type { Place, Stage } from "./types";
@@ -79,6 +80,14 @@ export function spotReason(save: Save, c: Creature, code: JobRefusal, spot: Spot
     return c.formId === specialId ? `${opens}, and a Special grows no further.` : `${opens} (now: ${stageLabel(c)}).`;
   }
   return `Too tired for ${name}: it needs energy ${energyNeededForSpot(spot)} to go (it has ${shownValue(c.stats.energy)}).`;
+}
+
+// Why a creature cannot train (the same four reasons as a fight, and no tired: a session costs no energy).
+export function trainReason(save: Save, c: Creature, code: TrainRefusal, nowMs: number): string {
+  if (code === "busy") return awayReason(c, nowMs);
+  if (code === "asleep") return asleepReason(save, c, nowMs);
+  if (code === "sick") return "Sick: it needs medicine before it can train.";
+  return `Too young to train: it starts at ${stageWord(combatTuning.minStage)} (now: ${stageLabel(c)}).`;
 }
 
 export function fightReason(save: Save, c: Creature, code: FightRefusal, nowMs: number): string {

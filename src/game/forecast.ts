@@ -15,7 +15,7 @@ import { callText, clockText, formatHm } from "./hud";
 import { hungerGrace } from "./perks";
 import type { Owned } from "./perks";
 import type { CallKind, Creature } from "./state";
-import { HOUR, MINUTE } from "./time";
+import { HOUR, MINUTE, localDay } from "./time";
 import type { FieldId, FoodId } from "./types";
 
 const g = tuning.growth;
@@ -285,15 +285,9 @@ function isLocked(c: Creature, left: number, owned: Owned): boolean {
 
 // ---- time ----
 
-// Days between the calendar days of two moments, in the player's own time zone (so a daylight saving change cannot make it 23 or 25 hours).
-function dayNumber(ms: number): number {
-  const d = new Date(ms);
-  return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
-}
-
 // "today", "tomorrow", "yesterday", or the weekday.
 export function dayText(ms: number, nowMs: number): string {
-  const diff = dayNumber(ms) - dayNumber(nowMs);
+  const diff = localDay(ms) - localDay(nowMs);
   if (diff === 0) return "today";
   if (diff === 1) return "tomorrow";
   if (diff === -1) return "yesterday";

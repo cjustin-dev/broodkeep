@@ -10,6 +10,13 @@ export function gameNow(save: Save, realNowMs: number): number {
   return realNowMs + save.clockOffsetMs;
 }
 
+// The calendar day of a moment on the player's own clock, as a whole number of days (so two moments on the same local day give the same number, and a daylight saving change cannot make
+// a day 23 or 25 hours: the day's own year, month and date are counted, not hours).
+export function localDay(ms: number): number {
+  const d = new Date(ms);
+  return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
+}
+
 // Hour of day (0 to 23) on the player's own clock.
 export function hourOf(ms: number): number {
   return new Date(ms).getHours();

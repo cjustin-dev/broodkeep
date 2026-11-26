@@ -10,6 +10,7 @@ import { isHatId, isItemId, isWallId } from "../data/shop";
 import { tuning } from "../data/tuning";
 import { freshBoard, migrateBoard } from "./board";
 import { coerceBond } from "./bond";
+import { coerceTraining } from "./trainingDay";
 import type { Board } from "./board";
 import { makeRng } from "./rng";
 import type { CombatStat, EggPattern, FieldId, FoodId, Place } from "./types";
@@ -85,6 +86,7 @@ export interface Creature {
   job?: Job | null; // set while the creature is away working (optional so older saves still load)
   hp?: number; // battle HP right now; missing means full (it recovers by resting, see game/combat/recovery.ts)
   trained?: Partial<Record<CombatStat, number>>; // points won in fights, on top of the form's base stats
+  training?: { day: number; sessions: Partial<Record<CombatStat, number>> }; // Adult Mode: the training sessions counted today (game/trainingDay.ts); `day` is a local calendar day number (game/time.ts localDay)
   rung?: number; // the next rung of the opponent ladder to fight (1 when missing); starts again at each evolution
 }
 
@@ -261,6 +263,10 @@ export function migrateSave(value: unknown): Save | null {
     const bond = coerceBond((value.creature as { bond?: unknown }).bond);
     if (bond) value.creature.bond = bond;
     else delete value.creature.bond;
+    // The same for the training day count: a whole, well-formed one or none (an older build, or a damaged save, must never make the loader throw).
+    const training = coerceTraining((value.creature as { training?: unknown }).training);
+    if (training) value.creature.training = training;
+    else delete value.creature.training;
   }
   return value;
 }
