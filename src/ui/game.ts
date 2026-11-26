@@ -8,23 +8,29 @@ import { layoutOfSave } from "../art/homeLayout";
 import { createView, reseat } from "../art/idle";
 import { shownOf } from "../art/moment";
 import type { View } from "../art/idle";
+import type { IconName } from "../art/sprites";
 import { homeOf, isBuilt, roomsBuilt, wallOfRoom } from "../data/home";
 import type { Layout, PieceKind, RoomId } from "../data/home";
+import { initiativeTuning } from "../data/initiatives";
 import { isWallId } from "../data/shop";
 import type { TrainStage } from "../data/training";
-import { endFight, startFight } from "../game/actions";
-import type { StartFightResult } from "../game/actions";
+import { endFight, feed, startFight } from "../game/actions";
+import type { FeedResult, StartFightResult } from "../game/actions";
 import { playRound } from "../game/combat/battle";
 import type { Battle, BattleAction } from "../game/combat/battle";
 import type { FightResult } from "../game/combat/fight";
 import { advanceClock } from "../game/dev";
+import type { DishId } from "../game/dishes";
 import { isAdultMode } from "../game/hud";
+import { countToss, isMoot, isOver, newInitiative, nextDelay, payBond, payGift } from "../game/initiatives";
+import type { Initiative } from "../game/initiatives";
 import { paidNote } from "../game/requests";
 import { simulateTo } from "../game/sim";
 import type { Creature, Save } from "../game/state";
 import { gameNow } from "../game/time";
 import { newBugCatch, payTraining, trainRefusal, trainStageOf } from "../game/training";
 import type { BugCatchState, TrainRefusal, TrainResult } from "../game/training";
+import type { FoodId } from "../game/types";
 import { writeSave } from "../sync/local";
 
 export type Screen = "room" | "habitat" | "arena";
@@ -69,6 +75,9 @@ export class Game {
   training: Training | null = null; // the training session over the screen (not saved: a restart in the middle pays nothing)
   decor: Decor | null = null; // Decorate mode: null when it is off (not saved: it ends with the visit, and with anything that takes the player off the home's picture)
   note: string | null = null; // Adult Mode: why a button did nothing, shown over the room for a few seconds (not saved)
+  initiative: Initiative | null = null; // Adult Mode: what the creature is asking for now, drawn as a bubble over it (docs/adult-a3-plan.md section 14; not saved, never logged)
+  menuOpen = false; // an App panel (settings, book, shop...) is open: the App writes this, because the panel is App state that the game cannot see
+  rand: () => number = Math.random; // the draws of initiatives (a test sets it to force one); never the save's own generator
   onSave: ((byPlayer: boolean) => void) | null = null; // told each time the game is saved on this device (the cloud sync listens, sync/sync.ts)
   private lastReal = Date.now();
   private listeners = new Set<() => void>();
@@ -76,6 +85,8 @@ export class Game {
   private noteTimer: number | undefined;
   private playerChanged = false; // something the player did since the last save (not just the clock moving on)
   private seenDone: number; // how many requests had been paid when the screens last looked (board.done): a new payment gets a note
+  private initiativeClock = 0; // milliseconds of foreground time (at most 2 s a tick), the time initiatives are counted in
+  private initiativeWait: number | null = null; // the seen, unblocked time left before the next initiative is made (null until one is drawn)
 
   // saveKey: where this game is kept on the device ("save" is the first profile's, see sync/roster.ts).
   constructor(
@@ -124,6 +135,7 @@ export class Game {
     this.screen = screen;
     this.dropDecor();
     this.dropNote();
+    this.clearInitiative(); // (the listeners are woken below)
     if (screen !== "arena") this.arena = null; // a finished fight's card goes with the screen
     this.listeners.forEach((listener) => listener());
   }
@@ -134,6 +146,7 @@ export class Game {
     this.decor = { selected: null, wall: null };
     this.view.still = true;
     reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)
+    this.clearInitiative();
     this.listeners.forEach((listener) => listener());
     return true;
   }
@@ -287,6 +300,7 @@ export class Game {
     const code = trainRefusal(c);
     if (code !== null) return code;
     this.training = { bornAt: c.bornAt, stage: trainStageOf(c), phase: "ready", run: null, result: null };
+    this.clearInitiative();
     this.listeners.forEach((listener) => listener());
     return "started";
   }
@@ -325,6 +339,100 @@ export class Game {
     this.listeners.forEach((listener) => listener());
   }
 
+  // What an initiative may not share the screen with (docs/adult-a3-plan.md section 14, decision 4): not Adult Mode, no living creature, away, asleep, a need bubble of its own, another screen,
+  // a fight, a training session, Decorate mode, a hatch or evolve scene, the welcome-back card, an open panel, a meal on the plate. A held finger, the feed tray and the header's cards are not.
+  private initiativeBlocked(): boolean {
+    const c = this.save.creature;
+    if (!isAdultMode(this.save) || this.save.phase !== "alive" || !c) return true;
+    if (c.job || c.sleep || c.call !== null) return true;
+    if (this.screen !== "room" || this.arena || this.training || this.decor || this.view.moment !== null) return true;
+    return this.save.hauls.length > 0 || this.menuOpen || this.view.snack !== null;
+  }
+
+  // The bubble's picture for the initiative on show (null for none), written to the view that the scene draws.
+  private inviteOf(i: Initiative | null): IconName | null {
+    if (!i) return null;
+    if (i.kind === "play") return "ball";
+    if (i.kind === "craving") return i.food as IconName;
+    return i.gift?.kind === "coins" ? "coin" : (i.gift as { id: IconName }).id;
+  }
+
+  // Take the initiative away without waking the screens (the callers do that). Says whether there was one.
+  private clearInitiative(): boolean {
+    const had = this.initiative !== null;
+    this.initiative = null;
+    this.view.invite = null;
+    return had;
+  }
+
+  // Take the initiative away and wake the screens, with no cost to anyone.
+  dropInitiative(): void {
+    if (this.clearInitiative()) this.listeners.forEach((listener) => listener());
+  }
+
+  // Count the foreground time that has passed (at most `clockCapMs` of it) and make, fade or drop initiatives (docs/adult-a3-plan.md section 14, decisions 2 to 4). Called only by `tick()`, with
+  // the real time since the last tick. Nothing here is saved or goes through `changed()`: it wakes the screens, and that is all.
+  stepInitiative(dtMs: number): void {
+    const dt = Math.max(0, Math.min(dtMs, initiativeTuning.clockCapMs));
+    this.initiativeClock += dt;
+    const c = this.save.creature;
+    if (this.initiativeBlocked() || !c) {
+      this.dropInitiative(); // (an initiative that is blocked goes at once, with no cost; the countdown holds)
+      return;
+    }
+    const i = this.initiative;
+    if (i && (i.bornAt !== c.bornAt || isOver(i, this.initiativeClock) || isMoot(i, c))) this.dropInitiative();
+    if (this.initiativeWait === null) this.initiativeWait = nextDelay(this.rand);
+    if (!this.view.inView) return; // out of the camera's view: the countdown holds (a showing initiative goes on fading)
+    this.initiativeWait -= dt;
+    if (this.initiativeWait > 0 || this.initiative) return;
+    this.initiative = newInitiative(c, this.initiativeClock, this.rand);
+    this.view.invite = this.inviteOf(this.initiative);
+    this.initiativeWait = nextDelay(this.rand); // from this start to the next one
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // The player tapped the bubble (play or gift). A gift pays once and says what it was; a play pays one toss. Both in one `act`. Returns what the screen needs for its looks, or null when nothing
+  // was answered (no initiative, the wrong kind, a game that has become blocked, a play that was over).
+  answerInitiative(): { kind: "play" | "gift"; levelUp: number | null; over: boolean } | null {
+    const i = this.initiative;
+    if (!i || (i.kind !== "play" && i.kind !== "gift")) return null;
+    if (this.initiativeBlocked() || i.bornAt !== this.save.creature?.bornAt) {
+      this.dropInitiative();
+      return null;
+    }
+    if (i.kind === "gift") {
+      const gift = i.gift!;
+      this.clearInitiative(); // (before it pays, so a second tap finds nothing)
+      const note = this.act((save, now) => payGift(save, gift, now));
+      this.say(note);
+      return { kind: "gift", levelUp: null, over: true };
+    }
+    if (!countToss(i, this.initiativeClock)) {
+      this.dropInitiative();
+      return null;
+    }
+    const levelUp = this.act((save, now) => payBond(save, save.creature!, initiativeTuning.tossXp, now));
+    const over = isOver(i, this.initiativeClock);
+    if (over) this.dropInitiative();
+    return { kind: "play", levelUp, over };
+  }
+
+  // Feed the creature (the food row and the dishes). A craving for this very food is answered in the same `act` when the meal is eaten: Bond XP, once. Kid Mode, and any other feeding, is the old
+  // `act(feed)` unchanged. Returns the meal's result and the Bond level the craving's XP reached (null for none).
+  feed(food: FoodId, dish?: DishId): { result: FeedResult; levelUp: number | null } {
+    const i = this.initiative;
+    const answers = i !== null && i.kind === "craving" && i.food === food && !this.initiativeBlocked();
+    let levelUp: number | null = null;
+    const result = this.act((save, now) => {
+      const r = feed(save, food, now, dish);
+      if (r === "ate" && answers) levelUp = payBond(save, save.creature!, initiativeTuning.cravingXp, now);
+      return r;
+    });
+    if (result === "ate" && answers) this.dropInitiative();
+    return { result, levelUp };
+  }
+
   // Adult Mode: before a button does its job, ask the live state why not. The game is caught up to now first, the same moment the action itself
   // would use, so a button that looked lit a moment ago but is not (night began, a job ended) tells the truth. `refusal` gives the code (see
   // availability.ts), `reason` the sentence for it; the sentence is said over the room and the code returned, or null when the tap may go on.
@@ -353,6 +461,7 @@ export class Game {
     const c = this.save.creature;
     if (this.arena && (this.save.phase !== "alive" || c?.formId !== this.arena.battle.me.formId)) this.arena = null; // the creature is gone or has evolved: that fight is over
     if (this.training && (this.save.phase !== "alive" || !c || c.bornAt !== this.training.bornAt)) this.training = null; // the creature is gone or another one hatched (an evolution goes on: it pays with the new stage's cap)
+    if (this.initiative && (this.save.phase !== "alive" || !c || c.bornAt !== this.initiative.bornAt || !isAdultMode(this.save))) this.clearInitiative(); // not on every call: a toss, a pet or a meal goes through here too
     this.listeners.forEach((listener) => listener());
     this.scheduleSave();
   }
@@ -360,9 +469,11 @@ export class Game {
   // Move time forward. Called about once a second, and when the page comes back into view.
   tick(): void {
     const real = Date.now();
-    advanceClock(this.save, real - this.lastReal, this.devSpeed);
+    const elapsed = real - this.lastReal; // real time since the last tick (the dev speed does not change it)
+    advanceClock(this.save, elapsed, this.devSpeed);
     this.lastReal = real;
     if (simulateTo(this.save, gameNow(this.save, real)) > 0) this.changed(false);
+    this.stepInitiative(elapsed);
   }
 
   // Run something the player did, then refresh the screens.
@@ -379,6 +490,9 @@ export class Game {
     this.screen = "room";
     this.arena = null;
     this.training = null; // a save put in from the account or another profile pays nothing
+    this.clearInitiative();
+    this.initiativeClock = 0;
+    this.initiativeWait = null; // (a new game draws its own wait)
     this.view.moment = null; // a scene belongs to the old game
     this.dropNote();
     this.view.shown = shownOf(save);

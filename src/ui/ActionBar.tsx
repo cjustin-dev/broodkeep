@@ -3,11 +3,11 @@
 // Adult Mode (settings.adultMode) adds a word under each icon and says why a button did nothing: a button that cannot do its job is dimmed
 // (aria-disabled) but still taps, and the tap asks the live state and says the reason over the room (game.whyNot). Kid Mode is as it was.
 import { useEffect, useState } from "preact/hooks";
-import { addSparkles, startEating, triggerPose } from "../art/idle";
+import { addHeart, addSparkles, startEating, triggerPose } from "../art/idle";
 import { placeIcon } from "../art/sprites";
 import { fieldIds, fields } from "../data/fields";
 import { foods } from "../data/foods";
-import { clean, feed, giveMedicine, goTo, toggleLights } from "../game/actions";
+import { clean, giveMedicine, goTo, toggleLights } from "../game/actions";
 import { cleanRefusal, feedButtonRefusal, feedRefusal, goButtonRefusal, goRefusal, lightsRefusal, medicineRefusal } from "../game/availability";
 import { dishesOf, dishLabel, dishMeal } from "../game/dishes";
 import type { DishId } from "../game/dishes";
@@ -47,9 +47,13 @@ export function ActionBar({ game }: { game: Game }) {
       if (why === "full") shake();
       if (why !== null) return;
     }
-    const result = game.act((s, now) => feed(s, id, now, dish));
+    const { result, levelUp } = game.feed(id, dish); // (a craving for this food is answered in the same step: Adult Mode, game/initiatives.ts)
     if (result === "ate") startEating(game.view, id);
     else if (result === "full") triggerPose(game.view, "refuse");
+    if (levelUp) {
+      addSparkles(game.view, 8); // a new Bond level is the same burst as a pet's
+      addHeart(game.view);
+    }
   };
 
   const onPlace = (id: Place): void => {

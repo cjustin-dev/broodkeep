@@ -70,7 +70,8 @@ export type IconName =
   | "decorate"
   | "bin"
   | "done"
-  | "bug";
+  | "bug"
+  | "ball";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -567,6 +568,17 @@ export const icons: Record<IconName, Sprite> = {
     ".KRRRRK.",
     "..KRRK..",
     "...KK...",
+  ]),
+  // A blue ball with a pale shine: the creature wants to play (an initiative bubble).
+  ball: icon([
+    "..KKKK..",
+    ".KBBBBK.",
+    "KBLLBBBK",
+    "KBLBBBBK",
+    "KBBBBBBK",
+    "KBBBBBBK",
+    ".KBBBBK.",
+    "..KKKK..",
   ]),
 };
 

@@ -15,6 +15,7 @@ import { sulkChance } from "./combat/battle";
 import type { Owned } from "./perks";
 import { rungOf } from "./combat/fight";
 import { stageHours } from "./growth";
+import { preferenceLine } from "./initiatives";
 import { clamp } from "./state";
 import type { CallKind, Creature, Save } from "./state";
 import { MINUTE, hourOf, isNightHour } from "./time";
@@ -232,13 +233,14 @@ export function bondPercent(c: Creature): number {
   return next === null ? 100 : Math.floor((100 * into) / span);
 }
 
-// The lines of the card the chip opens: where it stands, the next thing a level gives that the game really has, and what each way of touching does.
+// The lines of the card the chip opens: where it stands, the next thing a level gives that the game really has, what each way of touching does, and what the creature leans to
+// (its initiatives, game/initiatives.ts: the form and the Bond level decide it).
 export function bondLines(c: Creature): string[] {
   const { level, into, span, next } = bondInfo(bondOf(c).xp);
   const lines = [`Bond level ${level} of ${tuning.bond.levelAt.length}.`, next === null ? "The top level." : `${into} of ${span} to level ${next}.`];
   const unlock = nextUnlock(level);
   if (unlock) lines.push(`Level ${unlock.level}: ${unlock.text}.`);
-  lines.push("Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention.");
+  lines.push("Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention.", preferenceLine(c));
   return lines;
 }
 
