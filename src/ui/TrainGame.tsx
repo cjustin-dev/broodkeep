@@ -1,27 +1,40 @@
-// The training session over the screen (Bug Catch, docs/adult-a3-plan.md section 10; Rhythm Grove, docs/adult-a4-plan.md section 2): the start card, the run and the result card. Adult Mode only.
-// The rules are game/training.ts and game/rhythm.ts. `Game` (ui/game.ts) holds the session and hears only the pick, the start, the finish and the close: pause, resume, every catch, every tap, every miss and
+// The training session over the screen (Bug Catch, docs/adult-a3-plan.md section 10; Rhythm Grove and Stack & Balance, docs/adult-a4-plan.md sections 2 and 6): the start card, the run and the result card. Adult Mode only.
+// The rules are game/training.ts, game/rhythm.ts and game/stack.ts. `Game` (ui/game.ts) holds the session and hears only the pick, the start, the finish and the close: pause, resume, every catch, every tap, every miss and
 // every frame stay here (the engine's own functions on `game.training.run`, the numbers and the places of the bugs or the notes written into the page through refs), so a session never touches the save and never
 // makes the app redraw 60 times a second.
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { faceSprite } from "../art/face";
 import { goldenBug, icons } from "../art/sprites";
+import type { IconName } from "../art/sprites";
 import { getForm } from "../data/forms";
 import { rhythmTuning, timingWindows } from "../data/rhythm";
+import { stackTuning } from "../data/stack";
 import { trainGameIds, trainGames, trainTuning } from "../data/training";
-import type { TrainGameId } from "../data/training";
+import type { TrainGameId, TrainStage } from "../data/training";
 import { saidLine, stepRhythm, tapRhythm } from "../game/rhythm";
 import type { RhythmState } from "../game/rhythm";
+import { blockX, dropStack, heightOf, perfectWindowMs, saidLine as stackSaidLine, scoreOf, stepStack } from "../game/stack";
+import type { StackState } from "../game/stack";
 import { localDay } from "../game/time";
 import { catchBug, missTap, pause, resultLines, resume, startLine, step, trainedToday } from "../game/training";
 import type { BugCatchState } from "../game/training";
 import type { Game } from "./game";
 import { Pic } from "./Icon";
 
-// What each game says on its start card, in plain words (the numbers come from the tuning).
-const blurbs: Record<TrainGameId, string> = {
-  bug: "Tap the bugs before they go. A golden bug is worth 3 times, and 5 catches in a row score double. A tap that misses costs no points.",
-  rhythm: `Tap when a note reaches the line, anywhere on the track. Perfect is within ${timingWindows.perfectMs} ms, Good within ${timingWindows.goodMs} ms. A tap with no note near it costs ${rhythmTuning.strayCost} points.`,
-};
+// What each game says on its start card, in plain words (the numbers come from the tuning; Stack & Balance's window depends on the stage).
+function blurbOf(game: TrainGameId, stage: TrainStage): string {
+  switch (game) {
+    case "bug":
+      return "Tap the bugs before they go. A golden bug is worth 3 times, and 5 catches in a row score double. A tap that misses costs no points.";
+    case "rhythm":
+      return `Tap when a note reaches the line, anywhere on the track. Perfect is within ${timingWindows.perfectMs} ms, Good within ${timingWindows.goodMs} ms. A tap with no note near it costs ${rhythmTuning.strayCost} points.`;
+    default:
+      return `Tap to drop the block onto the stack. Perfect is within ${perfectWindowMs(stage)} ms of lining up (less on a narrow block) and keeps the block wide; two in a row make it wider again. A good drop is trimmed to what overlaps. One bad drop is forgiven; a second makes the stack fall and ends the run. The longer it stands, the more it scores.`;
+  }
+}
+
+// The picker button's picture for each game.
+const pickerIcons: Record<TrainGameId, IconName> = { bug: "bug", rhythm: "note", stack: "stack" };
 
 function StartCard({ game }: { game: Game }) {
   const goRef = useRef<HTMLButtonElement>(null);
@@ -41,13 +54,13 @@ function StartCard({ game }: { game: Game }) {
       <div class="train-picker" role="group" aria-label="Training game">
         {trainGameIds.map((id) => (
           <button key={id} class="btn small" aria-pressed={picked === id} onClick={() => game.pickTrainGame(id)}>
-            <Pic sprite={id === "bug" ? icons.bug : icons.note} id={`icon:${id === "bug" ? "bug" : "note"}`} px={24} />
+            <Pic sprite={icons[pickerIcons[id]]} id={`icon:${pickerIcons[id]}`} px={24} />
             {trainGames[id].name}
           </button>
         ))}
       </div>
       <p class="hint">
-        {blurbs[picked]} It trains {statName}.
+        {blurbOf(picked, game.training?.stage ?? "adult")} It trains {statName}.
       </p>
       <p class="train-reward">{startLine(picked, count)}</p>
       <p class="hint">
@@ -352,6 +365,147 @@ function RhythmRun({ game, run }: { game: Game; run: RhythmState }) {
   );
 }
 
+// Stack & Balance's run: the block slides across above the stack and a tap anywhere on the field drops it. The stack's blocks are drawn from the state's list (the page draws again when a block is
+// placed or the run is paused or goes on); the moving block, the three numbers and the word over the field are written from the frame loop through refs. The stack sits on the floor until it is
+// tall enough, then the top block stays where it is and the rest scroll down and out of the field.
+const pct = (units: number): string => `${(units / trainTuning.field) * 100}%`;
+const ROOM = Math.floor((trainTuning.field - stackTuning.laneTop) / stackTuning.blockH); // how many blocks the field has room to show
+
+function StackRun({ game, run }: { game: Game; run: StackState }) {
+  const [, setVersion] = useState(0);
+  const bump = (): void => setVersion((v) => v + 1);
+  const moverEl = useRef<HTMLSpanElement>(null);
+  const timeEl = useRef<HTMLElement | null>(null);
+  const scoreEl = useRef<HTMLElement | null>(null);
+  const heightEl = useRef<HTMLElement | null>(null);
+  const saidEl = useRef<HTMLParagraphElement>(null);
+  const shown = useRef(run.said?.n ?? 0); // the last thing said that the page has written
+
+  const place = (): void => {
+    const mover = moverEl.current;
+    if (mover) {
+      mover.style.visibility = run.elapsedMs >= run.readyAt && !run.over ? "visible" : "hidden"; // the next block has not come yet
+      mover.style.left = pct(blockX(run) - run.w / 2);
+      mover.style.width = pct(run.w);
+    }
+    if (timeEl.current) timeEl.current.textContent = String(secondsLeft(run));
+    if (scoreEl.current) scoreEl.current.textContent = String(scoreOf(run));
+    if (heightEl.current) heightEl.current.textContent = String(heightOf(run));
+    const said = run.said;
+    if (said && said.n !== shown.current && saidEl.current) {
+      shown.current = said.n;
+      saidEl.current.textContent = stackSaidLine(said);
+      saidEl.current.dataset.judge = said.judge;
+    }
+  };
+  useLayoutEffect(place);
+
+  useEffect(() => {
+    let raf = 0;
+    let last: number | null = null;
+    const frame = (now: number): void => {
+      const dt = last === null ? 0 : now - last;
+      last = now;
+      stepStack(run, dt);
+      place();
+      if (run.over) {
+        game.finishTraining();
+        return;
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [run]);
+
+  useEffect(() => {
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden" && !run.over) {
+        pause(run);
+        bump();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [run]);
+
+  // A tap (the press, not the release: the lowest delay). Pressing Enter or Space on the focused pad is a drop too (a pointer's drop happened on the press).
+  const dropped = (): void => {
+    if (dropStack(run)) bump(); // a block was placed, lost or the stack fell: draw the list again
+    place();
+  };
+
+  const top = Math.max(stackTuning.laneTop, trainTuning.field - stackTuning.blockH * run.blocks.length); // where the top block's upper edge is
+  const drawn = run.blocks.slice(-ROOM).reverse(); // the top block first
+
+  return (
+    <div class="train-play">
+      <div class="train-side">
+        <p class="train-stats">
+          <span>
+            Time <b ref={timeEl}>{secondsLeft(run)}</b>
+          </span>
+          <span>
+            Score <b ref={scoreEl}>{scoreOf(run)}</b>
+          </span>
+          <span>
+            Height <b ref={heightEl}>{heightOf(run)}</b>
+          </span>
+        </p>
+        <div class="train-buttons">
+          <button
+            class="btn small"
+            onClick={() => {
+              pause(run);
+              bump();
+            }}
+          >
+            Pause
+          </button>
+          <button class="btn small" onClick={() => game.closeTraining()}>
+            Quit
+          </button>
+        </div>
+      </div>
+      <div class="train-field stack-field">
+        {drawn.map((b, i) => {
+          const index = run.blocks.length - 1 - i;
+          return (
+            <span
+              key={index}
+              class="stack-block"
+              data-base={index === 0 ? "yes" : undefined}
+              aria-hidden="true"
+              style={{ left: pct(b.x - b.w / 2), width: pct(b.w), top: pct(top + i * stackTuning.blockH), height: pct(stackTuning.blockH) }}
+            />
+          );
+        })}
+        <span class="stack-mover" ref={moverEl} aria-hidden="true" />
+        <p class="stack-said" ref={saidEl} />
+        <button
+          class="stack-pad"
+          aria-label="Drop the block"
+          onPointerDown={() => dropped()}
+          onClick={(e) => {
+            if (e.detail === 0) dropped();
+          }}
+        />
+        {run.paused && (
+          <button
+            class="train-paused"
+            onClick={() => {
+              resume(run);
+              bump();
+            }}
+          >
+            Paused. Tap to go on.
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ResultCard({ game }: { game: Game }) {
   const doneRef = useRef<HTMLButtonElement>(null);
   useEffect(() => doneRef.current?.focus(), []);
@@ -376,7 +530,9 @@ export function TrainGame({ game }: { game: Game }) {
     <section class="panel" role="dialog" aria-modal="true" aria-label={trainGames[t.game].name}>
       <div class="panel-body train">
         {t.phase === "ready" && <StartCard game={game} />}
-        {t.phase === "playing" && t.run && (t.game === "rhythm" ? <RhythmRun game={game} run={t.run as RhythmState} /> : <Run game={game} run={t.run as BugCatchState} />)}
+        {t.phase === "playing" && t.run && t.game === "bug" && <Run game={game} run={t.run as BugCatchState} />}
+        {t.phase === "playing" && t.run && t.game === "rhythm" && <RhythmRun game={game} run={t.run as RhythmState} />}
+        {t.phase === "playing" && t.run && t.game === "stack" && <StackRun game={game} run={t.run as StackState} />}
         {t.phase === "done" && <ResultCard game={game} />}
       </div>
     </section>

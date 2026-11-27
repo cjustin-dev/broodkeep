@@ -19,11 +19,12 @@ export interface BugRow {
 }
 
 // The training games (docs/adult-a4-plan.md section 2, decision 2): the name on the card, the stat it trains and that stat's word. The day's count is kept per stat.
-export type TrainGameId = "bug" | "rhythm";
+export type TrainGameId = "bug" | "rhythm" | "stack";
 
 export const trainGames: Record<TrainGameId, { name: string; stat: CombatStat; statName: string }> = {
   bug: { name: "Bug Catch", stat: "spd", statName: "Speed" },
   rhythm: { name: "Rhythm Grove", stat: "spi", statName: "Spirit" },
+  stack: { name: "Stack & Balance", stat: "str", statName: "Strength" },
 };
 
 export const trainGameIds = Object.keys(trainGames) as TrainGameId[];

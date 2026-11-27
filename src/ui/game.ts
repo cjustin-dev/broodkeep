@@ -38,7 +38,9 @@ import type { Tappable, Visit } from "../game/tappables";
 import { fieldOfForm } from "../data/fields";
 import { newRhythm } from "../game/rhythm";
 import type { RhythmState } from "../game/rhythm";
-import { newBugCatch, payBurst, payRhythm, payTraining, trainRefusal, trainStageOf } from "../game/training";
+import { newStack } from "../game/stack";
+import type { StackState } from "../game/stack";
+import { newBugCatch, payBurst, payRhythm, payStack, payTraining, trainRefusal, trainStageOf } from "../game/training";
 import type { BugCatchState, BurstResult, TrainRefusal, TrainResult } from "../game/training";
 import type { FieldId, FoodId } from "../game/types";
 import { writeSave } from "../sync/local";
@@ -62,14 +64,14 @@ export interface Arena {
   result: FightResult | null; // what a finished fight paid, once it is over
 }
 
-// A training session (Bug Catch, docs/adult-a3-plan.md section 10). View state like a fight: never saved, so a reload in the middle pays nothing. `phase`: the start card, the run, the result card.
+// A training session (Bug Catch, docs/adult-a3-plan.md section 10; Rhythm Grove and Stack & Balance, docs/adult-a4-plan.md sections 2 and 6). View state like a fight: never saved, so a reload in the middle pays nothing. `phase`: the start card, the run, the result card.
 // The overlay (ui/TrainGame.tsx) drives `run` with the engine's own functions; `Game` is told only at the start, the finish and the close.
 export interface Training {
   bornAt: number; // the creature that started it: another one (a retire and a hatch) ends the session
   stage: TrainStage; // the stage it is played at (the difficulty row), fixed at the start
   game: TrainGameId; // the game on show: picked on the start card, fixed once it begins
   phase: "ready" | "playing" | "done";
-  run: BugCatchState | RhythmState | null; // the one of the game (a burst is always Bug Catch)
+  run: BugCatchState | RhythmState | StackState | null; // the one of the game (a burst is always Bug Catch)
   result: TrainResult | BurstResult | null; // what the run paid, once it has been paid
   burst?: FieldId; // set for the 10 second burst a bug tapped in this field starts (docs/adult-a3-plan.md section 17, decision 8): no start card, and `payBurst` pays it
 }
@@ -340,7 +342,9 @@ export class Game {
     if (!t || t.phase !== "ready") return;
     const c = this.save.creature;
     if (!c) return;
-    t.run = t.game === "rhythm" ? newRhythm(fieldOfForm(c.formId) ?? "land", t.stage) : newBugCatch(Math.floor(Math.random() * 2 ** 32), t.stage);
+    if (t.game === "rhythm") t.run = newRhythm(fieldOfForm(c.formId) ?? "land", t.stage);
+    else if (t.game === "stack") t.run = newStack(t.stage);
+    else t.run = newBugCatch(Math.floor(Math.random() * 2 ** 32), t.stage);
     t.phase = "playing";
     this.listeners.forEach((listener) => listener());
   }
@@ -356,7 +360,9 @@ export class Game {
     const run = t.run;
     const result = this.act((save, now) => {
       if (t.burst) return payBurst(save, save.creature, run as BugCatchState, t.burst, now);
-      return t.game === "rhythm" ? payRhythm(save, save.creature, run as RhythmState, now) : payTraining(save, save.creature, run as BugCatchState, now);
+      if (t.game === "rhythm") return payRhythm(save, save.creature, run as RhythmState, now);
+      if (t.game === "stack") return payStack(save, save.creature, run as StackState, now);
+      return payTraining(save, save.creature, run as BugCatchState, now);
     });
     if (result === null) this.training = null;
     else {

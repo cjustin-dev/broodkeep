@@ -98,7 +98,7 @@ BURST = "starts a burst as Bug Catch whatever the pick, and leaves the pick alon
 #    its creature; the line is there to narrow the type of `c` for `c.formId`, and esbuild, which runs the tests, does not check types.
 # id, file, old (exact, must occur once in the file), new, expect (substring of the test's full name), expect_file
 EQUIVALENT = [
-    mut("begin-creature-guard", F_GAME, "if (!c) return;\n    t.run = t.game", "t.run = t.game", "(none)", T_GAME),
+    mut("begin-creature-guard", F_GAME, "if (!c) return;\n    if (t.game === \"rhythm\") t.run = newRhythm(", "if (t.game === \"rhythm\") t.run = newRhythm(", "(none)", T_GAME),
 ]
 
 MUTANTS = [
@@ -175,7 +175,7 @@ MUTANTS = [
     mut("rhythm-trains-speed", F_TRAIN, 'paySession(save, c, "rhythm", rhythmBandOf(run)', 'paySession(save, c, "bug", rhythmBandOf(run)', GOLDPAY, T_GAME),
     mut("band-from-bug-catch-lines", F_TRAIN, 'paySession(save, c, "rhythm", rhythmBandOf(run), run.score', 'paySession(save, c, "rhythm", bandOf(run.score, run.stage), run.score', HALFPAY, T_GAME),
     mut("one-note-is-notes", F_TRAIN, '${r.catches === 1 ? "note" : "notes"} hit', "notes hit", RESULTWORDS, T_GAME),
-    mut("goods-are-no-hits", F_TRAIN, "run.perfects + run.goods, nowMs)", "run.perfects, nowMs)", HALFPAY, T_GAME),
+    mut("goods-are-no-hits", F_TRAIN, "rhythmBandOf(run), run.score, run.perfects + run.goods, nowMs)", "rhythmBandOf(run), run.score, run.perfects, nowMs)", HALFPAY, T_GAME),
     mut("no-hit-run-pays", F_TRAIN, "if (hits === 0) return result;", "", NOHIT, T_GAME),
     mut("pay-guard-dropped", F_TRAIN, 'if (save.phase !== "alive" || !c || c.job) return null;\n  const result = paySession', "if (!c) return null;\n  const result = paySession", NOBODY, T_GAME),
     mut("rhythm-counted-with-speed", F_TDATA, 'rhythm: { name: "Rhythm Grove", stat: "spi", statName: "Spirit" }', 'rhythm: { name: "Rhythm Grove", stat: "spd", statName: "Spirit" }', APART, T_GAME),
@@ -190,10 +190,10 @@ MUTANTS = [
     mut("pick-not-applied", F_GAME, "t.game = id;\n    this.trainPick = id;", "this.trainPick = id;", OPENPICK, T_GAME),
     mut("pick-not-kept", F_GAME, "t.game = id;\n    this.trainPick = id;", "t.game = id;", KEEPPICK, T_GAME),
     mut("card-ignores-the-kept-pick", F_GAME, "game: this.trainPick, phase: \"ready\"", 'game: "bug", phase: "ready"', KEEPPICK, T_GAME),
-    mut("go-always-bug-catch", F_GAME, 't.run = t.game === "rhythm" ? newRhythm(', 't.run = false ? newRhythm(', BEGIN, T_GAME),
+    mut("go-always-bug-catch", F_GAME, 'if (t.game === "rhythm") t.run = newRhythm(', 'if (false) t.run = newRhythm(', BEGIN, T_GAME),
     mut("go-always-adult-song", F_GAME, 'newRhythm(fieldOfForm(c.formId) ?? "land", t.stage)', 'newRhythm(fieldOfForm(c.formId) ?? "land", "adult")', BEGIN, T_GAME),
     mut("go-always-land", F_GAME, 'fieldOfForm(c.formId) ?? "land"', '"land"', BEGIN, T_GAME),
-    mut("finish-always-bug-catch", F_GAME, 'return t.game === "rhythm" ? payRhythm(', "return false ? payRhythm(", PLAYED, T_GAME),
+    mut("finish-always-bug-catch", F_GAME, 'if (t.game === "rhythm") return payRhythm(', "if (false) return payRhythm(", PLAYED, T_GAME),
     mut("pick-writes-the-save", F_GAME, "t.game = id;\n    this.trainPick = id;", "t.game = id;\n    this.trainPick = id;\n    void writeSave(this.save);", UNTOUCHED, T_GAME),
     mut("go-writes-the-save", F_GAME, 't.phase = "playing";\n    this.listeners', 't.phase = "playing";\n    void writeSave(this.save);\n    this.listeners', UNTOUCHED, T_GAME),
     mut("burst-takes-the-pick", F_GAME, 'game: "bug", phase: "playing"', 'game: this.trainPick, phase: "playing"', BURST, T_GAME),
