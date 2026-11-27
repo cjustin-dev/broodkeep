@@ -132,7 +132,7 @@ MUTANTS = [
     mut("home-of-writes-backwards", F_DATA, "KINDS.map((kind) => [kind, layout[kind] ?", "[...KINDS].reverse().map((kind) => [kind, layout[kind] ?", HOME_WRITES, T_EDIT),
     # Decorate mode on the game
     mut("start-leaves-the-creature-free", F_GAME, "    this.view.still = true;\n", "", G_START, T_GAME),
-    mut("start-wakes-nobody", F_GAME, "reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)\n    this.listeners.forEach((listener) => listener());\n", "reseat(this.view); // (it stands on a tile, and a walk or a meal is called off)\n", G_START, T_GAME),
+    mut("start-wakes-nobody", F_GAME, "this.clearInitiative();\n    this.listeners.forEach((listener) => listener());\n    return true;\n  }\n\n  endDecor(): void {", "this.clearInitiative();\n    return true;\n  }\n\n  endDecor(): void {", G_START, T_GAME),
     mut("start-is-saved", F_GAME, "this.decor = { selected: null, wall: null };\n", "this.decor = { selected: null, wall: null };\n    this.changed();\n", G_NOSAVE, T_GAME),
     mut("start-in-a-field", F_GAME, 'this.screen !== "room" || this.view.world !== "home" ||', 'this.screen !== "room" ||', G_REFUSE, T_GAME),
     mut("start-on-another-screen", F_GAME, 'this.screen !== "room" || this.view.world !== "home" ||', 'this.view.world !== "home" ||', G_REFUSE, T_GAME),

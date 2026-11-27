@@ -143,7 +143,7 @@ MUTANTS = [
          edits=[(CSS, "body:has(.panel) {\n  overflow: hidden;\n}", "body:has(.shop-panel) {\n  overflow: hidden;\n}")]),
     dict(id="list-a-sliver-on-its-side", expect=["shop-touch"], kid_only=False, size="740x360@2",
          what="no side-by-side layout for a phone on its side: the title, tabs and room picture are stacked above the list again, which is left 65 px of a 740 x 360 window (by a run of the build before the fix)",
-         edits=[(CSS, "@media (orientation: landscape) and (max-height: 520px) {", "@media (orientation: landscape) and (max-height: 0px) {")]),
+         edits=[(CSS, "@media (orientation: landscape) and (max-height: 520px) {\n  .shop-body {", "@media (orientation: landscape) and (max-height: 0px) {\n  .shop-body {")]),
     dict(id="card-wider-than-the-list-at-320", expect=["board-fit"], kid_only=False, size="320x568@2",
          what="every shop card is 300 px wide at least: it ends at x=316, inside the 320 window and past the list's 288 px, so only the list's own scrollWidth shows it",
          edits=[(CSS, ".shop-card {\n  --card-edge: #8d7bc6;\n  display: flex;", ".shop-card {\n  --card-edge: #8d7bc6;\n  min-width: 300px;\n  display: flex;")]),

@@ -17,6 +17,7 @@ import { eggSprite, icons } from "./sprites";
 import type { IconName } from "./sprites";
 import { drawField } from "./field";
 import { hatOf } from "./hat";
+import { drawTappables } from "./tappables";
 import { isBehind } from "./home";
 import { drawMomentOver, drawMomentUnder, fillScreen } from "./moment";
 import { drawHomeBack, drawHomePieces, drawRoom, lookOf } from "./room";
@@ -154,6 +155,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
       if (view.pose === "rumble" && !lying) drawRumble(ctx, x, y, size, view.poseTime);
 
       if (view.snack) drawSnack(ctx, view.snack, view.poseTime, view.facing);
+      if (view.tappables.length > 0 && c.place !== "home") drawTappables(ctx, view, c.place); // on the ground in a field: over the creature, under its bubbles
 
       if (dead) {
         const stone = spots.stone(size);

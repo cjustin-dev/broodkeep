@@ -52,6 +52,10 @@ def mut(id, file, old, new, expect, test=T_TRAIN):
     return dict(id=id, file=file, old=old, new=new, expect=expect, expect_file=test)
 
 
+# The refusals of `startTraining` from "open" to the line that makes the session; `startBurst` (A3.4) has the same four lines and then `const stage`, so the mutants of the session's entry anchor on this longer text.
+SESSION_HEAD = 'if (this.training) return "open";\n    if (this.arena || this.view.moment !== null || this.decor) return "elsewhere";\n    const code = trainRefusal(c);\n    if (code !== null) return code;\n    this.training = {'
+
+
 # Test titles (substrings of the full test names)
 ALLOWED = "lets an awake, well kid, young or adult creature train, whatever its energy and wherever it is"
 REFUSED = "refuses a baby, an away, asleep or sick creature, in the order away, asleep, sick, too young"
@@ -171,9 +175,9 @@ MUTANTS = [
     mut("adult-gold-line-911", F_DATA, "goldAt: 910 }", "goldAt: 911 }", EDGES),
     mut("adult-gold-line-lower", F_DATA, "goldAt: 910 }", "goldAt: 880 }", GOLDSHARE),
     # what a run pays
-    mut("zero-catch-run-counts", F_TRAIN, "  if (run.catches === 0) return result;\n", "", NOCATCH),
-    mut("pay-an-away-creature", F_TRAIN, 'if (save.phase !== "alive" || !c || c.job) return null;', 'if (save.phase !== "alive" || !c) return null;', NOBODY),
-    mut("pay-a-dead-save", F_TRAIN, 'if (save.phase !== "alive" || !c || c.job) return null;', "if (!c || c.job) return null;", NOBODY),
+    mut("zero-catch-run-counts", F_TRAIN, "  if (run.catches === 0) return result;\n  result.counted = true;", "  result.counted = true;", NOCATCH),
+    mut("pay-an-away-creature", F_TRAIN, 'if (save.phase !== "alive" || !c || c.job) return null;\n  const band = bandOf(', 'if (save.phase !== "alive" || !c) return null;\n  const band = bandOf(', NOBODY),
+    mut("pay-a-dead-save", F_TRAIN, 'if (save.phase !== "alive" || !c || c.job) return null;\n  const band = bandOf(', "if (!c || c.job) return null;\n  const band = bandOf(", NOBODY),
     mut("three-full-sessions-become-2", F_DATA, "full: 3,", "full: 2,", TIERS),
     mut("three-full-sessions-become-4", F_DATA, "full: 3,", "full: 4,", TIERS),
     mut("three-half-sessions-become-2", F_DATA, "half: 3,", "half: 2,", TIERS),
@@ -198,7 +202,7 @@ MUTANTS = [
     mut("bond-xp-resets-the-chain", F_BOND, "c.bond = { xp, chain: before.chain, at: before.at };", "c.bond = { xp, chain: 0, at: before.at };", LEVELONCE),
     mut("bond-xp-resets-the-pet-time", F_BOND, "c.bond = { xp, chain: before.chain, at: before.at };", "c.bond = { xp, chain: before.chain, at: 0 };", LEVELONCE),
     mut("bond-level-reported-every-time", F_BOND, "return after > levelOf(before.xp) ? after : null;", "return after;", LEVELONCE),
-    mut("log-line-dropped", F_TRAIN, "  logEvent(save, nowMs,", "  void (save, nowMs,", LOGLINE),
+    mut("log-line-dropped", F_TRAIN, "  logEvent(save, nowMs, `Bug Catch:", "  void (save, nowMs, `Bug Catch:", LOGLINE),
     # the day count and localDay
     mut("same-day-starts-again", F_DAY, "have.day < today ||", "have.day <= today ||", NEWDAY),
     mut("yesterday-keeps-its-count", F_DAY, "have.day < today ||", "have.day < today - 1 ||", NEWDAY),
@@ -223,20 +227,20 @@ MUTANTS = [
     mut("start-line-full-counts-from-0", F_TRAIN, "${count + 1} of ${t.full} today", "${count} of ${t.full} today", STARTWORDS),
     mut("result-no-catch-reworded", F_TRAIN, '"No bugs caught: nothing to pay."', '"Nothing caught."', RESULTWORDS),
     mut("result-leaves-out-discipline", F_TRAIN, "if (r.discipline > 0) lines.push(", "if (false) lines.push(", RESULTWORDS),
-    mut("result-leaves-out-the-level", F_TRAIN, "if (r.level !== null) lines.push(", "if (false) lines.push(", RESULTWORDS),
+    mut("result-leaves-out-the-level", F_TRAIN, "\n  if (r.level !== null) lines.push(", "\n  if (false) lines.push(", RESULTWORDS),
     mut("result-capped-reworded", F_TRAIN, '"Speed is as high as it can go for now"', '"Speed is full"', RESULTWORDS),
     mut("result-half-reworded", F_TRAIN, '"No Speed from this one: half rewards round down"', '"No Speed from this one"', RESULTWORDS),
     mut("result-used-up-reworded", F_TRAIN, '"Bond XP only now: today\'s Speed sessions are used up"', '"Bond XP only now"', RESULTWORDS),
     mut("reason-sick-reworded", F_REASONS, '"Sick: it needs medicine before it can train."', '"Sick."', REASONS, T_GAME),
     mut("reason-too-young-says-fight", F_REASONS, "Too young to train: it starts at", "Too young to fight: it starts at", REASONS, T_GAME),
     # the entry and the session's life
-    mut("entry-adult-check-dropped", F_GAME, 'if (!isAdultMode(this.save)) return "adult-only";', "", ADULTONLY, T_GAME),
-    mut("entry-no-creature-check-dropped", F_GAME, 'if (this.save.phase !== "alive" || !c) return "no-creature";\n    if (this.training) return "open";', "if (this.training) return \"open\";", NOCREATURE, T_GAME),
-    mut("entry-open-check-dropped", F_GAME, 'if (this.training) return "open";', "", OPENCARD, T_GAME),
-    mut("entry-arena-check-dropped", F_GAME, "if (this.arena || this.view.moment !== null || this.decor)", "if (this.view.moment !== null || this.decor)", ELSEWHERE, T_GAME),
-    mut("entry-moment-check-dropped", F_GAME, "if (this.arena || this.view.moment !== null || this.decor)", "if (this.arena || this.decor)", ELSEWHERE, T_GAME),
-    mut("entry-decor-check-dropped", F_GAME, "if (this.arena || this.view.moment !== null || this.decor)", "if (this.arena || this.view.moment !== null)", ELSEWHERE, T_GAME),
-    mut("entry-refusal-dropped", F_GAME, "    const code = trainRefusal(c);\n    if (code !== null) return code;\n", "", OWNREASON, T_GAME),
+    mut("entry-adult-check-dropped", F_GAME, 'if (!isAdultMode(this.save)) return "adult-only";\n    this.tick();', "this.tick();", ADULTONLY, T_GAME),
+    mut("entry-no-creature-check-dropped", F_GAME, 'this.tick();\n    const c = this.save.creature;\n    if (this.save.phase !== "alive" || !c) return "no-creature";\n    if (this.training) return "open";', 'this.tick();\n    const c = this.save.creature;\n    if (this.training) return "open";', NOCREATURE, T_GAME),
+    mut("entry-open-check-dropped", F_GAME, SESSION_HEAD, SESSION_HEAD.replace('if (this.training) return "open";\n    ', ""), OPENCARD, T_GAME),
+    mut("entry-arena-check-dropped", F_GAME, SESSION_HEAD, SESSION_HEAD.replace("this.arena || ", ""), ELSEWHERE, T_GAME),
+    mut("entry-moment-check-dropped", F_GAME, SESSION_HEAD, SESSION_HEAD.replace("this.view.moment !== null || ", ""), ELSEWHERE, T_GAME),
+    mut("entry-decor-check-dropped", F_GAME, SESSION_HEAD, SESSION_HEAD.replace(" || this.decor", ""), ELSEWHERE, T_GAME),
+    mut("entry-refusal-dropped", F_GAME, SESSION_HEAD, SESSION_HEAD.replace("    const code = trainRefusal(c);\n    if (code !== null) return code;\n", ""), OWNREASON, T_GAME),
     mut("entry-stage-is-adult", F_GAME, "stage: trainStageOf(c), phase", 'stage: "adult", phase', SEEDGO, T_GAME),
     mut("seed-from-the-save", F_GAME, "newBugCatch(Math.floor(Math.random() * 2 ** 32), t.stage)", "newBugCatch(this.save.rngState >>> 0, t.stage)", SEEDGO, T_GAME),
     mut("begin-marks-changed", F_GAME, '    t.phase = "playing";\n    this.listeners.forEach((listener) => listener());', '    t.phase = "playing";\n    this.changed();\n    this.listeners.forEach((listener) => listener());', BYTES, T_GAME),

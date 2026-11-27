@@ -628,3 +628,15 @@ Found while planning and reviewing A1.2, in the game as it is (none are new, non
 - **The offer clock counts foreground time, one tick a second.** Each time in the browser checks is good to plus or minus a second. A phone that throttles the timer to once a minute adds at most 2 seconds a tick, so an offer takes longer on a throttled page; not measured on a real phone.
 - **A finger's drag in a field is taken over by the page's scroll** (the browser sends `pointercancel`, so no lift reaches the ball), while a mouse drag is not; a check that a release away from the ball pays nothing needs a mouse (`init-field` has both). A drag in the home pans the camera and ends the hold, so a lift after it never reaches the bubble either (the `home-drag-answers` mutant is argued equivalent).
 - **Not tried:** a real phone, browsers other than Chromium, a screen reader reading the offer, a real hidden tab, two devices on one account (an offer is never saved, so there is nothing to sync).
+
+## Field tappables, A3.4 (2026-11-26)
+
+- **A visit is one stay.** Leaving a field (home, another field, a job, sleep) ends it, and coming back starts a new one with a new first wait (20 to 40 s) and a new pickup. A player who hops between fields collects the pickup each time (1 Wood, Fish or Stone). Accepted; asked of the owner with the payoffs.
+- **The pictures are small on purpose** (8 game pixels, 16 to 21 CSS pixels); the touch box around each is 48 to 64 CSS pixels across (measured at 320, 360 and 390). Placeholder art, like the icons.
+- **The rustle's tuft has low contrast on the Sky field's ground** (contact sheet, 2026-11-26). Not changed.
+- **A wait can pass 40 s by under one step** (the next wait is set at the step that sees the spawn, as the initiatives'). Recorded in decisions.md.
+- **A thing waits for a free spot.** When all six tries are in the way (a creature standing in the middle of the band, other things around it) the spawn is tried again at the next step with a new kind draw; with four showing it waits until one is gone.
+- **No keyboard path** to a tappable, as for petting and the initiatives' ball.
+- **A tap in the one tick after the screen got covered pays nothing** and removes nothing (the picture's list is empty at the next frame); a player who tapped the instant a panel opened sees no reaction.
+- **Blind spots of the browser run** (no check reads them): the order a picture and the creature are drawn in when they overlap (a thing is placed clear of the creature, so they rarely do), the hop, sparkles and heart after a tap, the Bond level burst after a rustle, the note's fade. The unit tests own the Game side of each.
+- **Not tried:** a real phone, browsers other than Chromium, a screen reader reading the ground sentence, a real hidden tab (the clock is gated on the game's own ticks), two devices on one account (nothing about a visit is saved or shared; only the pay of a tap is).

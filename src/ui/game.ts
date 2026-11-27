@@ -5,13 +5,15 @@ import { playback } from "../art/arena";
 import type { Playback } from "../art/arena";
 import { moved, nearestSpot } from "../art/homeEdit";
 import { layoutOfSave } from "../art/homeLayout";
-import { createView, reseat } from "../art/idle";
+import { addEffect, addHeart, createView, reseat, triggerPose } from "../art/idle";
 import { shownOf } from "../art/moment";
-import type { View } from "../art/idle";
+import type { Pose, View } from "../art/idle";
 import type { IconName } from "../art/sprites";
 import { homeOf, isBuilt, roomsBuilt, wallOfRoom } from "../data/home";
 import type { Layout, PieceKind, RoomId } from "../data/home";
 import { initiativeTuning } from "../data/initiatives";
+import { tapTuning } from "../data/tappables";
+import type { TapKind } from "../data/tappables";
 import { isWallId } from "../data/shop";
 import type { TrainStage } from "../data/training";
 import { endFight, feed, startFight } from "../game/actions";
@@ -25,12 +27,16 @@ import { isAdultMode } from "../game/hud";
 import { countToss, isMoot, isOver, newInitiative, nextDelay, payBond, payGift } from "../game/initiatives";
 import type { Initiative } from "../game/initiatives";
 import { paidNote } from "../game/requests";
+import { makeRng } from "../game/rng";
+import type { Rng } from "../game/rng";
 import { simulateTo } from "../game/sim";
 import type { Creature, Save } from "../game/state";
 import { gameNow } from "../game/time";
-import { newBugCatch, payTraining, trainRefusal, trainStageOf } from "../game/training";
-import type { BugCatchState, TrainRefusal, TrainResult } from "../game/training";
-import type { FoodId } from "../game/types";
+import { nextWait, payPickup, payRustle, paySparkle, pickKind, place, possibleKinds } from "../game/tappables";
+import type { Tappable, Visit } from "../game/tappables";
+import { newBugCatch, payBurst, payTraining, trainRefusal, trainStageOf } from "../game/training";
+import type { BugCatchState, BurstResult, TrainRefusal, TrainResult } from "../game/training";
+import type { FieldId, FoodId } from "../game/types";
 import { writeSave } from "../sync/local";
 
 export type Screen = "room" | "habitat" | "arena";
@@ -59,7 +65,8 @@ export interface Training {
   stage: TrainStage; // the stage it is played at (the difficulty row), fixed at the start
   phase: "ready" | "playing" | "done";
   run: BugCatchState | null;
-  result: TrainResult | null; // what the run paid, once it has been paid
+  result: TrainResult | BurstResult | null; // what the run paid, once it has been paid
+  burst?: FieldId; // set for the 10 second burst a bug tapped in this field starts (docs/adult-a3-plan.md section 17, decision 8): no start card, and `payBurst` pays it
 }
 
 // What `startTraining` says, in the order it checks: Kid Mode, no living creature, a session already on, something else on the screen, then the creature's own reasons.
@@ -76,8 +83,11 @@ export class Game {
   decor: Decor | null = null; // Decorate mode: null when it is off (not saved: it ends with the visit, and with anything that takes the player off the home's picture)
   note: string | null = null; // Adult Mode: why a button did nothing, shown over the room for a few seconds (not saved)
   initiative: Initiative | null = null; // Adult Mode: what the creature is asking for now, drawn as a bubble over it (docs/adult-a3-plan.md section 14; not saved, never logged)
+  tappables: Tappable[] = []; // Adult Mode: what is on the ground in the field now (docs/adult-a3-plan.md section 17; not saved, never logged)
   menuOpen = false; // an App panel (settings, book, shop...) is open: the App writes this, because the panel is App state that the game cannot see
   rand: () => number = Math.random; // the draws of initiatives (a test sets it to force one); never the save's own generator
+  tapRand: () => number = Math.random; // the seed of each field visit (a test sets it to force one); never the save's own generator
+  tapRng: (seed: number) => Rng = makeRng; // makes a visit's generator from its seed (a test gives a scripted one that returns chosen values)
   onSave: ((byPlayer: boolean) => void) | null = null; // told each time the game is saved on this device (the cloud sync listens, sync/sync.ts)
   private lastReal = Date.now();
   private listeners = new Set<() => void>();
@@ -86,6 +96,9 @@ export class Game {
   private playerChanged = false; // something the player did since the last save (not just the clock moving on)
   private seenDone: number; // how many requests had been paid when the screens last looked (board.done): a new payment gets a note
   private initiativeClock = 0; // milliseconds of foreground time (at most 2 s a tick), the time initiatives are counted in
+  private tapVisit: Visit | null = null; // the stay in the field that the tappables belong to (null outside a field)
+  private tapClock = 0; // milliseconds of unblocked field time since the visit began (at most 2 s a step): the time a tappable's wait and life are counted in
+  private tapWait = 0; // the unblocked time left before the next spawn
   private initiativeWait: number | null = null; // the seen, unblocked time left before the next initiative is made (null until one is drawn)
 
   // saveKey: where this game is kept on the device ("save" is the first profile's, see sync/roster.ts).
@@ -323,7 +336,7 @@ export class Game {
     this.tick();
     if (this.training !== t) return;
     const run = t.run;
-    const result = this.act((save, now) => payTraining(save, save.creature, run, now));
+    const result = this.act((save, now) => (t.burst ? payBurst(save, save.creature, run, t.burst, now) : payTraining(save, save.creature, run, now)));
     if (result === null) this.training = null;
     else {
       t.result = result;
@@ -418,6 +431,167 @@ export class Game {
     return { kind: "play", levelUp, over };
   }
 
+  // ---- field tappables (docs/adult-a3-plan.md section 17) ----
+
+  // Whether the creature has a field visit now: Adult Mode, alive, awake, not away, out in a field.
+  private tapEligible(): boolean {
+    const c = this.save.creature;
+    return isAdultMode(this.save) && this.save.phase === "alive" && !!c && !c.job && c.sleep === null && c.place !== "home";
+  }
+
+  // What holds a visit's clocks and hides its tappables (the visit goes on): another screen than the room, an arena, a training session, Decorate mode, a hatch or evolve scene, a waiting haul
+  // card, an open menu, a meal on the plate. A call is not one.
+  private tapBlocked(): boolean {
+    return this.screen !== "room" || this.arena !== null || this.training !== null || this.decor !== null || this.view.moment !== null || this.save.hauls.length > 0 || this.menuOpen || this.view.snack !== null;
+  }
+
+  // End the visit and take everything on the ground away, without waking the screens (the callers do that). Says whether there was a visit.
+  private endVisit(): boolean {
+    const had = this.tapVisit !== null;
+    this.tapVisit = null;
+    this.tappables = [];
+    this.syncTapView();
+    return had;
+  }
+
+  // End the visit when what it was for has gone: the creature left the field (home, another field, a job, sleep), another one hatched, it died, or Adult Mode went off.
+  private dropVisitIfGone(): void {
+    const v = this.tapVisit;
+    const c = this.save.creature;
+    if (v && !(this.tapEligible() && c && c.bornAt === v.bornAt && c.place === v.place)) this.endVisit();
+  }
+
+  // Write what the scene draws and the Stage hits: the tappables of the visit, none while anything holds it. Says whether that changed.
+  private syncTapView(): boolean {
+    const shown = this.tapVisit !== null && this.tapEligible() && !this.tapBlocked() ? this.tappables.map(({ id, kind, x, y }) => ({ id, kind, x, y })) : [];
+    const old = this.view.tappables;
+    if (shown.length === old.length && shown.every((p, i) => p.id === old[i]!.id)) return false;
+    this.view.tappables = shown;
+    return true;
+  }
+
+  // Count the unblocked field time that has passed (at most `clockCapMs` of it) and make or fade tappables. Called only by `tick()`, with the real time since the last tick. Nothing here is saved or
+  // goes through `changed()`: it wakes the screens, and that is all.
+  stepTappables(dtMs: number): void {
+    const dt = Math.max(0, Math.min(dtMs, tapTuning.clockCapMs));
+    const c = this.save.creature;
+    this.dropVisitIfGone();
+    if (!this.tapEligible() || !c) {
+      if (this.syncTapView()) this.listeners.forEach((listener) => listener());
+      return;
+    }
+    let visit = this.tapVisit;
+    if (!visit) {
+      const rng = this.tapRng(Math.floor(this.tapRand() * 2 ** 32));
+      visit = { bornAt: c.bornAt, place: c.place as FieldId, rng, made: 0, pickupMade: false, nextId: 1 };
+      this.tapVisit = visit;
+      this.tappables = [];
+      this.tapClock = 0;
+      this.tapWait = nextWait(rng);
+    }
+    let changed = false;
+    if (!this.tapBlocked()) {
+      this.tapClock += dt;
+      const before = this.tappables.length;
+      const canTrain = trainRefusal(c) === null;
+      this.tappables = this.tappables.filter((p) => this.tapClock - p.born < tapTuning.lifeMs && (p.kind !== "bug" || canTrain));
+      changed = this.tappables.length !== before;
+      this.tapWait -= dt;
+      if (this.tapWait <= 0) {
+        if (this.tappables.length >= tapTuning.most) this.tapWait = 0; // (full: it comes when one is gone)
+        else if (this.spawnTappable(visit, canTrain)) {
+          this.tapWait = nextWait(visit.rng); // from this start to the next one
+          changed = true;
+        } else this.tapWait = 0; // (every try was in the way: it comes at the next step with room)
+      }
+    }
+    if (this.syncTapView() || changed) this.listeners.forEach((listener) => listener());
+  }
+
+  // Make one tappable: the kind, then a place for it. False when every try was in the way.
+  private spawnTappable(visit: Visit, canTrain: boolean): boolean {
+    const kind = pickKind(possibleKinds(visit, this.tappables, canTrain), visit.rng);
+    const v = this.view;
+    const spot = place(visit.rng, { x: v.x, y: v.y - v.size, w: v.size, h: v.size }, this.tappables);
+    if (!spot) return false;
+    this.tappables.push({ id: visit.nextId++, kind, x: spot.x, y: spot.y, born: this.tapClock });
+    visit.made++;
+    if (kind === "pickup") visit.pickupMade = true;
+    return true;
+  }
+
+  // The creature's reaction to a tap, in the tap's own frame: it turns toward the spot (after the pose, which turns a startled one the other way), plays the pose and shows the effect.
+  private reactTo(p: Tappable, pose: Pose, effect: "sparkle" | "heart" | null): void {
+    const v = this.view;
+    const cx = p.x + tapTuning.size / 2;
+    const cy = p.y + tapTuning.size / 2;
+    triggerPose(v, pose);
+    v.facing = cx >= v.x + v.size / 2 ? 1 : -1;
+    if (effect === "sparkle") {
+      addEffect(v, "sparkle", cx, cy);
+      addEffect(v, "sparkle", cx - 4, cy - 3);
+      addEffect(v, "sparkle", cx + 4, cy - 4);
+    } else if (effect === "heart") addHeart(v);
+  }
+
+  // The player tapped a tappable. It is taken at once and pays once (one `act`), the creature reacts, a note says what was found; a bug starts its burst. Returns what the screen needs for its looks, or
+  // null when nothing was taken: no such tappable, a visit that has ended, or a game that has become blocked since the last step (the screens are told and the picture drops them).
+  tapTappable(id: number): { kind: TapKind; levelUp: number | null } | null {
+    const p = this.tappables.find((q) => q.id === id);
+    const visit = this.tapVisit;
+    const c = this.save.creature;
+    if (!p || !visit || !c) return null;
+    if (!this.tapEligible() || c.bornAt !== visit.bornAt || c.place !== visit.place) {
+      this.endVisit();
+      this.listeners.forEach((listener) => listener());
+      return null;
+    }
+    if (this.tapBlocked()) {
+      if (this.syncTapView()) this.listeners.forEach((listener) => listener());
+      return null;
+    }
+    this.tappables = this.tappables.filter((q) => q !== p); // (before it pays, so a second tap finds nothing)
+    this.syncTapView();
+    if (p.kind === "bug" && trainRefusal(c) !== null) {
+      this.listeners.forEach((listener) => listener()); // (it turned sick or sleepy since the last step: the bug is gone, nothing starts)
+      return null;
+    }
+    let levelUp: number | null = null;
+    if (p.kind === "sparkle") {
+      this.say(this.act((save, now) => paySparkle(save, visit.rng, now)));
+      this.reactTo(p, "hop", "sparkle");
+    } else if (p.kind === "rustle") {
+      const r = this.act((save, now) => payRustle(save, save.creature!, visit.rng, now));
+      levelUp = r.level;
+      this.say(r.note);
+      this.reactTo(p, "startle", r.found ? "sparkle" : "heart");
+    } else if (p.kind === "pickup") {
+      this.say(this.act((save, now) => payPickup(save, visit.place, now)));
+      this.reactTo(p, "happy", "sparkle");
+    } else {
+      this.reactTo(p, "startle", null);
+      this.startBurst();
+    }
+    return { kind: p.kind, levelUp };
+  }
+
+  // The 10 second Bug Catch burst a bug in a field starts: the same refusals as `startTraining`, in the same order, then the run begins at once (no start card). Paid by `payBurst`.
+  startBurst(): StartTrainingResult {
+    if (!isAdultMode(this.save)) return "adult-only";
+    const c = this.save.creature;
+    if (this.save.phase !== "alive" || !c) return "no-creature";
+    if (this.training) return "open";
+    if (this.arena || this.view.moment !== null || this.decor) return "elsewhere";
+    const code = trainRefusal(c);
+    if (code !== null) return code;
+    const stage = trainStageOf(c);
+    this.training = { bornAt: c.bornAt, stage, phase: "playing", run: newBugCatch(Math.floor(Math.random() * 2 ** 32), stage, tapTuning.burstMs), result: null, burst: c.place === "home" ? undefined : c.place };
+    this.clearInitiative();
+    this.syncTapView(); // (a session holds the visit: nothing is shown under it)
+    this.listeners.forEach((listener) => listener());
+    return "started";
+  }
+
   // Feed the creature (the food row and the dishes). A craving for this very food is answered in the same `act` when the meal is eaten: Bond XP, once. Kid Mode, and any other feeding, is the old
   // `act(feed)` unchanged. Returns the meal's result and the Bond level the craving's XP reached (null for none).
   feed(food: FoodId, dish?: DishId): { result: FeedResult; levelUp: number | null } {
@@ -462,6 +636,7 @@ export class Game {
     if (this.arena && (this.save.phase !== "alive" || c?.formId !== this.arena.battle.me.formId)) this.arena = null; // the creature is gone or has evolved: that fight is over
     if (this.training && (this.save.phase !== "alive" || !c || c.bornAt !== this.training.bornAt)) this.training = null; // the creature is gone or another one hatched (an evolution goes on: it pays with the new stage's cap)
     if (this.initiative && (this.save.phase !== "alive" || !c || c.bornAt !== this.initiative.bornAt || !isAdultMode(this.save))) this.clearInitiative(); // not on every call: a toss, a pet or a meal goes through here too
+    this.dropVisitIfGone(); // the creature left the field, died, or another hatched: its tappables go with it
     this.listeners.forEach((listener) => listener());
     this.scheduleSave();
   }
@@ -474,6 +649,7 @@ export class Game {
     this.lastReal = real;
     if (simulateTo(this.save, gameNow(this.save, real)) > 0) this.changed(false);
     this.stepInitiative(elapsed);
+    this.stepTappables(elapsed);
   }
 
   // Run something the player did, then refresh the screens.
@@ -493,6 +669,7 @@ export class Game {
     this.clearInitiative();
     this.initiativeClock = 0;
     this.initiativeWait = null; // (a new game draws its own wait)
+    this.endVisit(); // (and its own visit)
     this.view.moment = null; // a scene belongs to the old game
     this.dropNote();
     this.view.shown = shownOf(save);
