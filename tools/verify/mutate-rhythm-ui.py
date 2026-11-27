@@ -67,7 +67,7 @@ DATA = "src/data/rhythm.ts"
 # Text only RhythmRun has. Run (Bug Catch) shares much of its code with it, so a mutant of RhythmRun anchors on a neighbour that Run does not have.
 RHYTHM_PAUSE = "              pause(run);\n              bump();\n            }}\n          >\n            Pause\n          </button>\n          <button class=\"btn small\" onClick={() => game.closeTraining()}>\n            Quit\n          </button>\n        </div>\n      </div>\n      <div class=\"train-field rhythm-track\""
 RHYTHM_RESUME = "            if (e.detail === 0) tapped();\n          }}\n        />\n        {run.paused && (\n          <button\n            class=\"train-paused\"\n            onClick={() => {\n              resume(run);\n              bump();"
-RHYTHM_VISIBLE = "    const onVisibility = (): void => {\n      if (document.visibilityState === \"hidden\" && !run.over) {\n        pause(run);\n        bump();\n      }\n    };\n    document.addEventListener(\"visibilitychange\", onVisibility);\n    return () => document.removeEventListener(\"visibilitychange\", onVisibility);\n  }, [run]);\n\n  // A tap (the press, not the release"
+RHYTHM_VISIBLE = "      if (stepRhythm(run, dt)) bump();\n      place();\n      if (run.over) {\n        game.finishTraining();\n        return;\n      }\n      raf = requestAnimationFrame(frame);\n    };\n    raf = requestAnimationFrame(frame);\n    return () => cancelAnimationFrame(raf);\n  }, [run]);\n\n  useEffect(() => {\n    const onVisibility = (): void => {\n      if (document.visibilityState === \"hidden\" && !run.over) {\n        pause(run);\n        bump();\n      }\n    };\n    document.addEventListener(\"visibilitychange\", onVisibility);\n    return () => document.removeEventListener(\"visibilitychange\", onVisibility);\n  }, [run]);\n\n  // A tap (the press, not the release"
 RHYTHM_FINISH = "      if (stepRhythm(run, dt)) bump();\n      place();\n      if (run.over) {\n        game.finishTraining();\n        return;"
 RHYTHM_WRITES = "    if (timeEl.current) timeEl.current.textContent = String(secondsLeft(run));\n    if (scoreEl.current) scoreEl.current.textContent = String(run.score);\n    if (streakEl.current) streakEl.current.textContent = String(run.streak);\n    const said = run.said;"
 
@@ -85,8 +85,8 @@ MUTANTS = [
     m("picker-click-does-nothing", ["rg-pick"], "a click on a picker button picks nothing", [(TRAIN, "onClick={() => game.pickTrainGame(id)}", "onClick={() => {}}")]),
     m("card-always-shows-bug-catch", ["rg-pick"], "the start card reads Bug Catch whatever the pick", [(TRAIN, 'const picked = game.training?.game ?? "bug";', 'const picked = "bug" as "bug" | "rhythm";')]),
     m("reward-counts-speed", ["rg-pick"], "the start card's line counts Speed sessions for Rhythm Grove", [(TRAIN, "trainedToday(c, stat, localDay(game.now())).count", 'trainedToday(c, "spd", localDay(game.now())).count')]),
-    m("blurb-is-bug-catchs", ["rg-pick"], "the start card gives Bug Catch's blurb for Rhythm Grove", [(TRAIN, "{blurbs[picked]} It trains {statName}.", "{blurbs.bug} It trains {statName}.")]),
-    m("stat-word-is-speed", ["rg-pick"], "the start card says it trains Speed", [(TRAIN, "{blurbs[picked]} It trains {statName}.", "{blurbs[picked]} It trains Speed.")]),
+    m("blurb-is-bug-catchs", ["rg-pick"], "the start card gives Bug Catch's blurb for Rhythm Grove", [(TRAIN, '{blurbOf(picked, game.training?.stage ?? "adult")} It trains {statName}.', '{blurbOf("bug", game.training?.stage ?? "adult")} It trains {statName}.')]),
+    m("stat-word-is-speed", ["rg-pick"], "the start card says it trains Speed", [(TRAIN, '{blurbOf(picked, game.training?.stage ?? "adult")} It trains {statName}.', '{blurbOf(picked, game.training?.stage ?? "adult")} It trains Speed.')]),
     m("dialog-says-bug-catch", ["rg-pick", "rg-a11y", "rg-run"], "the dialog is named Bug Catch whatever the game", [(TRAIN, "aria-label={trainGames[t.game].name}", 'aria-label="Bug Catch"')]),
     m("result-heading-says-bug-catch", ["rg-run"], "the result card's heading is Bug Catch whatever the game", [(TRAIN, 'trainGames[game.training?.game ?? "bug"].name', '"Bug Catch"')]),
     m("go-does-nothing", ["rg-pick"], "the start card's Go button does nothing", [(TRAIN, "ref={goRef} onClick={() => game.beginTraining()}", "ref={goRef} onClick={() => {}}")]),
@@ -103,7 +103,7 @@ MUTANTS = [
     m("hidden-page-keeps-running", ["rg-hidden"], "a hidden page does not pause the run", [(TRAIN, RHYTHM_VISIBLE, RHYTHM_VISIBLE.replace('if (document.visibilityState === "hidden" && !run.over) {', "if (false && !run.over) {", 1))]),
     # what a tap says
     m("said-text-not-written", ["rg-beat"], "the line over the track never gets its words", [(TRAIN, "      saidEl.current.textContent = saidLine(said);\n", "")]),
-    m("said-judge-not-marked", ["rg-beat", "rg-hop"], "the line over the track carries no data-judge", [(TRAIN, "      saidEl.current.dataset.judge = said.judge;\n", "")]),
+    m("said-judge-not-marked", ["rg-beat", "rg-hop"], "the line over the track carries no data-judge", [(TRAIN, "      saidEl.current.textContent = saidLine(said);\n      saidEl.current.dataset.judge = said.judge;\n", "      saidEl.current.textContent = saidLine(said);\n")]),
     m("said-offset-not-marked", ["rg-beat"], "the line over the track carries no data-delta", [(TRAIN, "      saidEl.current.dataset.delta = String(said.deltaMs);\n", "")]),
     m("score-not-shown", ["rg-beat"], "the score number is never written by the per-frame write", [(TRAIN, RHYTHM_WRITES, RHYTHM_WRITES.replace("    if (scoreEl.current) scoreEl.current.textContent = String(run.score);\n", "", 1))]),
     m("time-not-shown", ["rg-clock"], "the seconds left are written only when the component is drawn again, not by the per-frame write", [(TRAIN, RHYTHM_WRITES, RHYTHM_WRITES.replace("    if (timeEl.current) timeEl.current.textContent = String(secondsLeft(run));\n", "", 1))]),
@@ -142,7 +142,7 @@ MUTANTS = [
 #  - `touch-action: none` on `.rhythm-pad`: the pad's parent, `.train-field`, has it too, and a browser takes the most restrictive touch-action along the ancestors up to the scroller.
 EQUIVALENT = [
     m("reduced-motion-hop-rule-dropped", ["rg-hop"], "the hop has no reduced-motion rule of its own, the global one still holds", [(CSS, "  .rhythm-face[data-hop] {\n    animation: none;\n  }", "  .rhythm-face[data-hop] {\n    animation: rhythm-hop 220ms ease-out;\n  }")]),
-    m("pad-touch-action-dropped", ["rg-touch"], "the pad has no touch-action of its own, the field's still holds", [(CSS, "  inset: 0;\n  padding: 0;\n  border: 0;\n  border-radius: inherit;\n  background: transparent;\n  cursor: pointer;\n  touch-action: none;", "  inset: 0;\n  padding: 0;\n  border: 0;\n  border-radius: inherit;\n  background: transparent;\n  cursor: pointer;")]),
+    m("pad-touch-action-dropped", ["rg-touch"], "the pad has no touch-action of its own, the field's still holds", [(CSS, ".rhythm-pad {\n  position: absolute;\n  inset: 0;\n  padding: 0;\n  border: 0;\n  border-radius: inherit;\n  background: transparent;\n  cursor: pointer;\n  touch-action: none;", ".rhythm-pad {\n  position: absolute;\n  inset: 0;\n  padding: 0;\n  border: 0;\n  border-radius: inherit;\n  background: transparent;\n  cursor: pointer;")]),
 ]
 
 

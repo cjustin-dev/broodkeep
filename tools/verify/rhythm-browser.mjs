@@ -388,13 +388,13 @@ const CHECKS = {
     let s = await read(page);
     expectEq([s.dialog, s.heading], ["Bug Catch", "Bug Catch"], "the dialog's name and the heading on the first card");
     expectEq(s.pickerRole, ["group", "Training game"], "the picker's role and name");
-    expectEq(s.picker.map((b) => [b.name, b.pressed]), [["Bug Catch", "true"], ["Rhythm Grove", "false"]], "the picker before a pick");
+    expectEq(s.picker.map((b) => [b.name, b.pressed]), [["Bug Catch", "true"], ["Rhythm Grove", "false"], ["Stack & Balance", "false"]], "the picker before a pick");
     expectEq(s.reward, "Speed: Bond XP only today", "the reward line with 6 Speed sessions counted");
     expectEq(s.focus, "Go", "the focused button on the start card");
     await pickRhythm(page);
     s = await read(page);
     expectEq(s.heading, "Rhythm Grove", "the heading after the pick");
-    expectEq(s.picker.map((b) => [b.name, b.pressed]), [["Bug Catch", "false"], ["Rhythm Grove", "true"]], "the picker after the pick");
+    expectEq(s.picker.map((b) => [b.name, b.pressed]), [["Bug Catch", "false"], ["Rhythm Grove", "true"], ["Stack & Balance", "false"]], "the picker after the pick");
     expectEq(s.reward, "Spirit: full reward, 3 of 3 today", "the reward line with 2 Spirit sessions counted");
     expectEq(
       s.hints,
@@ -417,7 +417,7 @@ const CHECKS = {
     expectEq((await read(page)).phase, "closed", "the screen after Close");
     await openStartCard(page);
     s = await read(page);
-    expectEq([s.dialog, s.picker.map((b) => b.pressed), s.reward], ["Rhythm Grove", ["false", "true"], "Spirit: full reward, 3 of 3 today"], "the next card (the pick is kept for the visit)");
+    expectEq([s.dialog, s.picker.map((b) => b.pressed), s.reward], ["Rhythm Grove", ["false", "true", "false"], "Spirit: full reward, 3 of 3 today"], "the next card (the pick is kept for the visit)");
     await pressGo(page);
     s = await read(page);
     expectEq([s.track !== null, s.bugs, s.dialog], [true, 0, "Rhythm Grove"], "Go began Rhythm Grove: a track, no bugs, the dialog's name");
@@ -696,7 +696,7 @@ const CHECKS = {
     const { page, errors } = await open(adult());
     await openStartCard(page);
     let s = await read(page);
-    expectEq([s.pickerRole, s.picker.map((b) => b.name)], [["group", "Training game"], ["Bug Catch", "Rhythm Grove"]], "the picker's role, name and buttons");
+    expectEq([s.pickerRole, s.picker.map((b) => b.name)], [["group", "Training game"], ["Bug Catch", "Rhythm Grove", "Stack & Balance"]], "the picker's role, name and buttons");
     await pickRhythm(page);
     await pressGo(page);
     const tl = { at: 20 };

@@ -198,7 +198,7 @@ describe("a Rhythm Grove session on the game (edge cases 16 to 18)", () => {
     expect([game.training!.game, game.trainPick]).toEqual(["bug", "bug"]);
     game.pickTrainGame("rhythm");
     expect([game.training!.game, game.trainPick]).toEqual(["rhythm", "rhythm"]);
-    game.pickTrainGame("stack" as never);
+    game.pickTrainGame("sky" as never);
     expect(game.training!.game).toBe("rhythm");
     game.beginTraining();
     game.pickTrainGame("bug");

@@ -76,6 +76,11 @@ Playwright is not a dependency of the game. The scripts take it from `~/homelab-
 | `mutate-rhythm-ui.py` | Mutation run for Rhythm Grove's screen side (the picker, the track and its clip, the tap, the pause, the hop, the said line, the accessible names, the layout): 47 mutants plus 2 argued equivalents (`reduced-motion-hop-rule-dropped`, `pad-touch-action-dropped`), each rebuilt and served on port 4184, and only its named check ids run at its own window. `--check-targets` proves every `old` text occurs exactly once; `--equivalents` runs the equivalent ones, which must survive. Works on `$VERIFY_OUT/rhythm-ui-copy`, made once: delete it, and every other `*-ui-copy`, after any change to `src/`. |
 | `run-sheet-rhythm.sh`, `sheet-rhythm.mjs` | The Rhythm Grove contact sheet (12 states: the start card with Bug Catch picked, with Rhythm Grove picked and with 6 Spirit sessions counted; the track at the notes' approach on Land, Water and Sky for an adult and on Land for a kid; a Perfect with the hop; a stray; the Paused card; the result card of a run left alone and of a run played with taps) at five windows, as `$VERIFY_OUT/sheet-rhythm/<state>-<W>x<H>@<ratio>.png`. No assertions: look at it first. |
 | `rhythm-bands.ts` | Prints the score percentiles of the stand-in player's 1000 seeded runs for each field and stage (`tests/rhythmBot.ts`), the best a steady tapper reaches over 40 to 700 ms, and where the lines in `src/data/rhythm.ts` stand. The band lines are written from this output. Run it with the esbuild line in its header (`PLAYER='{"sigmaMs":60}'` tries other numbers). No assertions. |
+| `run-stack.sh`, `stack-browser.mjs` | The Stack & Balance checks (9 ids, 24 check runs: `sb-kid`, `sb-pick`, `sb-clock`, `sb-drop`, `sb-hidden`, `sb-touch`, `sb-run`, `sb-a11y`, `sb-fit`) against `dist/`, on a paused fake clock moved only by `runFor`: Kid Mode showing nothing of training, the third picker button and the start card's words, the moving block moving only under the fake clock, a drop read as wobble, Perfect, Good and a fall with the right words and blocks drawn, the 400 ms gap, a hidden page and Pause, a real finger that drops on the press (and a lift or a drag that drops nothing more), a whole run paid into the saved game, the names for a screen reader and Enter on the pad, and everything fitting at nine windows. The page's run clock lags the fake clock by 0 to about 45 ms, so every literal is worked out from that bound in the header and the check comments. |
+| `mutate-stack-unit.py` | Mutation run for Stack & Balance's rules (`src/game/stack.ts`, `src/data/stack.ts`, `src/data/training.ts`, `src/game/training.ts`, `src/ui/game.ts`): 137 mutants plus 2 argued equivalents (`overlap-floor-dropped`, `begin-creature-guard`), each must fail its named test in `tests/stack.test.ts` or `tests/stack-game.test.ts` (only that file runs for the mutant). `--list` checks every `old` occurs once and every `expect` is a real `it("...")` title; `--equivalents` runs the two, which must survive; `--only id,id` runs some. Works on a copy. |
+| `mutate-stack-ui.py` | Mutation run for Stack & Balance's screen side (the picker and start card, the moving block and its clock, the drop and the words, the stack's blocks, the pause, the touch, the names, the layout): 55 mutants plus 4 argued equivalents (`height-not-written-per-frame`, `drop-always-redraws`, `stack-field-does-not-clip`, `stack-pad-touch-action-dropped`), each rebuilt and served on port 4185, and only its named check ids run at its own window. A window other than 360x640@2 first gets a clean run of its ids. `--check-targets` proves every `old` text occurs exactly once; `--equivalents` runs the equivalent ones, which must survive. Works on `$VERIFY_OUT/stack-ui-copy`, made once: delete it, and every other `*-ui-copy`, after any change to `src/`. |
+| `run-sheet-stack.sh`, `sheet-stack.mjs`, `stitch-stack.py` | The Stack & Balance contact sheet (12 states: the start card with Stack picked and with Strength used up, the play screen at the start, after a Perfect, a Good and a wobble, a stack 16 high, the kid's play screen, the Paused card, the three result cards) at five windows, as `$VERIFY_OUT/sheet-stack/<state>-<W>x<H>@<ratio>.png`, then one joined `sheet-<W>x<H>@<ratio>.png` for each window. No assertions: look at it first. |
+| `stack-bands.ts` | Prints the score percentiles of the stand-in player's 1000 seeded runs for each stage (`tests/stackBot.ts`), the best a steady tapper and the best player who drops once and waits reach, how many runs end in a topple, and where the lines in `src/data/stack.ts` stand. The band lines are written from this output. Run it with the esbuild line in its header (`PLAYER='{"sigmaMs":60}'` tries other numbers). No assertions. |
 | `lib.sh` | Shared by the run scripts: where output goes, and a server that refuses a port that already answers. |
 
 ## The usual order
@@ -169,6 +174,16 @@ tools/verify/run-sheet-rhythm.sh
 tools/verify/run-rhythm.sh
 python3 tools/verify/mutate-rhythm-unit.py
 python3 tools/verify/mutate-rhythm-ui.py
+tools/verify/run-kid.sh
+
+# Stack & Balance (A4.2), the same order; it edits game.ts, TrainGame.tsx, app.css and training.ts, so first run --list on every unit runner and --check-targets on every UI runner
+tools/verify/run-sheet-stack.sh
+tools/verify/run-stack.sh
+python3 tools/verify/mutate-stack-unit.py
+python3 tools/verify/mutate-stack-ui.py
+tools/verify/run-rhythm.sh
+tools/verify/run-train.sh
+tools/verify/run-tap.sh
 tools/verify/run-kid.sh
 ```
 

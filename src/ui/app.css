@@ -2230,6 +2230,13 @@ body:has(.panel) {
   gap: 6px;
 }
 
+/* Go and Done stay on the screen when a card is taller than the window (Stack & Balance's blurb with three picker rows on a 320 px phone, a phone on its side): the button sticks to the bottom of the scrolling panel. */
+.train .btn.wide {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  box-shadow: 0 0 0 12px #120c20; /* the panel's own colour, so no text shows round the button as it scrolls under it */
+}
+
 /* Rhythm Grove (ui/TrainGame.tsx, RhythmRun): the track is the same square as Bug Catch's field. Each field has its own ground. The notes come down the middle lane to the line; the whole track is one
    big button (the pad), so a thumb never has to aim. A note comes on with its middle on the top edge, so the track clips it and the note slides in. */
 .rhythm-track {
@@ -2334,6 +2341,58 @@ body:has(.panel) {
 }
 
 .rhythm-pad {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* Stack & Balance (ui/TrainGame.tsx, StackRun): the same square field. The stack sits on the floor, the moving block slides across above it, and the whole field is one big button (the pad). Blocks and
+   the moving block are placed by percent of the field, in the engine's units. */
+.stack-field {
+  overflow: hidden;
+  background: linear-gradient(#5a8fd0, #a9d0f0);
+}
+
+.stack-block,
+.stack-mover {
+  position: absolute;
+  box-sizing: border-box;
+  background: #ffd25a;
+  box-shadow: inset 0 0 0 2px #1a1020;
+  pointer-events: none;
+}
+
+.stack-block[data-base] {
+  background: #8a5a3a;
+}
+
+.stack-mover {
+  top: 23%;
+  height: 5%;
+  background: #f08a24;
+}
+
+.stack-said {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6%;
+  margin: 0;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(18, 12, 32, 0.9), 0 0 4px rgba(18, 12, 32, 0.9);
+  pointer-events: none;
+}
+
+.stack-pad {
   position: absolute;
   inset: 0;
   padding: 0;
