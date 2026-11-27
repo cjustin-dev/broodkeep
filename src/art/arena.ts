@@ -7,7 +7,7 @@ import { getForm } from "../data/forms";
 import type { Battle, BattleEvent, Side } from "../game/combat/battle";
 import { currentHp, maxHp } from "../game/combat/stats";
 import type { Save } from "../game/state";
-import { hourOf } from "../game/time";
+import { hourOf, realClock } from "../game/time";
 import { faceSprite, isWide } from "./face";
 import type { FaceKind } from "./face";
 import { ROOM } from "./layout";
@@ -224,7 +224,7 @@ function drawStrikes(ctx: CanvasRenderingContext2D, show: ArenaShow): void {
 
 export function drawArena(ctx: CanvasRenderingContext2D, save: Save, gameNowMs: number, clock: number, show: ArenaShow | null): void {
   ctx.imageSmoothingEnabled = false;
-  const hour = hourOf(gameNowMs);
+  const hour = hourOf(realClock(save, gameNowMs));
   drawGround(ctx, hour);
   const c = save.phase === "alive" ? save.creature : null;
   if (!c) return;

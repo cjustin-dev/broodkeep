@@ -22,6 +22,7 @@ import {
   wellnessState,
 } from "../game/hud";
 import type { FightInfo, HudStat } from "../game/hud";
+import { realClock } from "../game/time";
 import type { Roster } from "../sync/roster";
 import type { Game } from "./game";
 import { Icon } from "./Icon";
@@ -91,7 +92,7 @@ function StatusStrip({ game, roster, now, onSwitch, onBook, onSettings, onForeca
           <button class="strip-id strip-open" aria-label={`Growth Forecast, ${name}, ${stage}`} onClick={onForecast}>
             <span class="strip-name">{name}</span>
             <span class="strip-sub">
-              {`${stage} · ${clockText(now)}`}
+              {`${stage} · ${clockText(realClock(save, now))}`}
               <span class="strip-more" aria-hidden="true">
                 {" ›"}
               </span>
@@ -100,7 +101,7 @@ function StatusStrip({ game, roster, now, onSwitch, onBook, onSettings, onForeca
         ) : (
           <div class="strip-id">
             <span class="strip-name">{name}</span>
-            <span class="strip-sub">{stage ? `${stage} · ${clockText(now)}` : clockText(now)}</span>
+            <span class="strip-sub">{stage ? `${stage} · ${clockText(realClock(save, now))}` : clockText(realClock(save, now))}</span>
           </div>
         )}
         <button class="btn strip-btn" aria-label={`Creature Book, ${percent}% found`} onClick={onBook}>

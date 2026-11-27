@@ -414,6 +414,13 @@ describe("the context line", () => {
     expect(line(save, at(23, 0))).toBe("Asleep");
   });
 
+  it("says when it wakes on the real clock when the game clock is sped up", () => {
+    const { save, c } = creature(NIGHT, [20, 7]);
+    c.sleep = "night";
+    save.clockOffsetMs = 8 * HOUR; // real 23:00 is game 07:00 the next day, which the game clock calls morning
+    expect(line(save, at(23, 0) + 8 * HOUR)).toBe("Asleep · wakes 7 am (in 8:00)");
+  });
+
   it("says a nap ends when it is rested", () => {
     const { save, c } = creature();
     c.sleep = "nap";

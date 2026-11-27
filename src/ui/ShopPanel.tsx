@@ -13,7 +13,7 @@ import { getForm } from "../data/forms";
 import { itemIds, items } from "../data/shop";
 import type { HatId, ItemId } from "../data/shop";
 import { buy, buyRefusal, poorText, undoBuy, undoLeftMs, useHat, useWall } from "../game/shop";
-import { hourOf } from "../game/time";
+import { hourOf, realClock } from "../game/time";
 import type { Save } from "../game/state";
 import { useSecond } from "./AdultHud";
 import type { Game } from "./game";
@@ -186,7 +186,7 @@ export function ShopPanel({ game, onClose }: { game: Game; onClose: () => void }
             <>
               <Preview
                 look={lookWith(save, picked)}
-                hour={hourOf(now)}
+                hour={hourOf(realClock(save, now))}
                 room={roomOfItem(picked)}
                 label={pickedHat ? `Your creature wearing ${items[picked].name}` : `Your room with ${items[picked].name}`}
                 wearing={wearing}

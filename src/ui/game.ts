@@ -668,7 +668,8 @@ export class Game {
     const elapsed = real - this.lastReal; // real time since the last tick (the dev speed does not change it)
     advanceClock(this.save, elapsed, this.devSpeed);
     this.lastReal = real;
-    if (simulateTo(this.save, gameNow(this.save, real)) > 0) this.changed(false);
+    // A sped-up tick covers a stretch of game time much longer than the real second that passed: it reads bedtime from the real clock now (see simulateTo).
+    if (simulateTo(this.save, gameNow(this.save, real), this.devSpeed > 1 ? real : undefined) > 0) this.changed(false);
     this.stepInitiative(elapsed);
     this.stepTappables(elapsed);
   }

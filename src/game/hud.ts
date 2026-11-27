@@ -18,7 +18,7 @@ import { stageHours } from "./growth";
 import { preferenceLine } from "./initiatives";
 import { clamp } from "./state";
 import type { CallKind, Creature, Save } from "./state";
-import { MINUTE, hourOf, isNightHour } from "./time";
+import { MINUTE, hourOf, isNightHour, realClock } from "./time";
 
 export type HudStat = DrainStat | "wellness";
 export const hudStats: HudStat[] = ["hunger", "happiness", "energy", "hygiene", "wellness"];
@@ -63,7 +63,7 @@ export function formatMmSs(ms: number): string {
 
 export const hourLabel = (h: number): string => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;
 
-// The clock in the strip, in game time: "7:05 pm".
+// The clock in the strip: "7:05 pm". Takes a moment on the real clock (the callers pass `realClock(save, now)`).
 export function clockText(nowMs: number): string {
   const h = hourOf(nowMs);
   const mm = String(new Date(nowMs).getMinutes()).padStart(2, "0");
@@ -296,8 +296,9 @@ export function backText(job: NonNullable<Creature["job"]>, nowMs: number): stri
 
 // When a night sleep ends: "wakes 7 am (in 2:14)". Null when there is no night (the start hour equals the end hour), which a saved game can only be given by hand.
 export function wakeText(save: Save, nowMs: number): string | null {
-  const wake = nextWake(nowMs, save.settings.sleepStartHour, save.settings.sleepEndHour);
-  return wake === null ? null : `wakes ${hourLabel(hourOf(wake))} (in ${formatHm(Math.ceil((wake - nowMs) / MINUTE))})`;
+  const real = realClock(save, nowMs); // the night is the real clock's, so is the wake time
+  const wake = nextWake(real, save.settings.sleepStartHour, save.settings.sleepEndHour);
+  return wake === null ? null : `wakes ${hourLabel(hourOf(wake))} (in ${formatHm(Math.ceil((wake - real) / MINUTE))})`;
 }
 
 // When a nap ends: "wakes when rested (energy 41 of 100)".

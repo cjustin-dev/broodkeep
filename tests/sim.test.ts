@@ -173,6 +173,39 @@ describe("sleep", () => {
     expect(save.creature?.sleep).toBeNull();
   });
 
+  // Dev mode speeds the game clock up by adding clockOffsetMs. Bedtime follows the real clock: game time less that offset.
+  it("keeps bedtime on the real clock: awake in the real afternoon though the game clock says night", () => {
+    const offset = 8 * HOUR; // real 14:00 is game 22:00
+    const save = aliveSave("pebblin", at(14, 0) + offset);
+    save.clockOffsetMs = offset;
+    simulateTo(save, at(14, 30) + offset);
+    expect(save.creature?.sleep).toBeNull();
+    const plain = aliveSave("pebblin", at(22, 0)); // the same game hours with no offset are night
+    simulateTo(plain, at(22, 30));
+    expect(plain.creature?.sleep).toBe("night");
+  });
+
+  it("keeps bedtime on the real clock: asleep in the real night though the game clock says afternoon", () => {
+    const offset = 17 * HOUR; // real 21:00 on the 5th is game 14:00 on the 6th
+    const save = aliveSave("pebblin", at(21, 0) + offset);
+    save.clockOffsetMs = offset;
+    simulateTo(save, at(21, 30) + offset);
+    expect(save.creature?.sleep).toBe("night");
+    const plain = aliveSave("pebblin", at(14, 0, 6)); // the same game hours with no offset are day
+    simulateTo(plain, at(14, 30, 6));
+    expect(plain.creature?.sleep).toBeNull();
+  });
+
+  it("wakes at exactly the real end hour when the game clock is sped up", () => {
+    const offset = 5 * HOUR; // real 06:50 is game 11:50
+    const save = aliveSave("pebblin", at(6, 50) + offset);
+    save.clockOffsetMs = offset;
+    simulateTo(save, at(6, 59) + offset);
+    expect(save.creature?.sleep).toBe("night");
+    simulateTo(save, at(7, 0) + offset);
+    expect(save.creature?.sleep).toBeNull();
+  });
+
   it("never sleeps if the start and end hours are the same", () => {
     const save = aliveSave("pebblin", at(8));
     save.settings = { sleepStartHour: 7, sleepEndHour: 7 };

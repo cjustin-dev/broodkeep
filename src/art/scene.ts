@@ -5,7 +5,7 @@ import { getForm } from "../data/forms";
 import type { Layout } from "../data/home";
 import { FOND_LEVEL, bondAtLeast } from "../game/bond";
 import type { CallKind, Save } from "../game/state";
-import { MINUTE, hourOf } from "../game/time";
+import { MINUTE, hourOf, realClock } from "../game/time";
 import { tuning } from "../data/tuning";
 import { MEAL, eyesClosed, foodLeft, frameOf, poseOffsets, snackCut } from "./idle";
 import type { Mood, Snack, View } from "./idle";
@@ -86,8 +86,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
   const look = layout ? { ...lookOf(save), layout } : lookOf(save);
   // In the home: the three rooms. In the one-line room: a living creature that is out in a field (and not away on a job) is drawn in the field, and anything else in the
   // room.
-  if (home) drawHomeBack(ctx, hourOf(gameNowMs), look);
-  else if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hourOf(gameNowMs), look);
+  const hour = hourOf(realClock(save, gameNowMs)); // the light follows the real clock, not the sped-up game clock
+  if (home) drawHomeBack(ctx, hour, look);
+  else if (!(alive && !c.job && c.place !== "home" && drawField(ctx, c.place))) drawRoom(ctx, hour, look);
 
   // Furniture is drawn in two layers round whatever stands in the home: the pieces whose bottom edge is at or above the feet first, then the thing, then the rest.
   // (Asleep in bed, dead, away: nothing is walking among the furniture, so all of it goes first.)
