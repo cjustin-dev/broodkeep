@@ -301,3 +301,16 @@ Unit tests and the Game tests, `npm test`, typecheck and build with `$?` taken d
 12. LOW, the idle literals for young and adult: **fixed** (edge 15).
 13. LOW, check 30 had no mutant listed: **fixed** (mutation targets say the Kid compare's self-test stands for it).
 14. LOW, "never pauses": **fixed** (reworded in decision 4).
+
+
+## 9. What was built differently from plan v3 of section 6 (2026-11-27)
+
+Differences found by comparing the build with decisions 1 to 14 of section 6 (each checked against the code or a run, not recalled):
+
+- **Go and Done are sticky.** Not in the plan. The start card with three picker rows did not fit a 320 x 568 window (102 px over) or a phone on its side (740 x 360, 44 px over); `.train .btn.wide` is now `position: sticky` at the bottom of the scrolling panel with a 12 px halo. It changes the same button in Bug Catch and Rhythm Grove (decisions.md, A4.2). Found by the first `sb-fit` run, not by a plan edge case.
+- **Result lines print raw numbers.** Decision 10 wrote "Gold: 1,234 points"; the code prints `1234 points`, as the other two games print theirs (`firstLine` in `game/training.ts`).
+- **A steady tapper's best score is 35 at every stage, not 40, 40 and 45.** The plan's figures came from the throwaway JavaScript model; the build's engine and `tests/stackBot.ts` give 35 (`tools/verify/stack-bands.ts`, 2026-11-27). The waiting player's 385, 390 and 390 held.
+- **`landAt` is exported** (decision 3 named `dropStack` only), so a test can state an exact block position.
+- **One extra unit test beyond the edge list:** a run that fell after blocks had landed is paid for the blocks and the seconds it stood (found when a reviewer showed that no test paid a toppled run; the test of a run with no block was misnamed).
+- **The mutation runner's `height-from-catches` is a normal mutant.** I had argued it equivalent (in play `catches` and the height are both the blocks landed); `--equivalents` showed the words test builds results where they differ, so it is caught by that test and moved out of the equivalent list. And `stand-points-tuned` was first paired with the steady-tapper test, which cannot fail on it (a steady tapper's stack falls within about a second); it is paired with the tuning-literals test.
+- **Checks measured and loosened or tightened in the build** (browser timing, not rules): the second Perfect in `sb-run` is tapped 40 ms before the block is over the base so the Score read after it cannot straddle a whole standing second; the `sb-clock` start and resume thresholds follow the arithmetic in their comments.

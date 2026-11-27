@@ -15,6 +15,8 @@ import { rhythmBandOf } from "./rhythm";
 import type { RhythmState } from "./rhythm";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
+import { heightOf, scoreOf, stackBandOf } from "./stack";
+import type { StackState } from "./stack";
 import { logEvent } from "./state";
 import type { Creature, Save } from "./state";
 import { localDay } from "./time";
@@ -222,6 +224,7 @@ export interface TrainResult {
   bondXp: number; // really added
   level: number | null; // the Bond level reached, or null
   rhythm?: { perfects: number; goods: number; missed: number; strays: number; best: number }; // Rhythm Grove only
+  stack?: { height: number; perfects: number; goods: number; badDrops: number; toppled: boolean; standSeconds: number; best: number }; // Stack & Balance only
 }
 
 // The end of every game's session (docs/adult-a4-plan.md section 2, decision 3): the day's count of the game's stat and its tier, the stat's points (never past the stage cap), Discipline and Bond XP by
@@ -269,6 +272,15 @@ export function payRhythm(save: Save, c: Creature | null, run: RhythmState, nowM
   return result;
 }
 
+// The same for a finished Stack & Balance run: Strength, by the band of its score (the blocks' points plus the seconds the stack stood). A run where no Perfect or Good landed pays nothing.
+export function payStack(save: Save, c: Creature | null, run: StackState, nowMs: number): TrainResult | null {
+  if (save.phase !== "alive" || !c || c.job) return null;
+  const score = scoreOf(run);
+  const result = paySession(save, c, "stack", stackBandOf(score, run.stage), score, run.perfects + run.goods, nowMs);
+  result.stack = { height: heightOf(run), perfects: run.perfects, goods: run.goods, badDrops: run.badDrops, toppled: run.toppled, standSeconds: Math.floor(run.standMs / 1000), best: run.best };
+  return result;
+}
+
 // What a burst in a field paid (docs/adult-a3-plan.md section 17, decision 8). No Speed, no Discipline and no day count: the 75 second session is the training.
 export interface BurstResult {
   burst: true;
@@ -309,6 +321,27 @@ export function startLine(game: TrainGameId, count: number): string {
   return `${word}: Bond XP only today`;
 }
 
+// What the card says for a run that did nothing, and the first line of one that did: each game counts its own kind of hit.
+const nothingToPay: Record<TrainGameId, string> = {
+  bug: "No bugs caught: nothing to pay.",
+  rhythm: "No notes hit: nothing to pay.",
+  stack: "No block landed: nothing to pay.",
+};
+
+function firstLine(r: TrainResult): string {
+  const head = `${bandName(r.band)}: ${r.score} points`;
+  switch (r.game) {
+    case "bug":
+      return `${head}, ${r.catches} caught`;
+    case "rhythm":
+      return `${head}, ${r.catches} ${r.catches === 1 ? "note" : "notes"} hit`;
+    default: {
+      const height = r.stack?.height ?? r.catches;
+      return `${head}, ${height} ${height === 1 ? "block" : "blocks"} high`;
+    }
+  }
+}
+
 // The result card's lines, one after the other.
 export function resultLines(r: TrainResult | BurstResult): string[] {
   if ("burst" in r) {
@@ -319,10 +352,15 @@ export function resultLines(r: TrainResult | BurstResult): string[] {
     if (r.level !== null) lines.push(`Bond level ${r.level}`);
     return lines;
   }
-  if (!r.counted) return [r.game === "bug" ? "No bugs caught: nothing to pay." : "No notes hit: nothing to pay."];
+  if (!r.counted) return [nothingToPay[r.game]];
   const word = trainGames[r.game].statName;
-  const lines = [r.game === "bug" ? `${bandName(r.band)}: ${r.score} points, ${r.catches} caught` : `${bandName(r.band)}: ${r.score} points, ${r.catches} ${r.catches === 1 ? "note" : "notes"} hit`];
+  const lines = [firstLine(r)];
   if (r.rhythm) lines.push(`Perfect ${r.rhythm.perfects}, Good ${r.rhythm.goods}, missed ${r.rhythm.missed}, no note ${r.rhythm.strays}, best streak ${r.rhythm.best}`);
+  if (r.stack) {
+    lines.push(`Perfect ${r.stack.perfects}, Good ${r.stack.goods}, bad drops ${r.stack.badDrops}, best combo ${r.stack.best}`);
+    const seconds = `${r.stack.standSeconds} ${r.stack.standSeconds === 1 ? "second" : "seconds"}`;
+    lines.push(r.stack.toppled ? `The stack stood ${seconds}, then fell.` : `The stack stood for ${seconds}.`);
+  }
   if (r.points > 0) lines.push(`+${r.points} ${word}`);
   else if (r.tier === "none") lines.push(`Bond XP only now: today's ${word} sessions are used up`);
   else if (r.capped) lines.push(`${word} is as high as it can go for now`);

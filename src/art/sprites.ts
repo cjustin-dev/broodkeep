@@ -72,7 +72,8 @@ export type IconName =
   | "done"
   | "bug"
   | "ball"
-  | "note";
+  | "note"
+  | "stack";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -580,6 +581,17 @@ export const icons: Record<IconName, Sprite> = {
     "..KKK...",
     ".KYYK...",
     "..KK....",
+  ]),
+  // Three blocks, the top one a little off: Stack & Balance's button.
+  stack: icon([
+    "........",
+    "..KKKK..",
+    ".KYYYYK.",
+    ".KKKKKKK",
+    "KOOOOOOK",
+    "KKKKKKKK",
+    "KRRRRRRK",
+    "KKKKKKKK",
   ]),
   // A blue ball with a pale shine: the creature wants to play (an initiative bubble).
   ball: icon([
