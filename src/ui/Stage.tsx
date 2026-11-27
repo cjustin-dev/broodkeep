@@ -31,10 +31,12 @@ import { fields } from "../data/fields";
 import { foods } from "../data/foods";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
+import { tapTuning } from "../data/tappables";
 import { PIECE_NAMES, TILE, roomsBuilt, wallRoomOf } from "../data/home";
 import { tapEgg, touch } from "../game/actions";
 import { BIG_BURST_LEVEL, bondAtLeast } from "../game/bond";
 import { isAdultMode } from "../game/hud";
+import { tappableAt, touches } from "../game/tappables";
 import type { CallKind, Save } from "../game/state";
 import type { FoodId } from "../game/types";
 import type { Game } from "./game";
@@ -74,7 +76,7 @@ function describe(save: Save, game: Game): string {
   const room = place === "home" ? ` In the ${roomNames[roomOf(game.view.x + game.view.size / 2)]}.` : "";
   if (save.creature.sleep) return `${name} is asleep.${room}`;
   const where = place === "home" ? "" : `In the ${fields[place].name} field. `;
-  return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`) + offerOf(game, name) + room;
+  return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`) + offerOf(game, name) + (game.view.tappables.length > 0 ? " Something to tap on the ground." : "") + room;
 }
 
 // What an initiative offers, for screen readers (nothing while a call is on: the call has the bubble).
@@ -129,6 +131,7 @@ interface Hold {
   id: number; // which finger (pointer) started this hold
   petted: boolean;
   bubble?: boolean; // the finger landed on an initiative's bubble: a tap answers it, and there is no petting timer
+  tappable?: number; // the finger landed on a tappable in a field (its id): a lift still on it takes it, and there is no petting timer
   timer?: number;
   repeat?: number;
 }
@@ -221,6 +224,15 @@ export function Stage({ game }: { game: Game }) {
       if (cv.getAttribute("data-initiative") !== kind) kind === null ? cv.removeAttribute("data-initiative") : cv.setAttribute("data-initiative", kind);
       if (cv.getAttribute("data-bubble") !== box) box === null ? cv.removeAttribute("data-bubble") : cv.setAttribute("data-bubble", box);
     };
+    // For the browser checks: `data-tappables` lists what is on the ground in a field, one `kind:x,y,w,h` for each (the picture's box in CSS pixels from the canvas's top left corner), joined with `|`.
+    // Left off while there is none, and in Kid Mode, so the page is unchanged there.
+    const markTappables = (cv: HTMLCanvasElement, world: World): void => {
+      const list = world === "line" ? game.view.tappables : [];
+      const css = cv.getBoundingClientRect().width / cv.width;
+      const round = (n: number): number => Math.round(n * 10) / 10;
+      const value = list.length === 0 ? null : list.map((p) => `${p.kind}:${[p.x * size.k * css, p.y * size.k * css, tapTuning.size * size.k * css, tapTuning.size * size.k * css].map(round).join(",")}`).join("|");
+      if (cv.getAttribute("data-tappables") !== value) value === null ? cv.removeAttribute("data-tappables") : cv.setAttribute("data-tappables", value);
+    };
     const frame = (now: number): void => {
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
@@ -250,6 +262,7 @@ export function Stage({ game }: { game: Game }) {
         } else drawScene(ctx, game.save, game.view, game.now());
       }
       markBubble(canvas, world);
+      markTappables(canvas, world);
       if ((game.view.moment !== null) !== sceneNow.current) {
         sceneNow.current = game.view.moment !== null;
         setSceneState(sceneNow.current);
@@ -361,6 +374,19 @@ export function Stage({ game }: { game: Game }) {
     triggerPose(game.view, result.kind === "play" ? "hop" : "happy");
     addSparkles(game.view, result.kind === "play" && result.over ? 5 : 2);
     levelBurst(result);
+  };
+
+  // A tappable was tapped (a field, adult track A3.4). `tapTappable` pays and the creature reacts; this only shows a new Bond level, the usual burst.
+  const takeTappable = (id: number): void => {
+    const result = game.tapTappable(id);
+    if (result) levelBurst(result);
+  };
+
+  // The tappable a touch is for in a field's picture (the nearest of those it touches), or null: none showing, the home, Kid Mode.
+  const tappableUnder = (e: PointerEvent): { id: number; x: number; y: number } | null => {
+    if (game.view.world === "home" || game.view.tappables.length === 0) return null;
+    const at = pointOf(e);
+    return at ? tappableAt(game.view.tappables, at.x, at.y) : null;
   };
 
   const pet = (h: Hold): void => {
@@ -484,11 +510,12 @@ export function Stage({ game }: { game: Game }) {
     }
     if (game.atHabitat || game.atArena || game.save.creature?.job) return; // nothing to pet: the habitat and arena have their own buttons, and an away creature is not in the room
     const onBall = isOnBubble(e);
-    if (!onBall && !isOnTarget(e)) return;
+    const onTap = onBall ? null : tappableUnder(e); // (the bubble is over a tappable, and a tappable over the creature)
+    if (!onBall && !onTap && !isOnTarget(e)) return;
     endHold(); // a second finger replaces the first, so no petting timer is left running
     canvasRef.current?.setPointerCapture(e.pointerId);
-    const h: Hold = { id: e.pointerId, petted: false, bubble: onBall || undefined };
-    if (onBall) {
+    const h: Hold = { id: e.pointerId, petted: false, bubble: onBall || undefined, tappable: onTap?.id };
+    if (onBall || onTap) {
       hold.current = h;
       return;
     }
@@ -558,6 +585,12 @@ export function Stage({ game }: { game: Game }) {
     const h = endHold();
     if (h?.bubble) {
       if (isOnBubble(e)) answer(); // (the one-line picture has no pan: a finger that has left the bubble answers nothing)
+      return;
+    }
+    if (h?.tappable !== undefined) {
+      const mine = game.view.tappables.find((p) => p.id === h.tappable);
+      const at = pointOf(e);
+      if (mine && at && touches(mine, at.x, at.y)) takeTappable(mine.id); // (a finger that has left it takes nothing, and nothing is poked)
       return;
     }
     if (h && !h.petted) tap();

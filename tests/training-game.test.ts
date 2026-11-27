@@ -11,6 +11,7 @@ import { makeRng } from "../src/game/rng";
 import { hatchIfReady, makeCreature } from "../src/game/sim";
 import { HOUR, MINUTE } from "../src/game/time";
 import { catchBug, missTap, pause, resume, step, trainRefusal } from "../src/game/training";
+import type { TrainResult } from "../src/game/training";
 import { writeSave } from "../src/sync/local";
 import { Game } from "../src/ui/game";
 import type { StartTrainingResult } from "../src/ui/game";
@@ -176,7 +177,8 @@ describe("a session and the save", () => {
     game.finishTraining();
     const c = game.save.creature!;
     const t = game.training!;
-    expect([t.phase, t.result?.counted, t.result?.tier, c.training?.sessions.spd]).toEqual(["done", true, "full", 1]);
+    const paid = t.result as TrainResult | null; // (a session's result: a burst's is the other shape)
+    expect([t.phase, paid?.counted, paid?.tier, c.training?.sessions.spd]).toEqual(["done", true, "full", 1]);
     expect(seen[seen.length - 1], "the last wake sees the stored result").toBe(t.result);
     const after = JSON.stringify(game.save);
     const changed = vi.spyOn(game, "changed");
@@ -293,7 +295,7 @@ describe("what ends a session", () => {
     game.save.creature!.formId = stageForm("young");
     game.save.creature!.trained = { spd: 20 }; // the young cap, which is full
     game.finishTraining();
-    expect(game.training?.result?.capped).toBe(true);
+    expect((game.training?.result as TrainResult | null)?.capped).toBe(true);
     expect(game.training?.stage, "the difficulty row is the stage at the start").toBe("adult");
   });
 });

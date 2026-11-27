@@ -4,8 +4,11 @@
 
 import { combatTuning } from "../data/combat";
 import { getForm } from "../data/forms";
+import { materials } from "../data/habitat";
+import type { MaterialId } from "../data/habitat";
 import { trainTuning } from "../data/training";
 import type { Band, TrainStage } from "../data/training";
+import { pickups, tapTuning } from "../data/tappables";
 import { addBondXp, bondOf } from "./bond";
 import { addTrained } from "./combat/stats";
 import { makeRng } from "./rng";
@@ -16,7 +19,7 @@ import { localDay } from "./time";
 import { tierOf, trainedToday } from "./trainingDay";
 import type { Tier } from "./trainingDay";
 import { stageOrder } from "./types";
-import type { CombatStat } from "./types";
+import type { CombatStat, FieldId } from "./types";
 
 // (the day's count rules live in trainingDay.ts, which the loader in state.ts can import without a cycle)
 export { coerceTraining, tierOf, trainedToday } from "./trainingDay";
@@ -71,10 +74,11 @@ export interface BugCatchState {
   over: boolean;
 }
 
-export function newBugCatch(seed: number, stage: TrainStage): BugCatchState {
+// `lengthMs` is the session's length; a bug tapped in a field (docs/adult-a3-plan.md section 17, decision 8) plays a burst of 10 seconds.
+export function newBugCatch(seed: number, stage: TrainStage, lengthMs: number = t.sessionMs): BugCatchState {
   return {
     stage,
-    lengthMs: t.sessionMs,
+    lengthMs,
     elapsedMs: 0,
     carryMs: 0,
     rng: seed >>> 0,
@@ -247,6 +251,33 @@ export function payTraining(save: Save, c: Creature | null, run: BugCatchState, 
   return result;
 }
 
+// What a burst in a field paid (docs/adult-a3-plan.md section 17, decision 8). No Speed, no Discipline and no day count: the 75 second session is the training.
+export interface BurstResult {
+  burst: true;
+  catches: number;
+  bondXp: number; // really added
+  level: number | null; // the Bond level reached, or null
+  material: MaterialId | null; // the field's pickup material, paid when a golden bug was caught
+}
+
+// Apply a finished burst to the save, as a player action at `nowMs`: Bond XP for each bug caught (up to `burstXpMax`) and 1 of the field's pickup material when a golden bug was caught. Returns null
+// when there is nobody to pay (no living creature, or it is away). A burst with no catch pays nothing.
+export function payBurst(save: Save, c: Creature | null, run: BugCatchState, field: FieldId, nowMs: number): BurstResult | null {
+  if (save.phase !== "alive" || !c || c.job) return null;
+  const result: BurstResult = { burst: true, catches: run.catches, bondXp: 0, level: null, material: null };
+  if (run.catches === 0) return result;
+  const xpBefore = bondOf(c).xp;
+  result.level = addBondXp(c, Math.min(run.catches, tapTuning.burstXpMax));
+  result.bondXp = bondOf(c).xp - xpBefore;
+  if (run.goldens > 0) {
+    const material = pickups[field].material;
+    result.material = material;
+    save.inventory[material] = (save.inventory[material] ?? 0) + 1;
+  }
+  logEvent(save, nowMs, `Bug burst: ${run.catches} caught, ${result.bondXp} Bond XP${result.material ? `, 1 ${result.material}` : ""}`);
+  return result;
+}
+
 // ---- words (plain, for Adult Mode) ----
 
 const bandName = (band: Band): string => band[0]!.toUpperCase() + band.slice(1);
@@ -260,7 +291,15 @@ export function startLine(count: number): string {
 }
 
 // The result card's lines, one after the other.
-export function resultLines(r: TrainResult): string[] {
+export function resultLines(r: TrainResult | BurstResult): string[] {
+  if ("burst" in r) {
+    if (r.catches === 0) return ["No bugs caught."];
+    const lines = [`Caught ${r.catches} ${r.catches === 1 ? "bug" : "bugs"}.`];
+    if (r.bondXp > 0) lines.push(`+${r.bondXp} Bond XP`);
+    if (r.material) lines.push(`+1 ${materials[r.material].name}`);
+    if (r.level !== null) lines.push(`Bond level ${r.level}`);
+    return lines;
+  }
   if (!r.counted) return ["No bugs caught: nothing to pay."];
   const lines = [`${bandName(r.band)}: ${r.score} points, ${r.catches} caught`];
   if (r.points > 0) lines.push(`+${r.points} Speed`);

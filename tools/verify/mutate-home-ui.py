@@ -135,9 +135,9 @@ MUTANTS = [
       [(STAGE, 'if (e.pointerType === "mouse" && e.button !== 0) return; // only the main mouse button', "// (any button)")]),
     # Find
     M("find-never-shown", ["home-find"], "the Find button never appears",
-      [(STAGE, "inView(cam, boxOf(targetBox()), vp) ? null :", "true ? null :")]),
+      [(STAGE, "const wanted: IconName | null = visible ? null :", "const wanted: IconName | null = true ? null :")]),
     M("find-always-shown", ["home-open"], "the Find button is always there, even when the creature is in view",
-      [(STAGE, "inView(cam, boxOf(targetBox()), vp) ? null :", "false ? null :")]),
+      [(STAGE, "const wanted: IconName | null = visible ? null :", "const wanted: IconName | null = false ? null :")]),
     M("find-always-jumps", ["home-find"], "Find jumps the camera although motion is welcome",
       [(STAGE, "if (window.matchMedia?.(MOTION_QUERY).matches) {", "if (true) {")]),
     M("find-never-jumps", ["home-find"], "Find glides even when less motion is asked for",

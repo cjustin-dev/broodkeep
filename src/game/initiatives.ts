@@ -72,6 +72,10 @@ export function pickKind(c: Creature, rand: () => number): InitiativeKind {
   return initiativeKinds.find((_, i) => (weights[i] as number) > 0) as InitiativeKind; // (only reached when rounding left `left` at the very end)
 }
 
+// A found gift: 2 coins in 1 case in 3, otherwise 1 of the five materials (an even draw). One draw for the kind of gift and one more only for a material. A rustle in a field (game/tappables.ts) uses it too.
+export const drawGift = (rand: () => number): Gift =>
+  rand() < t.giftCoinChance ? { kind: "coins", amount: t.giftCoins } : { kind: "material", id: materialIds[Math.floor(rand() * materialIds.length)] as MaterialId };
+
 // A new initiative for this creature at `clock`: the kind, and for a craving the food, for a gift the item.
 export function newInitiative(c: Creature, clock: number, rand: () => number): Initiative {
   const kind = pickKind(c, rand);
@@ -81,7 +85,7 @@ export function newInitiative(c: Creature, clock: number, rand: () => number): I
     const foods = cravingFoods(c);
     food = foods[Math.floor(rand() * foods.length)] as FoodId;
   } else if (kind === "gift") {
-    gift = rand() < t.giftCoinChance ? { kind: "coins", amount: t.giftCoins } : { kind: "material", id: materialIds[Math.floor(rand() * materialIds.length)] as MaterialId };
+    gift = drawGift(rand);
   }
   return { kind, bornAt: c.bornAt, at: clock, food, gift, tosses: 0, playFrom: null };
 }
@@ -112,7 +116,7 @@ export function payBond(save: Save, c: Creature, xp: number, nowMs: number): num
 
 // A gift's pay, one line in the log and the note the player sees.
 export function giftNote(gift: Gift): string {
-  return gift.kind === "coins" ? `Found ${gift.amount} coins.` : `Found some ${materials[gift.id].name.toLowerCase()}.`;
+  return gift.kind === "coins" ? `Found ${gift.amount} ${gift.amount === 1 ? "coin" : "coins"}.` : `Found some ${materials[gift.id].name.toLowerCase()}.`;
 }
 export function payGift(save: Save, gift: Gift, nowMs: number): string {
   if (gift.kind === "coins") save.coins += gift.amount;

@@ -105,7 +105,7 @@ MUTANTS = [
     dict(id="no-level-up-sparkles", expect=["bond-burst"], kid_only=False, what="a new level throws no sparkles",
          edits=[(STAGE, "    addSparkles(game.view, 8);\n    addHeart(game.view);\n  };", "    addHeart(game.view);\n  };")]),
     dict(id="pet-forgets-the-level-up", expect=["bond-burst"], kid_only=False, what="a pet that reaches a new level does not call the level-up burst",
-         edits=[(STAGE, "    levelBurst(result);\n  };\n", "  };\n")]),
+         edits=[(STAGE, "    levelBurst(result);\n  };\n\n  const tap = (): void => {", "  };\n\n  const tap = (): void => {")]),
     dict(id="bar-wider-than-the-window", expect=["bond-fit"], kid_only=False, what="the chip's bar is 400 px wide and does not shrink (a plain 400 px bar is a flex item and shrinks to fit, so it changes nothing)",
          edits=[(CSS, ".bond-bar {\n  width: 28px;", ".bond-bar {\n  flex: none;\n  width: 400px;")]),
     dict(id="card-lines-do-not-wrap", expect=["bond-fit"], kid_only=False, what="the card's lines do not wrap",

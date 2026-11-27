@@ -136,7 +136,7 @@ MUTANTS = level_mutants() + [
     mut("chain-gap-0-breaks", F_BOND, "gap >= 0 && gap <= b.chainGapMs", "gap > 0 && gap <= b.chainGapMs", GAP),
     mut("chain-allows-a-negative-gap", F_BOND, "gap >= 0 && gap <= b.chainGapMs", "gap <= b.chainGapMs", BACK),
     mut("chain-is-stored-uncapped", F_BOND, "Math.min(b.streakFrom, before.chain + 1)", "before.chain + 1", STREAK),
-    mut("xp-has-no-cap", F_BOND, "const xp = Math.min(XP_MAX, before.xp + gain);", "const xp = before.xp + gain;", CAP),
+    mut("xp-has-no-cap", F_BOND, "const xp = Math.min(XP_MAX, before.xp + amount);", "const xp = before.xp + amount;", CAP),
     mut("level-up-every-time", F_BOND, "return after > levelOf(before.xp) ? after : null;", "return after;", LEVELUP),
     mut("level-up-when-equal", F_BOND, "return after > levelOf(before.xp) ? after : null;", "return after >= levelOf(before.xp) ? after : null;", LEVELUP),
     # the taper
@@ -187,7 +187,7 @@ MUTANTS = level_mutants() + [
     # XP and the chain
     mut("a-pet-is-worth-2-xp", F_TUNING, "xpPet: 1,", "xpPet: 2,", STREAK),
     mut("streak-needs-more-than-ten", F_BOND, "gain = chain >= b.streakFrom ?", "gain = chain > b.streakFrom ?", STREAK),
-    mut("xp-starts-again-with-the-chain", F_BOND, "const xp = Math.min(XP_MAX, before.xp + gain);", "const xp = Math.min(XP_MAX, (chain === 1 ? 0 : before.xp) + gain);", NEVER),
+    mut("xp-starts-again-with-the-chain", F_BOND, "c.bond = { xp: before.xp, chain, at };", "c.bond = { xp: chain === 1 ? 0 : before.xp, chain, at };", NEVER),
     mut("hatched-creature-carries-a-bond", F_SIM, "    affection: { windowStart: t, gained: 0 },\n", "    affection: { windowStart: t, gained: 0 },\n    bond: { xp: 1, chain: 0, at: 0 },\n", NEXT),
     # growth: the happy cell
     mut("cells-always-open", F_ACTIONS, "underOldLimit ? happinessBefore : 100", "happinessBefore", GROW1),

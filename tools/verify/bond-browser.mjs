@@ -59,7 +59,7 @@ const ALL_IDS = Object.keys(CHECK_MODES);
 const ALL_MODES = ["kid", "adult"];
 const FLAGS = ["base", "only", "sizes", "modes"];
 
-const HOW = ["Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention."];
+const HOW = ["Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention.", "Prefers: play, cravings."]; // (the last line is the saved creature's own, added by A3.3: Gravelhorn leans to play and cravings)
 
 // ---------- small helpers ----------
 

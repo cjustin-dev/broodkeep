@@ -4,6 +4,7 @@
 // or startEating. Feelings (sad, sick, hungry, sleepy) come in through the mood.
 
 import { TILE } from "../data/home";
+import type { TapKind } from "../data/tappables";
 import type { FoodId } from "../game/types";
 import { anchorOf, anchorPos, bedFront, findPath, foodTile, footprintOf, startAnchor, wanderPath } from "./home";
 import type { Anchor } from "./home";
@@ -64,6 +65,7 @@ export interface View {
   moment: Moment | null; // a hatch or evolve scene that is playing (see moment.ts)
   shown: Shown | null; // what the screen last saw of the save, to notice a hatch or an evolution
   still: boolean; // Decorate mode (docs/home-plan.md section 12): in the home the creature stands where it is, so no walk starts and a walk begun is called off
+  tappables: ReadonlyArray<{ id: number; kind: TapKind; x: number; y: number }>; // what is on the ground in a field, set by the game (docs/adult-a3-plan.md section 17); looks only
   invite: IconName | null; // the picture in the bubble of an initiative (docs/adult-a3-plan.md section 14), set by the game; looks only
   inView: boolean; // the creature is inside the camera's view, set by the Stage every frame (true in the line world and until the Stage first says); an initiative waits for it
 }
@@ -126,6 +128,7 @@ export function createView(): View {
     shown: null,
     still: false,
     invite: null,
+    tappables: [],
     inView: true,
   };
 }
