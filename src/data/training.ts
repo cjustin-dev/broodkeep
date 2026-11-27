@@ -1,7 +1,7 @@
 // Bug Catch and the training session: every number (docs/adult-a3-plan.md section 10). All are starting values, tuned like the rest of tuning.ts.
 // The band lines are not guessed: tools/verify/train-bands.ts prints the score percentiles of the stand-in player's seeded runs, and the lines below are written from them.
 
-import type { Stage } from "../game/types";
+import type { CombatStat, Stage } from "../game/types";
 
 // The stages that can train (a baby is too small, like a fight).
 export type TrainStage = Exclude<Stage, "baby">;
@@ -17,6 +17,16 @@ export interface BugRow {
   silverAt: number; // the score where Silver starts
   goldAt: number; // the score where Gold starts
 }
+
+// The training games (docs/adult-a4-plan.md section 2, decision 2): the name on the card, the stat it trains and that stat's word. The day's count is kept per stat.
+export type TrainGameId = "bug" | "rhythm";
+
+export const trainGames: Record<TrainGameId, { name: string; stat: CombatStat; statName: string }> = {
+  bug: { name: "Bug Catch", stat: "spd", statName: "Speed" },
+  rhythm: { name: "Rhythm Grove", stat: "spi", statName: "Spirit" },
+};
+
+export const trainGameIds = Object.keys(trainGames) as TrainGameId[];
 
 export const trainTuning = {
   sessionMs: 75_000, // the spec says 60 to 90 seconds

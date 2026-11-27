@@ -141,3 +141,10 @@ Unit tests and the Game tests, `npm test`, typecheck and build with `$?` taken d
 7. LOW, the offset is on the 10 ms step clock: **fixed** (decision 11).
 8. LOW, the clock and `requestAnimationFrame` is not tried for this game: **fixed** (decision 15 says so and makes a probe the first browser step).
 9. LOW, the no-hit rule is a deviation from the spec text: **fixed** (decision 9 names it; decisions.md gets it at build).
+
+## 5. What was built differently from plan v3 (2026-11-26)
+
+Two differences are known. The rest of decisions 1 to 15 was not compared line by line after the build; the ones checked against the code are the shared `pause` and `resume` types, `RhythmRun` as a second component, the numbered `said`, the no-hit rule and the band lines.
+
+- **Edge 23's "reload in the middle pays nothing" is a unit test, not a browser check.** A session is view state that is never saved, so a reload throws it away whatever the code does, and no change to the code could make a browser check of it fail. The browser id `rg-reload` was written and then deleted for that reason (a check needs a mutant that fails it); the Game test that a run which never finishes leaves the save untouched (`UNTOUCHED` in `mutate-rhythm-unit.py`) owns it.
+- **The track clips its notes.** A note enters with its middle on the track's top edge, so half of its picture hung out above the track (found by looking at the 320x568 contact sheet, not by a check). `.rhythm-track` has `overflow: hidden`, and `rg-clock` asserts the clip and where a note is at 300, 480 and 1500 ms.

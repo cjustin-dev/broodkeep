@@ -11,7 +11,7 @@ import { makeRng } from "../src/game/rng";
 import { hatchIfReady, makeCreature } from "../src/game/sim";
 import { HOUR, MINUTE } from "../src/game/time";
 import { catchBug, missTap, pause, resume, step, trainRefusal } from "../src/game/training";
-import type { TrainResult } from "../src/game/training";
+import type { BugCatchState, TrainResult } from "../src/game/training";
 import { writeSave } from "../src/sync/local";
 import { Game } from "../src/ui/game";
 import type { StartTrainingResult } from "../src/ui/game";
@@ -39,7 +39,7 @@ function start(opts: { adult?: boolean; form?: string; set?: Parameters<typeof c
 
 // Play the run to its end with one catch on the way, as the overlay would (engine functions on `game.training.run`).
 function playOut(): void {
-  const run = game.training!.run!;
+  const run = game.training!.run! as BugCatchState;
   while (run.bugs.length === 0) step(run, 10);
   catchBug(run, run.bugs[0]!.id);
   while (!run.over) step(run, 100);
@@ -121,7 +121,7 @@ describe("startTraining", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     game.startTraining();
     game.beginTraining();
-    const run = game.training!.run!;
+    const run = game.training!.run! as BugCatchState;
     expect([game.training!.phase, run.rng, run.stage]).toEqual(["playing", 2 ** 31, "adult"]);
     game.beginTraining();
     expect(game.training!.run).toBe(run);
@@ -138,7 +138,7 @@ describe("a session and the save", () => {
     const before = JSON.stringify(game.save);
     game.startTraining();
     game.beginTraining();
-    const run = game.training!.run!;
+    const run = game.training!.run! as BugCatchState;
     while (run.bugs.length === 0) step(run, 10);
     catchBug(run, run.bugs[0]!.id);
     missTap(run);
@@ -203,7 +203,7 @@ describe("a session and the save", () => {
     start();
     game.startTraining();
     game.beginTraining();
-    const run = game.training!.run!;
+    const run = game.training!.run! as BugCatchState;
     while (run.bugs.length === 0) step(run, 10);
     catchBug(run, run.bugs[0]!.id);
     expect(run.over).toBe(false);

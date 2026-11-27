@@ -1,33 +1,58 @@
-// The training session over the screen (Bug Catch, docs/adult-a3-plan.md section 10): the start card, the run and the result card. Adult Mode only.
-// The rules are game/training.ts. `Game` (ui/game.ts) holds the session and hears only the start, the finish and the close: pause, resume, every catch, every miss and every frame stay here
-// (the engine's own functions on `game.training.run`, the numbers and the bugs' places written into the page through refs), so a session never touches the save and never makes the app redraw 60 times a second.
+// The training session over the screen (Bug Catch, docs/adult-a3-plan.md section 10; Rhythm Grove, docs/adult-a4-plan.md section 2): the start card, the run and the result card. Adult Mode only.
+// The rules are game/training.ts and game/rhythm.ts. `Game` (ui/game.ts) holds the session and hears only the pick, the start, the finish and the close: pause, resume, every catch, every tap, every miss and
+// every frame stay here (the engine's own functions on `game.training.run`, the numbers and the places of the bugs or the notes written into the page through refs), so a session never touches the save and never
+// makes the app redraw 60 times a second.
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { faceSprite } from "../art/face";
 import { goldenBug, icons } from "../art/sprites";
-import { trainTuning } from "../data/training";
+import { getForm } from "../data/forms";
+import { rhythmTuning, timingWindows } from "../data/rhythm";
+import { trainGameIds, trainGames, trainTuning } from "../data/training";
+import type { TrainGameId } from "../data/training";
+import { saidLine, stepRhythm, tapRhythm } from "../game/rhythm";
+import type { RhythmState } from "../game/rhythm";
 import { localDay } from "../game/time";
 import { catchBug, missTap, pause, resultLines, resume, startLine, step, trainedToday } from "../game/training";
 import type { BugCatchState } from "../game/training";
 import type { Game } from "./game";
 import { Pic } from "./Icon";
 
+// What each game says on its start card, in plain words (the numbers come from the tuning).
+const blurbs: Record<TrainGameId, string> = {
+  bug: "Tap the bugs before they go. A golden bug is worth 3 times, and 5 catches in a row score double. A tap that misses costs no points.",
+  rhythm: `Tap when a note reaches the line, anywhere on the track. Perfect is within ${timingWindows.perfectMs} ms, Good within ${timingWindows.goodMs} ms. A tap with no note near it costs ${rhythmTuning.strayCost} points.`,
+};
+
 function StartCard({ game }: { game: Game }) {
   const goRef = useRef<HTMLButtonElement>(null);
   useEffect(() => goRef.current?.focus(), []);
   const c = game.save.creature;
-  const count = c ? trainedToday(c, "spd", localDay(game.now())).count : 0;
+  const picked = game.training?.game ?? "bug";
+  const { name, stat, statName } = trainGames[picked];
+  const count = c ? trainedToday(c, stat, localDay(game.now())).count : 0;
   return (
     <>
       <header class="panel-head">
-        <h2>Bug Catch</h2>
+        <h2>{name}</h2>
         <button class="btn small" onClick={() => game.closeTraining()}>
           Close
         </button>
       </header>
+      <div class="train-picker" role="group" aria-label="Training game">
+        {trainGameIds.map((id) => (
+          <button key={id} class="btn small" aria-pressed={picked === id} onClick={() => game.pickTrainGame(id)}>
+            <Pic sprite={id === "bug" ? icons.bug : icons.note} id={`icon:${id === "bug" ? "bug" : "note"}`} px={24} />
+            {trainGames[id].name}
+          </button>
+        ))}
+      </div>
       <p class="hint">
-        Tap the bugs before they go. A golden bug is worth 3 times, and 5 catches in a row score double. A tap that misses costs no points. It trains Speed.
+        {blurbs[picked]} It trains {statName}.
       </p>
-      <p class="train-reward">{startLine(count)}</p>
-      <p class="hint">{trainTuning.sessionMs / 1000} seconds. You can always play, with no energy cost: after 6 Speed sessions in a day it pays Bond XP only.</p>
+      <p class="train-reward">{startLine(picked, count)}</p>
+      <p class="hint">
+        {trainTuning.sessionMs / 1000} seconds. You can always play, with no energy cost: after {trainTuning.full + trainTuning.half} {statName} sessions in a day it pays Bond XP only.
+      </p>
       <button class="btn wide" ref={goRef} onClick={() => game.beginTraining()}>
         Go
       </button>
@@ -36,7 +61,7 @@ function StartCard({ game }: { game: Game }) {
 }
 
 // The numbers shown while the run goes: seconds left, the score and the streak.
-const secondsLeft = (run: BugCatchState): number => Math.max(0, Math.ceil((run.lengthMs - run.elapsedMs) / 1000));
+const secondsLeft = (run: { lengthMs: number; elapsedMs: number }): number => Math.max(0, Math.ceil((run.lengthMs - run.elapsedMs) / 1000));
 
 function Run({ game, run }: { game: Game; run: BugCatchState }) {
   const [, setVersion] = useState(0);
@@ -174,6 +199,159 @@ function Run({ game, run }: { game: Game; run: BugCatchState }) {
   );
 }
 
+// Where a note is on the track, as a share of the track's height: it enters at the top `approachMs` before its time and is on the line at its time (the line is `LINE` of the way down).
+const LINE = 0.74;
+
+// Rhythm Grove's run: the notes come down the track and a tap anywhere on it is a tap on the beat. The notes' places, the three numbers, the word over the line and the creature's hop are written
+// from the frame loop through refs; the component draws again only when the list of notes changes or the run is paused or goes on.
+function RhythmRun({ game, run }: { game: Game; run: RhythmState }) {
+  const [, setVersion] = useState(0);
+  const bump = (): void => setVersion((v) => v + 1);
+  const [hops, setHops] = useState(0); // counts the hits: a new key on the face starts its hop again
+  const trackRef = useRef<HTMLDivElement>(null);
+  const noteEls = useRef(new Map<number, HTMLSpanElement>());
+  const timeEl = useRef<HTMLElement | null>(null);
+  const scoreEl = useRef<HTMLElement | null>(null);
+  const streakEl = useRef<HTMLElement | null>(null);
+  const saidEl = useRef<HTMLParagraphElement>(null);
+  const shown = useRef(run.said?.n ?? 0); // the last thing said that the page has written
+  const c = game.save.creature;
+
+  const place = (): void => {
+    const track = trackRef.current;
+    if (!track) return;
+    const height = track.clientHeight;
+    for (const n of run.notes) {
+      const el = noteEls.current.get(n.id);
+      if (el) el.style.transform = `translate(-50%, ${(1 - (n.t - run.elapsedMs) / rhythmTuning.approachMs) * LINE * height}px) translateY(-50%)`;
+    }
+    if (timeEl.current) timeEl.current.textContent = String(secondsLeft(run));
+    if (scoreEl.current) scoreEl.current.textContent = String(run.score);
+    if (streakEl.current) streakEl.current.textContent = String(run.streak);
+    const said = run.said;
+    if (said && said.n !== shown.current && saidEl.current) {
+      shown.current = said.n;
+      saidEl.current.textContent = saidLine(said);
+      saidEl.current.dataset.judge = said.judge;
+      saidEl.current.dataset.delta = String(said.deltaMs);
+      if (said.judge === "perfect" || said.judge === "good") setHops((h) => h + 1);
+    }
+  };
+  useLayoutEffect(place);
+
+  useEffect(() => {
+    let raf = 0;
+    let last: number | null = null;
+    const frame = (now: number): void => {
+      const dt = last === null ? 0 : now - last;
+      last = now;
+      if (stepRhythm(run, dt)) bump();
+      place();
+      if (run.over) {
+        game.finishTraining();
+        return;
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [run]);
+
+  useEffect(() => {
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden" && !run.over) {
+        pause(run);
+        bump();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [run]);
+
+  // A tap (the press, not the release: the lowest delay). Pressing Enter or Space on the focused pad is a tap too (a pointer's tap happened on the press).
+  const tapped = (): void => {
+    const tap = tapRhythm(run);
+    if (tap && tap.judge !== "stray") bump(); // a judged note has left the track
+    place();
+  };
+
+  const face = c ? faceSprite(getForm(c.formId), "open") : null;
+
+  return (
+    <div class="train-play">
+      <div class="train-side">
+        <p class="train-stats">
+          <span>
+            Time <b ref={timeEl}>{secondsLeft(run)}</b>
+          </span>
+          <span>
+            Score <b ref={scoreEl}>{run.score}</b>
+          </span>
+          <span>
+            Streak <b ref={streakEl}>{run.streak}</b>
+          </span>
+        </p>
+        <div class="train-buttons">
+          <button
+            class="btn small"
+            onClick={() => {
+              pause(run);
+              bump();
+            }}
+          >
+            Pause
+          </button>
+          <button class="btn small" onClick={() => game.closeTraining()}>
+            Quit
+          </button>
+        </div>
+      </div>
+      <div class="train-field rhythm-track" data-field={run.field} ref={trackRef}>
+        <div class="rhythm-lane" aria-hidden="true" />
+        <div class="rhythm-line" aria-hidden="true" style={{ top: `${LINE * 100}%` }} />
+        {run.notes.map((n) => (
+          <span
+            key={n.id}
+            class="rhythm-note"
+            data-note
+            ref={(el) => {
+              if (el) noteEls.current.set(n.id, el);
+              else noteEls.current.delete(n.id);
+            }}
+          >
+            <Pic sprite={icons.note} id="icon:note" px={40} class="rhythm-note-pic" />
+          </span>
+        ))}
+        <p class="rhythm-said" ref={saidEl} style={{ top: `${LINE * 100 - 14}%` }} />
+        {face && (
+          <span class="rhythm-face" key={hops} data-hop={hops > 0 ? "yes" : undefined} aria-hidden="true">
+            <Pic sprite={face} id={`face:open:${c!.formId}`} px={Math.round(face.rows.length * 1.5)} />
+          </span>
+        )}
+        <button
+          class="rhythm-pad"
+          aria-label="Tap on the beat"
+          onPointerDown={() => tapped()}
+          onClick={(e) => {
+            if (e.detail === 0) tapped();
+          }}
+        />
+        {run.paused && (
+          <button
+            class="train-paused"
+            onClick={() => {
+              resume(run);
+              bump();
+            }}
+          >
+            Paused. Tap to go on.
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ResultCard({ game }: { game: Game }) {
   const doneRef = useRef<HTMLButtonElement>(null);
   useEffect(() => doneRef.current?.focus(), []);
@@ -181,7 +359,7 @@ function ResultCard({ game }: { game: Game }) {
   return (
     <>
       <header class="panel-head">
-        <h2>Bug Catch</h2>
+        <h2>{trainGames[game.training?.game ?? "bug"].name}</h2>
       </header>
       <ul class="train-lines">{result && resultLines(result).map((line) => <li key={line}>{line}</li>)}</ul>
       <button class="btn wide" ref={doneRef} onClick={() => game.closeTraining()}>
@@ -195,10 +373,10 @@ export function TrainGame({ game }: { game: Game }) {
   const t = game.training;
   if (!t) return null;
   return (
-    <section class="panel" role="dialog" aria-modal="true" aria-label="Bug Catch">
+    <section class="panel" role="dialog" aria-modal="true" aria-label={trainGames[t.game].name}>
       <div class="panel-body train">
         {t.phase === "ready" && <StartCard game={game} />}
-        {t.phase === "playing" && t.run && <Run game={game} run={t.run} />}
+        {t.phase === "playing" && t.run && (t.game === "rhythm" ? <RhythmRun game={game} run={t.run as RhythmState} /> : <Run game={game} run={t.run as BugCatchState} />)}
         {t.phase === "done" && <ResultCard game={game} />}
       </div>
     </section>

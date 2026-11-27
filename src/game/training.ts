@@ -6,11 +6,13 @@ import { combatTuning } from "../data/combat";
 import { getForm } from "../data/forms";
 import { materials } from "../data/habitat";
 import type { MaterialId } from "../data/habitat";
-import { trainTuning } from "../data/training";
-import type { Band, TrainStage } from "../data/training";
+import { trainGames, trainTuning } from "../data/training";
+import type { Band, TrainGameId, TrainStage } from "../data/training";
 import { pickups, tapTuning } from "../data/tappables";
 import { addBondXp, bondOf } from "./bond";
 import { addTrained } from "./combat/stats";
+import { rhythmBandOf } from "./rhythm";
+import type { RhythmState } from "./rhythm";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
 import { logEvent } from "./state";
@@ -190,11 +192,11 @@ export function missTap(s: BugCatchState): boolean {
   return true;
 }
 
-export function pause(s: BugCatchState): void {
+export function pause(s: { paused: boolean; over: boolean }): void {
   if (!s.over) s.paused = true;
 }
 
-export function resume(s: BugCatchState): void {
+export function resume(s: { paused: boolean }): void {
   s.paused = false;
 }
 
@@ -207,27 +209,29 @@ export function bandOf(score: number, stage: TrainStage): Band {
 // ---- paying a run ----
 
 export interface TrainResult {
-  counted: boolean; // false for a run with no catch: it pays nothing and counts for nothing
+  game: TrainGameId;
+  stat: CombatStat; // the stat the game trains
+  counted: boolean; // false for a run with no catch or no note hit: it pays nothing and counts for nothing
   band: Band;
   score: number;
-  catches: number;
+  catches: number; // bugs caught, or notes hit
   tier: Tier;
-  points: number; // Speed points really added (0 at the stage cap)
+  points: number; // points of the game's stat really added (0 at the stage cap)
   capped: boolean; // a reward was due and the stat was at its stage cap
   discipline: number; // really added
   bondXp: number; // really added
   level: number | null; // the Bond level reached, or null
+  rhythm?: { perfects: number; goods: number; missed: number; strays: number; best: number }; // Rhythm Grove only
 }
 
-// Apply a finished run to the save, as a player action at `nowMs`. Returns null when there is nobody to pay (no living creature, or it is away). A run with no catch pays nothing and counts for nothing.
-export function payTraining(save: Save, c: Creature | null, run: BugCatchState, nowMs: number): TrainResult | null {
-  if (save.phase !== "alive" || !c || c.job) return null;
-  const band = bandOf(run.score, run.stage);
-  const result: TrainResult = { counted: false, band, score: run.score, catches: run.catches, tier: "none", points: 0, capped: false, discipline: 0, bondXp: 0, level: null };
-  if (run.catches === 0) return result;
+// The end of every game's session (docs/adult-a4-plan.md section 2, decision 3): the day's count of the game's stat and its tier, the stat's points (never past the stage cap), Discipline and Bond XP by
+// band, one log line. `hits` is what the run did (bugs caught, notes hit): a run with none pays nothing and counts for nothing.
+function paySession(save: Save, c: Creature, game: TrainGameId, band: Band, score: number, hits: number, nowMs: number): TrainResult {
+  const { name, stat, statName } = trainGames[game];
+  const result: TrainResult = { game, stat, counted: false, band, score, catches: hits, tier: "none", points: 0, capped: false, discipline: 0, bondXp: 0, level: null };
+  if (hits === 0) return result;
   result.counted = true;
 
-  const stat: CombatStat = "spd";
   const day = trainedToday(c, stat, localDay(nowMs));
   result.tier = tierOf(day.count);
   const full = t.points[band];
@@ -247,7 +251,21 @@ export function payTraining(save: Save, c: Creature | null, run: BugCatchState, 
   result.level = addBondXp(c, t.bondXp[band]);
   result.bondXp = bondOf(c).xp - xpBefore;
 
-  logEvent(save, nowMs, `Bug Catch: ${band}, ${run.score} points, ${result.points} Speed, ${result.bondXp} Bond XP`);
+  logEvent(save, nowMs, `${name}: ${band}, ${score} points, ${result.points} ${statName}, ${result.bondXp} Bond XP`);
+  return result;
+}
+
+// Apply a finished Bug Catch run to the save, as a player action at `nowMs`. Returns null when there is nobody to pay (no living creature, or it is away). A run with no catch pays nothing and counts for nothing.
+export function payTraining(save: Save, c: Creature | null, run: BugCatchState, nowMs: number): TrainResult | null {
+  if (save.phase !== "alive" || !c || c.job) return null;
+  return paySession(save, c, "bug", bandOf(run.score, run.stage), run.score, run.catches, nowMs);
+}
+
+// The same for a finished Rhythm Grove run: Spirit, by the band of its score as a share of the song's most.
+export function payRhythm(save: Save, c: Creature | null, run: RhythmState, nowMs: number): TrainResult | null {
+  if (save.phase !== "alive" || !c || c.job) return null;
+  const result = paySession(save, c, "rhythm", rhythmBandOf(run), run.score, run.perfects + run.goods, nowMs);
+  result.rhythm = { perfects: run.perfects, goods: run.goods, missed: run.misses, strays: run.strays, best: run.best };
   return result;
 }
 
@@ -282,12 +300,13 @@ export function payBurst(save: Save, c: Creature | null, run: BugCatchState, fie
 
 const bandName = (band: Band): string => band[0]!.toUpperCase() + band.slice(1);
 
-// The start card's line, from the number of Speed sessions already counted today.
-export function startLine(count: number): string {
+// The start card's line, from the number of the game's stat's sessions already counted today.
+export function startLine(game: TrainGameId, count: number): string {
   const tier = tierOf(count);
-  if (tier === "full") return `Speed: full reward, ${count + 1} of ${t.full} today`;
-  if (tier === "half") return `Speed: half reward, ${count - t.full + 1} of ${t.half} today`;
-  return "Speed: Bond XP only today";
+  const word = trainGames[game].statName;
+  if (tier === "full") return `${word}: full reward, ${count + 1} of ${t.full} today`;
+  if (tier === "half") return `${word}: half reward, ${count - t.full + 1} of ${t.half} today`;
+  return `${word}: Bond XP only today`;
 }
 
 // The result card's lines, one after the other.
@@ -300,12 +319,14 @@ export function resultLines(r: TrainResult | BurstResult): string[] {
     if (r.level !== null) lines.push(`Bond level ${r.level}`);
     return lines;
   }
-  if (!r.counted) return ["No bugs caught: nothing to pay."];
-  const lines = [`${bandName(r.band)}: ${r.score} points, ${r.catches} caught`];
-  if (r.points > 0) lines.push(`+${r.points} Speed`);
-  else if (r.tier === "none") lines.push("Bond XP only now: today's Speed sessions are used up");
-  else if (r.capped) lines.push("Speed is as high as it can go for now");
-  else lines.push("No Speed from this one: half rewards round down");
+  if (!r.counted) return [r.game === "bug" ? "No bugs caught: nothing to pay." : "No notes hit: nothing to pay."];
+  const word = trainGames[r.game].statName;
+  const lines = [r.game === "bug" ? `${bandName(r.band)}: ${r.score} points, ${r.catches} caught` : `${bandName(r.band)}: ${r.score} points, ${r.catches} ${r.catches === 1 ? "note" : "notes"} hit`];
+  if (r.rhythm) lines.push(`Perfect ${r.rhythm.perfects}, Good ${r.rhythm.goods}, missed ${r.rhythm.missed}, no note ${r.rhythm.strays}, best streak ${r.rhythm.best}`);
+  if (r.points > 0) lines.push(`+${r.points} ${word}`);
+  else if (r.tier === "none") lines.push(`Bond XP only now: today's ${word} sessions are used up`);
+  else if (r.capped) lines.push(`${word} is as high as it can go for now`);
+  else lines.push(`No ${word} from this one: half rewards round down`);
   if (r.discipline > 0) lines.push(`+${r.discipline} Discipline`);
   if (r.bondXp > 0) lines.push(`+${r.bondXp} Bond XP`);
   if (r.level !== null) lines.push(`Bond level ${r.level}`);

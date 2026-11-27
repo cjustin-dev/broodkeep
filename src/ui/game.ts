@@ -15,7 +15,8 @@ import { initiativeTuning } from "../data/initiatives";
 import { tapTuning } from "../data/tappables";
 import type { TapKind } from "../data/tappables";
 import { isWallId } from "../data/shop";
-import type { TrainStage } from "../data/training";
+import { trainGameIds } from "../data/training";
+import type { TrainGameId, TrainStage } from "../data/training";
 import { endFight, feed, startFight } from "../game/actions";
 import type { FeedResult, StartFightResult } from "../game/actions";
 import { playRound } from "../game/combat/battle";
@@ -34,7 +35,10 @@ import type { Creature, Save } from "../game/state";
 import { gameNow } from "../game/time";
 import { nextWait, payPickup, payRustle, paySparkle, pickKind, place, possibleKinds } from "../game/tappables";
 import type { Tappable, Visit } from "../game/tappables";
-import { newBugCatch, payBurst, payTraining, trainRefusal, trainStageOf } from "../game/training";
+import { fieldOfForm } from "../data/fields";
+import { newRhythm } from "../game/rhythm";
+import type { RhythmState } from "../game/rhythm";
+import { newBugCatch, payBurst, payRhythm, payTraining, trainRefusal, trainStageOf } from "../game/training";
 import type { BugCatchState, BurstResult, TrainRefusal, TrainResult } from "../game/training";
 import type { FieldId, FoodId } from "../game/types";
 import { writeSave } from "../sync/local";
@@ -63,8 +67,9 @@ export interface Arena {
 export interface Training {
   bornAt: number; // the creature that started it: another one (a retire and a hatch) ends the session
   stage: TrainStage; // the stage it is played at (the difficulty row), fixed at the start
+  game: TrainGameId; // the game on show: picked on the start card, fixed once it begins
   phase: "ready" | "playing" | "done";
-  run: BugCatchState | null;
+  run: BugCatchState | RhythmState | null; // the one of the game (a burst is always Bug Catch)
   result: TrainResult | BurstResult | null; // what the run paid, once it has been paid
   burst?: FieldId; // set for the 10 second burst a bug tapped in this field starts (docs/adult-a3-plan.md section 17, decision 8): no start card, and `payBurst` pays it
 }
@@ -80,6 +85,7 @@ export class Game {
   devSpeed = 1; // dev mode time multiplier
   viewMiddle: { col: number; row: number } | null = null; // the home's tile (fractions allowed) at the middle of the picture, set by the Stage every frame: where a piece out of the tray lands
   training: Training | null = null; // the training session over the screen (not saved: a restart in the middle pays nothing)
+  trainPick: TrainGameId = "bug"; // the game the start card shows first: the last one picked in this visit (not saved)
   decor: Decor | null = null; // Decorate mode: null when it is off (not saved: it ends with the visit, and with anything that takes the player off the home's picture)
   note: string | null = null; // Adult Mode: why a button did nothing, shown over the room for a few seconds (not saved)
   initiative: Initiative | null = null; // Adult Mode: what the creature is asking for now, drawn as a bubble over it (docs/adult-a3-plan.md section 14; not saved, never logged)
@@ -312,17 +318,29 @@ export class Game {
     if (this.arena || this.view.moment !== null || this.decor) return "elsewhere";
     const code = trainRefusal(c);
     if (code !== null) return code;
-    this.training = { bornAt: c.bornAt, stage: trainStageOf(c), phase: "ready", run: null, result: null };
+    this.training = { bornAt: c.bornAt, stage: trainStageOf(c), game: this.trainPick, phase: "ready", run: null, result: null };
     this.clearInitiative();
     this.listeners.forEach((listener) => listener());
     return "started";
   }
 
-  // The start card's Go: the run begins. The seed is from Math.random, never the save's own generator, so a session leaves the save as it was.
+  // The start card's choice of game (docs/adult-a4-plan.md section 2, decision 1): only while the card is showing, and only a game that exists. The pick is kept for the next card of the visit.
+  pickTrainGame(id: TrainGameId): void {
+    const t = this.training;
+    if (!t || t.phase !== "ready" || !trainGameIds.includes(id)) return;
+    t.game = id;
+    this.trainPick = id;
+    this.listeners.forEach((listener) => listener());
+  }
+
+  // The start card's Go: the run begins. Bug Catch's seed is from Math.random, never the save's own generator, so a session leaves the save as it was; a Rhythm Grove song needs no draw at all (the
+  // creature's own field, Land's for a form that belongs to none).
   beginTraining(): void {
     const t = this.training;
     if (!t || t.phase !== "ready") return;
-    t.run = newBugCatch(Math.floor(Math.random() * 2 ** 32), t.stage);
+    const c = this.save.creature;
+    if (!c) return;
+    t.run = t.game === "rhythm" ? newRhythm(fieldOfForm(c.formId) ?? "land", t.stage) : newBugCatch(Math.floor(Math.random() * 2 ** 32), t.stage);
     t.phase = "playing";
     this.listeners.forEach((listener) => listener());
   }
@@ -336,7 +354,10 @@ export class Game {
     this.tick();
     if (this.training !== t) return;
     const run = t.run;
-    const result = this.act((save, now) => (t.burst ? payBurst(save, save.creature, run, t.burst, now) : payTraining(save, save.creature, run, now)));
+    const result = this.act((save, now) => {
+      if (t.burst) return payBurst(save, save.creature, run as BugCatchState, t.burst, now);
+      return t.game === "rhythm" ? payRhythm(save, save.creature, run as RhythmState, now) : payTraining(save, save.creature, run as BugCatchState, now);
+    });
     if (result === null) this.training = null;
     else {
       t.result = result;
@@ -585,7 +606,7 @@ export class Game {
     const code = trainRefusal(c);
     if (code !== null) return code;
     const stage = trainStageOf(c);
-    this.training = { bornAt: c.bornAt, stage, phase: "playing", run: newBugCatch(Math.floor(Math.random() * 2 ** 32), stage, tapTuning.burstMs), result: null, burst: c.place === "home" ? undefined : c.place };
+    this.training = { bornAt: c.bornAt, stage, game: "bug", phase: "playing", run: newBugCatch(Math.floor(Math.random() * 2 ** 32), stage, tapTuning.burstMs), result: null, burst: c.place === "home" ? undefined : c.place };
     this.clearInitiative();
     this.syncTapView(); // (a session holds the visit: nothing is shown under it)
     this.listeners.forEach((listener) => listener());
