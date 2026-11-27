@@ -2,6 +2,7 @@
 //   tap the egg        -> helps it hatch
 //   tap the creature   -> it startles (3 quick taps = tickle)
 //   hold the creature  -> petting
+//   tap the ball or the gift over its head (Adult Mode, an initiative: docs/adult-a3-plan.md section 14) -> plays, or takes the gift; the bubble is tested before the creature
 //   drag               -> moves the camera over the home (docs/home-plan.md section 3.2); two fingers pinch it bigger or smaller
 // While Decorate mode is on (docs/home-plan.md section 12) the creature is not touched at all: a finger on a piece of furniture carries it on the tile grid (a tap selects it),
 // a finger anywhere else pans, and a tap there lets go of the selection. The arrow keys move the selected piece; Escape lets go of it.
@@ -19,7 +20,7 @@ import { ROOM } from "../art/layout";
 import { stepMoment } from "../art/moment";
 import { drawHabitat } from "../art/habitat";
 import { drawOutline, drawPiece, drawWallOutline, lookOf } from "../art/room";
-import { drawScene, moodOf, sizeOf } from "../art/scene";
+import { bubbleBox, drawScene, moodOf, sizeOf } from "../art/scene";
 import { spotsOf } from "../art/spots";
 import type { World } from "../art/spots";
 import { GestureTracker } from "./gesture";
@@ -27,14 +28,15 @@ import type { Action } from "./gesture";
 import { Icon } from "./Icon";
 import type { IconName } from "../art/sprites";
 import { fields } from "../data/fields";
+import { foods } from "../data/foods";
 import { getForm } from "../data/forms";
 import { spots } from "../data/habitat";
 import { PIECE_NAMES, TILE, roomsBuilt, wallRoomOf } from "../data/home";
 import { tapEgg, touch } from "../game/actions";
-import type { TouchResult } from "../game/actions";
 import { BIG_BURST_LEVEL, bondAtLeast } from "../game/bond";
 import { isAdultMode } from "../game/hud";
 import type { CallKind, Save } from "../game/state";
+import type { FoodId } from "../game/types";
 import type { Game } from "./game";
 
 const callWords: Record<CallKind, string> = {
@@ -72,7 +74,26 @@ function describe(save: Save, game: Game): string {
   const room = place === "home" ? ` In the ${roomNames[roomOf(game.view.x + game.view.size / 2)]}.` : "";
   if (save.creature.sleep) return `${name} is asleep.${room}`;
   const where = place === "home" ? "" : `In the ${fields[place].name} field. `;
-  return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`) + room;
+  return where + (save.creature.call ? `${name} ${callWords[save.creature.call]}.` : `${name} is doing fine.`) + offerOf(game, name) + room;
+}
+
+// What an initiative offers, for screen readers (nothing while a call is on: the call has the bubble).
+function offerOf(game: Game, name: string): string {
+  const i = game.initiative;
+  const c = game.save.creature;
+  if (!i || !c || c.call) return "";
+  if (i.kind === "play") return ` ${name} is holding out a ball. Tap it to play.`;
+  if (i.kind === "gift") return ` ${name} found something. Tap it to take it.`;
+  return ` ${name} wants ${foods[i.food as FoodId].name.toLowerCase()}.`;
+}
+
+// The bubble of an initiative that is showing, in game pixels (null for none). A tap on a craving's bubble lands here too and does nothing (a craving is answered by feeding): without it the touch would
+// fall through to the creature under the bubble's lower edge and pet or poke it. The draw and the hit test both take the place from `bubbleBox`.
+function bubbleOf(game: Game): Box | null {
+  const i = game.initiative;
+  const c = game.save.creature;
+  if (!i || !c || c.call || c.sleep || c.job) return null;
+  return bubbleBox(game.view, sizeOf(game.save), spotsOf(game.view.world).w);
 }
 
 export const roomNames = { bedroom: "bedroom", living: "living room", kitchen: "kitchen", playroom: "playroom" } as const;
@@ -107,6 +128,7 @@ const PET_PAD_CSS = 14; // how far past the creature's picture a touch still cou
 interface Hold {
   id: number; // which finger (pointer) started this hold
   petted: boolean;
+  bubble?: boolean; // the finger landed on an initiative's bubble: a tap answers it, and there is no petting timer
   timer?: number;
   repeat?: number;
 }
@@ -178,6 +200,27 @@ export function Stage({ game }: { game: Game }) {
     if (!canvas || !ctx) return;
     let raf = 0;
     let last = performance.now();
+    // For the browser checks: the canvas says which initiative is showing (`data-initiative`: play, craving or gift) and where its bubble is (`data-bubble`: x, y, width and height in CSS pixels from the
+    // canvas's top left corner). Both are left off while there is none, and in Kid Mode, so the page is unchanged there.
+    const markBubble = (cv: HTMLCanvasElement, world: World): void => {
+      const i = game.initiative;
+      const c = game.save.creature;
+      const showing = i !== null && game.view.invite !== null && !!c && !c.call && !c.sleep && !c.job;
+      let box: string | null = null;
+      if (showing) {
+        const b = bubbleBox(game.view, sizeOf(game.save), spotsOf(world).w);
+        const cam = camera.current;
+        const zoom = world === "home" && cam ? cam.zoom : size.k; // the transform the picture was drawn with, then device pixels to CSS pixels
+        const tx = world === "home" && cam ? Math.round(cv.width / 2 - cam.x * cam.zoom) : 0;
+        const ty = world === "home" && cam ? Math.round(cv.height / 2 - cam.y * cam.zoom) : 0;
+        const css = cv.getBoundingClientRect().width / cv.width;
+        const round = (n: number): number => Math.round(n * 10) / 10;
+        box = [(b.x * zoom + tx) * css, (b.y * zoom + ty) * css, b.w * zoom * css, b.h * zoom * css].map(round).join(",");
+      }
+      const kind = showing ? i.kind : null;
+      if (cv.getAttribute("data-initiative") !== kind) kind === null ? cv.removeAttribute("data-initiative") : cv.setAttribute("data-initiative", kind);
+      if (cv.getAttribute("data-bubble") !== box) box === null ? cv.removeAttribute("data-bubble") : cv.setAttribute("data-bubble", box);
+    };
     const frame = (now: number): void => {
       const dt = Math.min(0.25, (now - last) / 1000);
       last = now;
@@ -197,6 +240,7 @@ export function Stage({ game }: { game: Game }) {
       ctx.imageSmoothingEnabled = false;
       if (world === "home") drawHome(ctx, canvas, dt);
       else {
+        game.view.inView = true; // (no camera: all of the picture is in view)
         ctx.setTransform(size.k, 0, 0, size.k, 0, 0); // draw in game pixels, scaled up
         if (findNow.current !== null) setFind(null);
         if (game.atHabitat) drawHabitat(ctx, game.save, game.view, game.now());
@@ -205,6 +249,7 @@ export function Stage({ game }: { game: Game }) {
           drawArena(ctx, game.save, game.now(), game.view.clock, arena ? { battle: arena.battle, play: arena.play, t: game.arenaTime() } : null);
         } else drawScene(ctx, game.save, game.view, game.now());
       }
+      markBubble(canvas, world);
       if ((game.view.moment !== null) !== sceneNow.current) {
         sceneNow.current = game.view.moment !== null;
         setSceneState(sceneNow.current);
@@ -257,7 +302,9 @@ export function Stage({ game }: { game: Game }) {
         } else if (selected && layout[selected]) drawOutline(c, selected, layout[selected], VALID_COLOR);
         else if (game.selectedWall) drawWallOutline(c, game.selectedWall, VALID_COLOR);
       }
-      const wanted: IconName | null = inView(cam, boxOf(targetBox()), vp) ? null : game.save.creature?.call && !game.save.creature.job ? findIcons[game.save.creature.call] : "happiness";
+      const visible = inView(cam, boxOf(targetBox()), vp);
+      game.view.inView = visible; // (an initiative is not made while the creature is out of the camera's view)
+      const wanted: IconName | null = visible ? null : game.save.creature?.call && !game.save.creature.job ? findIcons[game.save.creature.call] : "happiness";
       if (wanted !== findNow.current) setFind(wanted);
     };
 
@@ -265,11 +312,11 @@ export function Stage({ game }: { game: Game }) {
     return () => cancelAnimationFrame(raf);
   }, [game, size.k]);
 
-  const isOnTarget = (e: PointerEvent): boolean => {
+  // A pointer's place in game pixels, and how much slack a touch gets around a target (a bit more than a finger's width).
+  const pointOf = (e: PointerEvent): { x: number; y: number; pad: number } | null => {
     const canvas = canvasRef.current;
-    if (!canvas) return false;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const box = targetBox();
     let x = ((e.clientX - rect.left) / rect.width) * ROOM.w;
     let y = ((e.clientY - rect.top) / rect.height) * ROOM.h;
     let pad = 6; // a bit of slack, because fingers are bigger than a few pixels
@@ -281,16 +328,39 @@ export function Stage({ game }: { game: Game }) {
       y = at.y;
       pad = (PET_PAD_CSS * dpr()) / cam.zoom; // the slack is a size on the screen, so zooming in does not make it a smaller target in the home
     }
-    return x >= box.x - pad && x <= box.x + box.size + pad && y >= box.y - pad && y <= box.y + box.size + pad;
+    return { x, y, pad };
+  };
+
+  const isOnTarget = (e: PointerEvent): boolean => {
+    const at = pointOf(e);
+    if (!at) return false;
+    const box = targetBox();
+    return at.x >= box.x - at.pad && at.x <= box.x + box.size + at.pad && at.y >= box.y - at.pad && at.y <= box.y + box.size + at.pad;
+  };
+
+  // A touch on the bubble over the creature's head, whatever it offers (the bubble is tested before the creature).
+  const isOnBubble = (e: PointerEvent): boolean => {
+    const at = pointOf(e);
+    const box = bubbleOf(game);
+    return !!at && !!box && at.x >= box.x - at.pad && at.x <= box.x + box.w + at.pad && at.y >= box.y - at.pad && at.y <= box.y + box.h + at.pad;
   };
 
   const adult = isAdultMode(game.save);
 
   // A new Bond level is a burst of sparkles with a heart (the chip in the header pops too, ui/AdultHud.tsx).
-  const levelBurst = (result: TouchResult): void => {
+  const levelBurst = (result: { levelUp?: number | null }): void => {
     if (!result.levelUp) return;
     addSparkles(game.view, 8);
     addHeart(game.view);
+  };
+
+  // The ball or the gift was tapped (an initiative, adult track A3.3). `answerInitiative` pays; this only shows it: a toss hops, a gift beams, a new Bond level is the usual burst.
+  const answer = (): void => {
+    const result = game.answerInitiative();
+    if (!result) return;
+    triggerPose(game.view, result.kind === "play" ? "hop" : "happy");
+    addSparkles(game.view, result.kind === "play" && result.over ? 5 : 2);
+    levelBurst(result);
   };
 
   const pet = (h: Hold): void => {
@@ -394,7 +464,13 @@ export function Stage({ game }: { game: Game }) {
         if (tracker.current.pointers === 1) grab(e); // (a third finger changes nothing)
         return; // the creature is not touched while decorating
       }
-      if (tracker.current.pointers > 1 || game.save.creature?.job || !isOnTarget(e)) return;
+      if (tracker.current.pointers > 1 || game.save.creature?.job) return;
+      if (isOnBubble(e)) {
+        endHold();
+        hold.current = { id: e.pointerId, petted: false, bubble: true }; // (no petting timer: a tap answers it)
+        return;
+      }
+      if (!isOnTarget(e)) return;
       endHold();
       const h: Hold = { id: e.pointerId, petted: false };
       if (game.save.phase === "alive") {
@@ -407,10 +483,15 @@ export function Stage({ game }: { game: Game }) {
       return;
     }
     if (game.atHabitat || game.atArena || game.save.creature?.job) return; // nothing to pet: the habitat and arena have their own buttons, and an away creature is not in the room
-    if (!isOnTarget(e)) return;
+    const onBall = isOnBubble(e);
+    if (!onBall && !isOnTarget(e)) return;
     endHold(); // a second finger replaces the first, so no petting timer is left running
     canvasRef.current?.setPointerCapture(e.pointerId);
-    const h: Hold = { id: e.pointerId, petted: false };
+    const h: Hold = { id: e.pointerId, petted: false, bubble: onBall || undefined };
+    if (onBall) {
+      hold.current = h;
+      return;
+    }
     if (game.save.phase === "alive") {
       // Holding for a moment turns the touch into petting, and keeps petting while held.
       h.timer = window.setTimeout(() => {
@@ -466,11 +547,19 @@ export function Stage({ game }: { game: Game }) {
       }
       if (hold.current?.id !== e.pointerId) return;
       const h = endHold();
+      if (h?.bubble) {
+        if (result.tap) answer(); // (a drag that began on the bubble answers nothing)
+        return; // ...and a bubble tap never pokes or counts toward a tickle
+      }
       if (h && !h.petted && result.tap) tap();
       return;
     }
     if (hold.current?.id !== e.pointerId) return;
     const h = endHold();
+    if (h?.bubble) {
+      if (isOnBubble(e)) answer(); // (the one-line picture has no pan: a finger that has left the bubble answers nothing)
+      return;
+    }
     if (h && !h.petted) tap();
   };
 

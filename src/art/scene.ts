@@ -54,6 +54,16 @@ function icon(name: IconName): HTMLCanvasElement {
   return spriteCanvas(icons[name], `icon:${name}`);
 }
 
+// Where a thought bubble over the creature is, in game pixels: over its head, kept inside the walls (the call and an initiative share the slot, and a tap on an initiative's bubble is tested against the
+// very same box). `size` is the creature's picture size and `spotsW` the width of its world.
+export const BUBBLE = { w: 12, h: 15 };
+export function bubbleBox(view: View, size: number, spotsW: number): { x: number; y: number; w: number; h: number } {
+  const off = poseOffsets(view);
+  const x = Math.round(view.x + off.dx);
+  const y = view.y - size + off.dy;
+  return { x: Math.max(0, Math.min(x + size - 2, spotsW - BUBBLE.w)), y: Math.max(0, y - 12), w: BUBBLE.w, h: BUBBLE.h };
+}
+
 // A round speech bubble above the creature with an icon inside.
 export function drawBubble(ctx: CanvasRenderingContext2D, name: IconName, x: number, y: number): void {
   ctx.fillStyle = "#ffffff";
@@ -149,8 +159,15 @@ export function drawScene(ctx: CanvasRenderingContext2D, save: Save, view: View,
         const stone = spots.stone(size);
         drawTombstone(ctx, stone.x, stone.y);
       } else if (inBed) drawFloatingZ(ctx, view.clock, Math.min(x + size - 4, spots.w - 8), y); // (the icon is 8 wide: keep it in the room)
-      else if (c.call && Math.floor(view.clock * 2) % 4 !== 3) {
-        drawBubble(ctx, callIcon[c.call], Math.max(0, Math.min(x + size - 2, spots.w - 12)), Math.max(0, y - 12)); // (kept inside the walls)
+      else if (c.call) {
+        if (Math.floor(view.clock * 2) % 4 !== 3) {
+          const at = bubbleBox(view, size, spots.w);
+          drawBubble(ctx, callIcon[c.call], at.x, at.y);
+        }
+      } else if (view.invite) {
+        // An initiative (adult track A3.3) sits in the call's slot, which the call has first: steady, with a one pixel bob (the call blinks, so the two read differently).
+        const at = bubbleBox(view, size, spots.w);
+        drawBubble(ctx, view.invite, at.x, at.y + (Math.floor(view.clock * 2) % 2));
       }
     }
   }

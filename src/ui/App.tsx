@@ -84,6 +84,11 @@ export function App({ game, cloud, roster, onSwitch }: { game: Game; cloud: Clou
       }
     : null;
 
+  // `Game` cannot see which panel is open, and an initiative's bubble must not wait behind one (docs/adult-a3-plan.md section 14, decision 4): tell it.
+  useEffect(() => {
+    game.menuOpen = panel !== null;
+  }, [game, panel]);
+
   // Keep time moving, and save when the page is hidden or closed.
   useEffect(() => {
     const timer = window.setInterval(() => game.tick(), 1000);

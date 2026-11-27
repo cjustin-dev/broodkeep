@@ -614,3 +614,17 @@ Found while planning and reviewing A1.2, in the game as it is (none are new, non
 - **Adult training changes Kid Mode fights on a switched profile.** Same creature, same stats. Kid Mode cannot start a session, and its pages and rules are unchanged (checked by the Kid compare, `tools/verify/kid-compare.mjs`).
 - **The golden bug's size is looked at, not measured.** It is drawn at 92 percent of its button against 70 for a plain bug; the button is the same size. The contact sheet shows it; no check measures the picture.
 - **Not tried:** a real phone, browsers other than Chromium, the overlay with a screen reader, a real hidden tab, a device slower than the 100 ms cap allows for.
+
+## Initiatives, A3.3 (2026-11-26)
+
+- **A craving does not double a food's serving.** It pays Bond XP 8 (the spec asked for a doubled serving, which the Growth Forecast's bound cannot take without a change to `forecast.ts:271,493` and A1.2's pinned results). Asked of the owner.
+- **Gifts have no daily cap.** About one gift per three or four minutes of open play, about half of a first job's pay. A tester who leaves the game open collects them. Asked of the owner.
+- **Three of the spec's six initiative kinds are built** (play, craving, gift). The play is the toss only; no request type exists for play.
+- **The offer waits for the creature to be in view.** A creature the camera has left makes no offer (the countdown holds); a showing offer keeps fading while it is out of view. The Find button is how the player gets it back. The creature half off the edge counts as out of view.
+- **A different food that is eaten drops the craving at the next tick** (its meal on the plate blocks the offers), not at once and with no message. A refused feed (full) leaves it.
+- **The bubble's bob is one pixel outside the box the hit test uses.** The slack (14 CSS pixels in the home, 6 game pixels in a field) covers it. Accepted.
+- **Blind spots of the browser run** (no check reads them; the contact sheet shows the first two): the hop and sparkles after an answer, the level-up burst after a craving's meal, the Bond card not blocking an offer, a meal on the plate blocking one (the unit tests of the Game own that), the order of an offer against a call (the Game never has both), and the hit test's slack and its pose offset (three argued-equivalent mutants, `mutate-init-ui.py --equivalents`).
+- **The header cards sit above the picture.** The Bond card pushes the picture down but did not cover the bubble at 320x568 and 360x640 (contact sheet). A header taller than the window at a size the sheet did not draw could.
+- **The offer clock counts foreground time, one tick a second.** Each time in the browser checks is good to plus or minus a second. A phone that throttles the timer to once a minute adds at most 2 seconds a tick, so an offer takes longer on a throttled page; not measured on a real phone.
+- **A finger's drag in a field is taken over by the page's scroll** (the browser sends `pointercancel`, so no lift reaches the ball), while a mouse drag is not; a check that a release away from the ball pays nothing needs a mouse (`init-field` has both). A drag in the home pans the camera and ends the hold, so a lift after it never reaches the bubble either (the `home-drag-answers` mutant is argued equivalent).
+- **Not tried:** a real phone, browsers other than Chromium, a screen reader reading the offer, a real hidden tab, two devices on one account (an offer is never saved, so there is nothing to sync).

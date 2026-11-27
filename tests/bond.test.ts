@@ -438,7 +438,7 @@ describe("what the screen says (Adult Mode)", () => {
     c.bond = { xp, chain: 0, at: 0 };
     return c;
   };
-  const how = ["Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention."];
+  const how = ["Hold to pet, or tap three times to tickle: both build Bond.", "Poke: gets attention.", "Prefers: play, gifts."]; // (pebblin leans to play and gifts: weights 4, 2, 4 at Bond level 1)
 
   it("reads the level and what is left, for a screen reader", () => {
     expect(bondLabel(withXp(920))).toBe("Bond level 3, 120 of 700 to level 4");
