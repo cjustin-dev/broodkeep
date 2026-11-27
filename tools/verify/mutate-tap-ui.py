@@ -110,7 +110,7 @@ MUTANTS = [
     dict(id="burst-pays-no-xp", expect=["tap-burst"], kid_only=False, size="360x640@2", what="a burst pays no Bond XP for its catches",
          edits=[(TRAIN, "addBondXp(c, Math.min(run.catches, tapTuning.burstXpMax))", "addBondXp(c, 0)")]),
     dict(id="burst-paid-as-session", expect=["tap-burst"], kid_only=False, size="360x640@2", what="a burst is paid like a training session (Speed, Discipline, the day count)",
-         edits=[(GAME, "(t.burst ? payBurst(save, save.creature, run, t.burst, now) : payTraining(save, save.creature, run, now))", "payTraining(save, save.creature, run, now)")]),
+         edits=[(GAME, "      if (t.burst) return payBurst(save, save.creature, run as BugCatchState, t.burst, now);\n", "")]),
     dict(id="burst-opens-the-start-card", expect=["tap-burst"], kid_only=False, size="360x640@2", what="a tap on a bug opens the session's start card instead of playing at once",
          edits=[(GAME, 'phase: "playing", run: newBugCatch', 'phase: "ready", run: newBugCatch')]),
     dict(id="burst-card-too-wide", expect=["tap-fit"], kid_only=False, size="360x640@2", what="the burst's result line is one very long word",

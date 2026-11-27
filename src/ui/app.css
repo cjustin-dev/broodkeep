@@ -2217,6 +2217,133 @@ body:has(.panel) {
   font-weight: 700;
 }
 
+/* The game picker on the start card: one button for each game, the pressed one is the game on show. */
+.train-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.train-picker .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Rhythm Grove (ui/TrainGame.tsx, RhythmRun): the track is the same square as Bug Catch's field. Each field has its own ground. The notes come down the middle lane to the line; the whole track is one
+   big button (the pad), so a thumb never has to aim. A note comes on with its middle on the top edge, so the track clips it and the note slides in. */
+.rhythm-track {
+  overflow: hidden;
+}
+
+.rhythm-track[data-field="land"] {
+  background: linear-gradient(#2f6b3f, #3d7d4b);
+}
+
+.rhythm-track[data-field="water"] {
+  background: linear-gradient(#245a8c, #2f78a8);
+}
+
+.rhythm-track[data-field="sky"] {
+  background: linear-gradient(#5a8fd0, #8dbbe8);
+}
+
+.rhythm-lane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 26%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+.rhythm-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  transform: translateY(-50%);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(18, 12, 32, 0.45);
+  pointer-events: none;
+}
+
+.rhythm-note {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+
+.rhythm-note-pic {
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.95)); /* a pale halo: the note is dark and the ground is not light */
+}
+
+.rhythm-said {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(18, 12, 32, 0.9), 0 0 4px rgba(18, 12, 32, 0.9);
+  pointer-events: none;
+}
+
+.rhythm-face {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  pointer-events: none;
+}
+
+.rhythm-face[data-hop] {
+  animation: rhythm-hop 220ms ease-out;
+}
+
+.rhythm-face img {
+  display: block;
+  image-rendering: pixelated;
+}
+
+@keyframes rhythm-hop {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-12px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-face[data-hop] {
+    animation: none;
+  }
+}
+
+.rhythm-pad {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
 /* A short, wide window (a phone on its side): the field on the left, as large a square as the height allows, and the numbers and buttons in a column on the right. */
 @media (orientation: landscape) and (max-height: 520px) {
   .train {

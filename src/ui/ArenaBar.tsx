@@ -1,6 +1,6 @@
 // The buttons under the arena picture. Before a fight: one big Fight button (a refused tap shows a small icon saying
 // why). In a fight: attack, guard, special and run away. After a fight: a card with what it paid, tap to put it away.
-// Icons only in Kid Mode; Adult Mode puts its word under each icon (Fight, and Train, which opens the Bug Catch session, ui/TrainGame.tsx).
+// Icons only in Kid Mode; Adult Mode puts its word under each icon (Fight, and Train, which opens the training start card, ui/TrainGame.tsx).
 import { useEffect, useRef, useState } from "preact/hooks";
 import { triggerPose } from "../art/idle";
 import type { IconName } from "../art/sprites";
@@ -161,7 +161,7 @@ export function ArenaBar({ game }: { game: Game }) {
             <Icon name="swords" px={40} />
             <Word text="Fight" />
           </button>
-          <button class="btn labelled" aria-label="Train: catch bugs for Speed" aria-disabled={trainRefusal(c) !== null ? true : undefined} onClick={onTrain}>
+          <button class="btn labelled" aria-label="Train: play a training game" aria-disabled={trainRefusal(c) !== null ? true : undefined} onClick={onTrain}>
             <Icon name="bug" px={40} />
             <Word text="Train" />
           </button>

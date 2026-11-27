@@ -71,7 +71,8 @@ export type IconName =
   | "bin"
   | "done"
   | "bug"
-  | "ball";
+  | "ball"
+  | "note";
 
 export const icons: Record<IconName, Sprite> = {
   hunger: icon([
@@ -568,6 +569,17 @@ export const icons: Record<IconName, Sprite> = {
     ".KRRRRK.",
     "..KRRK..",
     "...KK...",
+  ]),
+  // An eighth note, for the notes of Rhythm Grove and its button.
+  note: icon([
+    "....KK..",
+    "....KKK.",
+    "....K.KK",
+    "....K...",
+    "....K...",
+    "..KKK...",
+    ".KYYK...",
+    "..KK....",
   ]),
   // A blue ball with a pale shine: the creature wants to play (an initiative bubble).
   ball: icon([

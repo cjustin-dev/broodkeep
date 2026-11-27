@@ -507,7 +507,7 @@ describe("the training field read from storage", () => {
 
 describe("the words on the cards", () => {
   it("names the reward of the next session from the number already counted today", () => {
-    expect([0, 1, 2, 3, 4, 5, 6].map(startLine)).toEqual([
+    expect([0, 1, 2, 3, 4, 5, 6].map((n) => startLine("bug", n))).toEqual([
       "Speed: full reward, 1 of 3 today",
       "Speed: full reward, 2 of 3 today",
       "Speed: full reward, 3 of 3 today",
@@ -518,7 +518,7 @@ describe("the words on the cards", () => {
     ]);
   });
 
-  const result = (over: Partial<TrainResult>): TrainResult => ({ counted: true, band: "silver", score: 340, catches: 21, tier: "full", points: 1, capped: false, discipline: 1, bondXp: 20, level: null, ...over });
+  const result = (over: Partial<TrainResult>): TrainResult => ({ game: "bug", stat: "spd", counted: true, band: "silver", score: 340, catches: 21, tier: "full", points: 1, capped: false, discipline: 1, bondXp: 20, level: null, ...over });
 
   it("says what each kind of result paid", () => {
     expect(resultLines(result({}))).toEqual(["Silver: 340 points, 21 caught", "+1 Speed", "+1 Discipline", "+20 Bond XP"]);
