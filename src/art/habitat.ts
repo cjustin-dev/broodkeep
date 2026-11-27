@@ -5,7 +5,7 @@ import { getForm } from "../data/forms";
 import { spotIds, spots } from "../data/habitat";
 import type { SpotId } from "../data/habitat";
 import type { Creature, Save } from "../game/state";
-import { hourOf } from "../game/time";
+import { hourOf, realClock } from "../game/time";
 import { stageOrder } from "../game/types";
 import { faceSprite, isWide, pickFace } from "./face";
 import { hatOf } from "./hat";
@@ -133,7 +133,7 @@ function drawCreature(ctx: CanvasRenderingContext2D, c: Creature, view: View, ce
 
 export function drawHabitat(ctx: CanvasRenderingContext2D, save: Save, view: View, gameNowMs: number): void {
   ctx.imageSmoothingEnabled = false;
-  const hour = hourOf(gameNowMs);
+  const hour = hourOf(realClock(save, gameNowMs)); // the light follows the real clock, not the sped-up game clock
   drawGround(ctx, hour);
   const c = save.creature;
   if (save.phase !== "alive" || !c) return;

@@ -21,7 +21,9 @@ import { MINUTE } from "./time";
 import type { EggPattern } from "./types";
 
 // Bring the save up to date with nowMs. Returns how many minutes of time were covered.
-export function simulateTo(save: Save, nowMs: number): number {
+// `clockMs`, for a stretch the dev tools compress (a skip ahead, a sped-up tick): every minute reads its hour of day (bedtime) from this real-clock moment, so the creature is awake or
+// asleep as the real clock has it. Without it each minute reads its own time on the real clock (game time less the dev offset), which is the plain clock when the offset is 0.
+export function simulateTo(save: Save, nowMs: number, clockMs?: number): number {
   if (nowMs < save.lastSimulatedAt) {
     // The device clock went backwards. A small step back is ignored: time carries on
     // once the clock catches up. A big step back means the clock was wrong, so start
@@ -39,7 +41,7 @@ export function simulateTo(save: Save, nowMs: number): number {
   let done = 0;
   for (; done < steps && save.phase !== "dead"; done++) {
     save.lastSimulatedAt += MINUTE;
-    stepMinute(save, rng, save.lastSimulatedAt);
+    stepMinute(save, rng, save.lastSimulatedAt, clockMs);
   }
   // Once the creature is dead nothing can change any more, so skip straight to the end.
   // That also keeps a very long absence quick: a creature cannot live long unattended.
@@ -49,11 +51,11 @@ export function simulateTo(save: Save, nowMs: number): number {
 }
 
 // t is the END of the minute being simulated.
-function stepMinute(save: Save, rng: Rng, t: number): void {
+function stepMinute(save: Save, rng: Rng, t: number, clockMs?: number): void {
   if (save.phase === "egg") {
     hatchIfReady(save, rng, t);
   } else if (save.phase === "alive" && save.creature) {
-    stepCare(save, rng, t);
+    stepCare(save, rng, t, clockMs);
     if (save.phase === "alive") {
       stepJob(save, rng, t); // before evolving, so a job finished this minute counts toward the next form
       if (save.creature) {

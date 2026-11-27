@@ -15,11 +15,11 @@ import { HOUR, gameNow } from "./time";
 import type { EggPattern, FieldId, FoodId, Place } from "./types";
 
 // Jump the game clock forward. The creature then lives through those hours
-// (hunger, sleep, poop, sickness, even death) exactly as if you had waited.
+// (hunger, poop, sickness, even death) as if you had waited, but it is awake or asleep for all of them as the real clock has it now: bedtime is the real clock's, not the skipped one's.
 export function skipAhead(save: Save, hours: number, realNowMs: number): void {
   save.clockOffsetMs += hours * HOUR;
   logEvent(save, gameNow(save, realNowMs), `Dev: skipped ahead ${hours} hours`);
-  simulateTo(save, gameNow(save, realNowMs));
+  simulateTo(save, gameNow(save, realNowMs), realNowMs);
 }
 
 // Time multiplier: call this on every tick with the real time that passed since the last tick.

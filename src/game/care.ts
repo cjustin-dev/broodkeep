@@ -8,7 +8,7 @@ import { clamp, logEvent } from "./state";
 import type { CallKind, Creature, Save } from "./state";
 import { bedFactor } from "./perks";
 import type { Owned } from "./perks";
-import { hourOf, isNightHour } from "./time";
+import { hourOf, isNightHour, realClock } from "./time";
 
 // Stat loss per awake minute, worked out from "hours to empty" in tuning.ts.
 const perMinute = (hours: number): number => 100 / (hours * 60);
@@ -19,10 +19,11 @@ const rate = {
   hygiene: perMinute(tuning.emptyAfterAwakeHours.hygiene),
 };
 
-export function stepCare(save: Save, rng: Rng, t: number): void {
+// `clockMs` is the real-clock moment whose hour of day this minute reads (bedtime): by default this minute's own time on the real clock; the dev tools pass the real now for a stretch they compress.
+export function stepCare(save: Save, rng: Rng, t: number, clockMs: number = realClock(save, t)): void {
   const c = save.creature;
   if (!c) return;
-  updateSleep(save, c, t);
+  updateSleep(save, c, t, clockMs);
   const asleep = c.sleep !== null;
   decayStats(c, asleep, save.owned);
   digest(save, c, t);
@@ -32,10 +33,10 @@ export function stepCare(save: Save, rng: Rng, t: number): void {
   updateCalls(save, c, asleep, t);
 }
 
-// Night sleep follows the clock. Naps end when energy is full.
-function updateSleep(save: Save, c: Creature, t: number): void {
+// Night sleep follows the real clock, not the sped-up game clock (dev mode). Naps end when energy is full.
+function updateSleep(save: Save, c: Creature, t: number, clockMs: number): void {
   const { sleepStartHour, sleepEndHour } = save.settings;
-  const night = isNightHour(hourOf(t), sleepStartHour, sleepEndHour);
+  const night = isNightHour(hourOf(clockMs), sleepStartHour, sleepEndHour);
   if (night) {
     if (c.sleep !== "night") {
       c.sleep = "night";

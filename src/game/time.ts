@@ -17,6 +17,12 @@ export function localDay(ms: number): number {
   return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
 }
 
+// A moment of game time on the real clock: game time less the dev offset (always 0 outside dev mode). Bedtime, the clock in the header and the light in the pictures follow this,
+// so speeding the game up never moves them. Elapsed time, timers and the day counts stay on game time.
+export function realClock(save: Save, gameMs: number): number {
+  return gameMs - save.clockOffsetMs;
+}
+
 // Hour of day (0 to 23) on the player's own clock.
 export function hourOf(ms: number): number {
   return new Date(ms).getHours();

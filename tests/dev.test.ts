@@ -16,7 +16,7 @@ import {
 } from "../src/game/dev";
 import { forms } from "../src/data/forms";
 import { simulateTo } from "../src/game/sim";
-import { HOUR, gameNow } from "../src/game/time";
+import { HOUR, MINUTE, gameNow } from "../src/game/time";
 import { specialId } from "../src/data/special";
 import { aliveSave, at, withLockedField } from "./helpers";
 
@@ -28,6 +28,30 @@ describe("dev tools", () => {
     expect(save.clockOffsetMs).toBe(6 * HOUR);
     expect(gameNow(save, t0)).toBe(t0 + 6 * HOUR);
     expect(save.creature?.formId).toBe(specialId); // the skip was simulated: six hours with no care turned the baby into the special
+  });
+
+  // Bedtime is the real clock's: a skip is lived through awake or asleep as the real clock has it now, not by the hours it skips to (decisions.md, "The real clock and the dev clock offset").
+  it("skip ahead keeps the creature awake through game-clock night when the real clock says afternoon", () => {
+    const t0 = at(14); // sleeping hours 20 to 7; the skip lands on game 22:00
+    const save = aliveSave("pebblin", t0);
+    skipAhead(save, 8, t0);
+    expect(save.creature?.sleep).toBeNull();
+    expect(save.log.some((e) => e.text === "Fell asleep for the night")).toBe(false);
+    const plain = aliveSave("pebblin", t0); // the same eight hours waited out, with no offset: it sleeps from 20:00
+    simulateTo(plain, t0 + 8 * HOUR);
+    expect(plain.creature?.sleep).toBe("night");
+  });
+
+  it("skip ahead keeps the creature asleep through game-clock morning when the real clock says night", () => {
+    const t0 = at(21); // the skip lands on game 09:00 the next day
+    const save = aliveSave("pebblin", t0);
+    skipAhead(save, 12, t0);
+    expect(save.creature?.sleep).toBe("night");
+    expect(save.log.find((e) => e.text === "Fell asleep for the night")?.at).toBe(t0 + MINUTE); // in the first minute of the skip, and never woke (no 07:00)
+    expect(save.log.some((e) => e.text === "Woke up")).toBe(false);
+    const plain = aliveSave("pebblin", t0); // waited out, with no offset: it woke at 07:00
+    simulateTo(plain, t0 + 12 * HOUR);
+    expect(plain.creature?.sleep).toBeNull();
   });
 
   it("time multiplier adds the extra game time, and 1x adds nothing", () => {
