@@ -12,7 +12,7 @@ import { logEvent } from "../state";
 import type { Creature, Save } from "../state";
 import { stageOrder } from "../types";
 import type { CombatStat, Stage } from "../types";
-import { newBattle, newFighter, sulkChance } from "./battle";
+import { newBattle, newFighter, planFoe, sulkChance } from "./battle";
 import type { Battle, BattleAction } from "./battle";
 import { addTrained, currentHp, maxHp, statTotal } from "./stats";
 
@@ -35,14 +35,15 @@ export const rungOf = (c: Creature): number => Math.min(combatTuning.ladder.leng
 export const isBossRung = (rung: number): boolean => rung === combatTuning.ladder.length;
 
 // Send the creature into a fight. The caller has already checked fightRefusal. The energy is spent now, so walking
-// away from the fight costs that much and nothing else (the fight itself is never saved).
-export function beginFight(save: Save, c: Creature, nowMs: number): Battle {
+// away from the fight costs that much and nothing else (the fight itself is never saved). A timed fight (Adult Mode) meets a stronger wild creature
+// (`adultLadder`) and has its first move drawn ahead, for the screen to show.
+export function beginFight(save: Save, c: Creature, nowMs: number, timed = false): Battle {
   const rng = makeRng(save.rngState);
   const stage = getForm(c.formId).stage;
   const rung = rungOf(c);
   const kin = Object.values(forms).filter((f) => f.stage === stage && f.id !== specialId); // the special is a rare leftover, not a wild kid
   const wild = rng.pick(kin);
-  const scale = combatTuning.ladder[rung - 1]!;
+  const scale = (timed ? combatTuning.adultLadder : combatTuning.ladder)[rung - 1]!;
   const wildStats = Object.fromEntries(STATS.map((s) => [s, Math.max(1, Math.round(wild.baseStats[s] * scale))])) as Record<CombatStat, number>;
   const wildHp = Math.round(wildStats.vit * combatTuning.hpPerVit);
   const myStats = Object.fromEntries(STATS.map((s) => [s, statTotal(c, s)])) as Record<CombatStat, number>;
@@ -53,7 +54,9 @@ export function beginFight(save: Save, c: Creature, nowMs: number): Battle {
   const me = newFighter(c.formId, myStats, maxHp(c), Math.max(1, Math.round(currentHp(c))));
   const foe = newFighter(wild.id, wildStats, wildHp);
   logEvent(save, nowMs, `Went to fight a wild ${wild.name} (rung ${rung}${isBossRung(rung) ? ", the boss" : ""})`);
-  return newBattle(me, foe, rung, isBossRung(rung), sulkChance(c.stats.discipline), seed);
+  const battle = newBattle(me, foe, rung, isBossRung(rung), sulkChance(c.stats.discipline), seed, timed);
+  if (timed) planFoe(battle);
+  return battle;
 }
 
 export interface FightResult {

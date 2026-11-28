@@ -22,6 +22,8 @@ import type { FeedResult, StartFightResult } from "../game/actions";
 import { playRound } from "../game/combat/battle";
 import type { Battle, BattleAction } from "../game/combat/battle";
 import type { FightResult } from "../game/combat/fight";
+import { timingWord } from "../game/combat/timing";
+import type { Timing } from "../game/combat/timing";
 import { advanceClock } from "../game/dev";
 import type { DishId } from "../game/dishes";
 import { isAdultMode } from "../game/hud";
@@ -267,11 +269,18 @@ export class Game {
   }
 
   // Play one round with the player's choice. A finished fight is paid out into the save right away, and the
-  // picture still plays the last blows before the result card matters.
-  round(choice: BattleAction): void {
+  // picture still plays the last blows before the result card matters. A timed fight (Adult Mode) also gets how well the action was timed (`timing`,
+  // from a tap `offsetMs` after the target, null when nobody tapped), and the line it earned is said over the room: a sulk's, or "Perfect attack".
+  round(choice: BattleAction, timing: Timing = "normal", offsetMs: number | null = null): void {
     const arena = this.arena;
     if (!arena || arena.battle.over || this.playing) return;
-    playRound(arena.battle, choice);
+    playRound(arena.battle, choice, undefined, timing);
+    if (arena.battle.timed) {
+      const sulked = arena.battle.events.some((e) => e.actor === "me" && e.kind === "sulk");
+      const parried = arena.battle.events.some((e) => e.parried);
+      const word = sulked ? "Sulking: discipline too low. Training helps." : timingWord(choice, timing, offsetMs, parried);
+      if (word) this.say(word);
+    }
     arena.play = playback(arena.battle.events, arena.battle.over !== null);
     arena.startedAt = performance.now() / 1000;
     if (arena.battle.over) arena.result = endFight(this.save, arena.battle, this.now());
