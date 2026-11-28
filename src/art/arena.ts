@@ -59,11 +59,11 @@ export function shownHp(b: Battle, play: Playback | null, t: number, side: Side)
 const strikeOf = (play: Playback, side: Side, t: number): Step | undefined =>
   play.steps.find((s) => s.hitAt !== null && s.event.actor === side && t >= s.start && t < s.start + FX.strike);
 
-// The latest blow that has landed on this side, and how long ago.
+// The latest blow that has landed on this side, and how long ago. A parried blow (a Perfect guard) lands on nothing: no recoil.
 function lastHitOn(play: Playback, side: Side, t: number): { step: Step; age: number } | null {
   let found: { step: Step; age: number } | null = null;
   for (const step of play.steps) {
-    if (step.hitAt !== null && step.hitAt <= t && step.event.actor !== side) found = { step, age: t - step.hitAt };
+    if (step.hitAt !== null && step.hitAt <= t && step.event.actor !== side && !step.event.parried) found = { step, age: t - step.hitAt };
   }
   return found;
 }
@@ -211,6 +211,7 @@ function drawStrikes(ctx: CanvasRenderingContext2D, show: ArenaShow): void {
       const fromX = mine ? ARENA.meX + 8 : ARENA.foeX - 8;
       icon(ctx, "spark", fromX + (targetX - fromX) * p - 4, y - 4);
     }
+    if (step.event.parried) continue; // nothing was hit, so no burst
     const age = t - step.hitAt;
     if (age < 0 || age >= FX.recoil) continue;
     if (step.event.kind === "special") icon(ctx, "spark", targetX - 4, y - 4);

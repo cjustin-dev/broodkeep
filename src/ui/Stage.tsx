@@ -668,7 +668,7 @@ export function Stage({ game }: { game: Game }) {
         </button>
       )}
       {adult && (
-        <div class="reason-box" role="status" style={{ width: `${size.css}px`, height: `${size.css}px` }}>
+        <div class={game.atArena ? "reason-box arena" : "reason-box"} role="status" style={{ width: `${size.css}px`, height: `${size.css}px` }}>
           {game.note && <p class="reason">{game.note}</p>}
         </div>
       )}

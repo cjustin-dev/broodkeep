@@ -288,7 +288,7 @@ export function startFight(save: Save, nowMs: number): StartFightResult {
   if (!c) return { status: "unavailable" };
   const refusal = fightRefusal(c);
   if (refusal) return { status: refusal };
-  return { status: "started", battle: beginFight(save, c, nowMs) };
+  return { status: "started", battle: beginFight(save, c, nowMs, save.settings.adultMode === true) };
 }
 
 // Put a finished fight into the save. Returns what it paid, or null if the fight is not over or the creature is gone.

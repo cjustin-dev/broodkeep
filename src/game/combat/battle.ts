@@ -6,6 +6,7 @@ import { combatTuning } from "../../data/combat";
 import { makeRng } from "../rng";
 import type { Rng } from "../rng";
 import type { CombatStat } from "../types";
+import type { Timing } from "./timing";
 
 export type BattleAction = "attack" | "guard" | "special";
 export type Side = "me" | "foe";
@@ -26,6 +27,7 @@ export interface BattleEvent {
   damage: number; // 0 unless it was a hit
   crit: boolean;
   ko: boolean; // this hit finished the fight
+  parried?: true; // timed fights: a Perfect guard turned this blow into nothing
 }
 
 export interface Battle {
@@ -40,14 +42,17 @@ export interface Battle {
   events: BattleEvent[]; // what happened in the last round
   hpBefore: Record<Side, number>; // each side's HP when the last round began, so the screen can play the blows back in order
   rngState: number;
+  timed: boolean; // Adult Mode: the player's taps are graded, the foe's next move is shown first, and a creature sulks at most once
+  sulks: number; // how many times the player's creature has ignored a command in this fight
+  foeNext?: BattleAction; // timed fights: what the wild creature will do next round, drawn ahead so the screen can show it
 }
 
 export function newFighter(formId: string, stats: Record<CombatStat, number>, maxHp: number, hp: number = maxHp): Fighter {
   return { formId, stats, hp, maxHp, meter: 0, guarding: false };
 }
 
-export function newBattle(me: Fighter, foe: Fighter, rung: number, boss: boolean, sulkChance: number, rngState: number): Battle {
-  return { me, foe, rung, boss, round: 0, used: { attack: 0, guard: 0, special: 0 }, sulkChance, over: null, events: [], hpBefore: { me: me.hp, foe: foe.hp }, rngState };
+export function newBattle(me: Fighter, foe: Fighter, rung: number, boss: boolean, sulkChance: number, rngState: number, timed = false): Battle {
+  return { me, foe, rung, boss, round: 0, used: { attack: 0, guard: 0, special: 0 }, sulkChance, over: null, events: [], hpBefore: { me: me.hp, foe: foe.hp }, rngState, timed, sulks: 0 };
 }
 
 // The chance that a creature ignores a command, from its discipline.
@@ -68,7 +73,16 @@ export const foeChoice: FoeChooser = (b, rng) => {
   return "attack";
 };
 
-function strike(b: Battle, who: Side, kind: "attack" | "special", rng: Rng): void {
+// Draw what the wild creature will do next round, from the battle's own random numbers (a timed fight does this at its start and after every round).
+export function planFoe(b: Battle, chooseFoe: FoeChooser = foeChoice): void {
+  const rng = makeRng(b.rngState);
+  b.foeNext = chooseFoe(b, rng);
+  b.rngState = rng.state();
+}
+
+// `grade` is how well the player's own action was timed (always "normal" in a fight that is not timed): it multiplies the player's blows, and a Perfect
+// guard turns the foe's blow into nothing (the parry).
+function strike(b: Battle, who: Side, kind: "attack" | "special", rng: Rng, grade: Timing): void {
   const attacker = b[who];
   const target = b[other(who)];
   const move = kind === "special" ? combatTuning.special : combatTuning.attack;
@@ -78,18 +92,27 @@ function strike(b: Battle, who: Side, kind: "attack" | "special", rng: Rng): voi
   const crit = rng.chance(Math.min(combatTuning.crit.max, attacker.stats.spd * combatTuning.crit.perSpeed));
   let damage = Math.max(1, Math.round(power * move.power * roll - target.stats.def * move.soak));
   if (crit) damage = Math.round(damage * combatTuning.crit.factor);
-  if (target.guarding) damage = Math.max(1, Math.round(damage * combatTuning.guardFactor));
+  const timed = b.timed ? combatTuning.timed : null;
+  if (timed && who === "me") damage = Math.round(damage * timed.grade[grade]);
+  const parried = timed !== null && who === "foe" && target.guarding && grade === "perfect";
+  if (parried) damage = 0;
+  else if (target.guarding) {
+    const share = timed && who === "foe" && grade === "good" ? timed.guardGood : combatTuning.guardFactor;
+    damage = Math.max(1, Math.round(damage * share));
+  }
   if (kind === "special") attacker.meter = 0;
+  else if (timed && who === "me" && grade === "perfect") attacker.meter = Math.min(combatTuning.meterMax, attacker.meter + 1);
   target.hp = Math.max(0, target.hp - damage);
-  target.meter = Math.min(combatTuning.meterMax, target.meter + 1);
+  target.meter = Math.min(combatTuning.meterMax, target.meter + 1 + (parried ? combatTuning.timed.parryMeter : 0));
   const ko = target.hp === 0;
   if (ko) b.over = who === "me" ? "won" : "lost";
-  b.events.push({ actor: who, kind, damage, crit, ko });
+  b.events.push({ actor: who, kind, damage, crit, ko, ...(parried ? { parried: true as const } : {}) });
 }
 
 // Play one round with the player's choice. A special without a full meter is played as an attack.
-// Does nothing once the fight is over.
-export function playRound(b: Battle, choice: BattleAction, chooseFoe: FoeChooser = foeChoice): void {
+// `timing` is how well the player timed the action (a timed fight only: in any other fight it is ignored). `chooseFoe` decides the wild creature's
+// moves after the first one of a timed fight. Does nothing once the fight is over.
+export function playRound(b: Battle, choice: BattleAction, chooseFoe: FoeChooser = foeChoice, timing: Timing = "normal"): void {
   if (b.over) return;
   const rng = makeRng(b.rngState);
   b.events = [];
@@ -97,9 +120,13 @@ export function playRound(b: Battle, choice: BattleAction, chooseFoe: FoeChooser
   b.round += 1;
 
   let mine: BattleAction | "sulk" = choice === "special" && b.me.meter < combatTuning.meterMax ? "attack" : choice;
-  if (rng.chance(b.sulkChance)) mine = "sulk";
-  else b.used[mine] += 1;
-  const theirs = chooseFoe(b, rng);
+  // The roll is always drawn; a timed fight lets the creature sulk once at most.
+  if (rng.chance(b.sulkChance) && !(b.timed && b.sulks >= 1)) {
+    mine = "sulk";
+    b.sulks += 1;
+  } else b.used[mine] += 1;
+  const grade: Timing = b.timed && mine !== "sulk" ? timing : "normal"; // a sulked round gets no grade effect
+  const theirs = b.timed && b.foeNext ? b.foeNext : chooseFoe(b, rng);
 
   // Guards go up first, whoever is faster, so a guard always counts against this round's blows.
   for (const [who, action] of [["me", mine], ["foe", theirs]] as const) {
@@ -115,10 +142,14 @@ export function playRound(b: Battle, choice: BattleAction, chooseFoe: FoeChooser
   for (const who of order) {
     if (b.over) break;
     const action = who === "me" ? mine : theirs;
-    if (action === "attack" || action === "special") strike(b, who, action, rng);
+    if (action === "attack" || action === "special") strike(b, who, action, rng, grade);
   }
 
   b.me.guarding = false;
   b.foe.guarding = false;
+  if (b.timed) {
+    if (b.over) delete b.foeNext;
+    else b.foeNext = chooseFoe(b, rng);
+  }
   b.rngState = rng.state();
 }
