@@ -33,6 +33,17 @@ export function tierOf(c: Creature): Tier {
   return 4;
 }
 
+// The tier of a form that is one of the tiers of an adult in the tree, or null.
+export function adultTier(formId: string): Tier | null {
+  for (const id of openFieldIds) {
+    for (const tiers of Object.values(planOf(id).adults)) {
+      const at = tiers.indexOf(formId);
+      if (at >= 0) return (at + 1) as Tier;
+    }
+  }
+  return null;
+}
+
 // The foods this creature is offered: pellets and the treat for everyone, and the three foods of its own field once it has one
 // (a baby has none yet).
 export function menuOf(c: Creature): FoodId[] {

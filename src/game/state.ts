@@ -4,6 +4,7 @@
 import { lineageOf } from "../data/book";
 import { eggPatterns } from "../data/eggs";
 import type { MaterialId, SpotId } from "../data/habitat";
+import { forms } from "../data/forms";
 import { coerceHome, ownedWalls } from "../data/home";
 import type { HomeSave } from "../data/home";
 import { isHatId, isItemId, isWallId } from "../data/shop";
@@ -82,6 +83,8 @@ export interface Creature {
   recentCandy: number[]; // times candy was eaten lately
   affection: { windowStart: number; gained: number };
   bond?: Bond; // Adult Mode's Bond (game/bond.ts); missing means level 1 with nothing earned (optional so older saves still load)
+  pastMistakes?: number; // the care mistakes of the stages already finished (game/perfect.ts); missing means unknown, and an unknown life can never earn the Perfect star
+  perfect?: true; // it grew up as a perfect run: a tier 1 adult that made no care mistake in any stage (game/perfect.ts)
   counters: Counters;
   job?: Job | null; // set while the creature is away working (optional so older saves still load)
   hp?: number; // battle HP right now; missing means full (it recovers by resting, see game/combat/recovery.ts)
@@ -106,6 +109,7 @@ export interface RetiredLife {
   formId: string;
   bornAt: number;
   retiredAt: number;
+  perfect?: true; // the creature had grown up as a perfect run (game/perfect.ts)
 }
 
 // The one purchase that can still be undone (game/shop.ts): what, when (game time), and the wall shown before it.
@@ -131,6 +135,7 @@ export interface Save {
   hauls: Haul[]; // finished jobs the player has not looked at yet, oldest first
   book: string[]; // the Creature Book: ids of the forms the player has raised, in the order they were first met (game/book.ts)
   retired: RetiredLife[]; // completed lives, oldest first (game/retire.ts); no cap, a record is 73 characters
+  perfect: string[]; // the forms raised as a perfect run, no duplicates, in the order earned: the Book's Perfect star (game/perfect.ts)
   owned: string[]; // what the player bought in the shop (data/shop.ts ids), in the order bought, no duplicates (game/shop.ts)
   wall: string | null; // the wallpaper shown in the room: an owned wallpaper, or null for the plain wall
   hat: string | null; // the hat the creature wears: an owned hat (data/shop.ts), or null for none
@@ -176,6 +181,7 @@ export function newSave(nowMs: number, seed: number): Save {
     hauls: [],
     book: [],
     retired: [],
+    perfect: [],
     owned: [],
     wall: null,
     hat: null,
@@ -235,7 +241,11 @@ export function migrateSave(value: unknown): Save | null {
   // A save from before Retire has no `retired`. Only records of the right shape are kept (a bad one from storage or the cloud must not
   // break the Book), a record never runs backwards (its end is moved up to its start, as the action does when a clock was set back), and this
   // runs for every profile at the picker, so it must never throw.
-  value.retired = Array.isArray(value.retired) ? value.retired.filter(isRetiredLife).map(({ formId, bornAt, retiredAt }) => ({ formId, bornAt, retiredAt: Math.max(retiredAt, bornAt) })) : [];
+  value.retired = Array.isArray(value.retired)
+    ? value.retired.filter(isRetiredLife).map(({ formId, bornAt, retiredAt, perfect }) => ({ formId, bornAt, retiredAt: Math.max(retiredAt, bornAt), ...(perfect === true ? { perfect: true as const } : {}) }))
+    : [];
+  // A save from before the Perfect star has no `perfect`. Only ids of forms the game has are kept (a bad one from storage or the cloud is dropped), none twice, and this must never throw.
+  value.perfect = Array.isArray(value.perfect) ? [...new Set(value.perfect.filter((id): id is string => typeof id === "string" && Object.prototype.hasOwnProperty.call(forms, id)))] : [];
   // A save from before the shop has none of the three. Only ids the shop sells are kept (a bad one from storage or the cloud, or an item a newer
   // version added, is dropped), none twice; the wall must be an owned wallpaper; the undo must name something owned.
   value.owned = Array.isArray(value.owned) ? [...new Set(value.owned.filter(isItemId))] : [];
@@ -267,6 +277,8 @@ export function migrateSave(value: unknown): Save | null {
     const training = coerceTraining((value.creature as { training?: unknown }).training);
     if (training) value.creature.training = training;
     else delete value.creature.training;
+    // The star on the creature is only ever `true`; the mistakes it made before this stage are read, and coerced, by game/perfect.ts, the one place that does.
+    if ((value.creature as { perfect?: unknown }).perfect !== true) delete value.creature.perfect;
   }
   return value;
 }

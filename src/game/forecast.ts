@@ -9,10 +9,12 @@ import { specialId } from "../data/special";
 import { tuning } from "../data/tuning";
 import { statChangePerMinute } from "./care";
 import { servingsPerMeal } from "./dishes";
-import { canBecomeSpecial, fieldCells, foodCells, leadingForm, nextForm, stageHours, tierOf } from "./growth";
+import { adultTier, canBecomeSpecial, fieldCells, foodCells, leadingForm, nextForm, stageHours, tierOf } from "./growth";
 import type { Tier } from "./growth";
 import { callText, clockText, formatHm } from "./hud";
 import { hungerGrace } from "./perks";
+import { perfectLine } from "./perfect";
+import type { PerfectLine } from "./perfect";
 import type { Owned } from "./perks";
 import type { CallKind, Creature } from "./state";
 import { HOUR, MINUTE, localDay } from "./time";
@@ -352,17 +354,7 @@ export interface Forecast {
   confidence: Confidence | null;
   rule: string[]; // "What changes this?"
   log: { lines: LogLine[]; unlisted: number }; // the care mistakes of this stage, newest first
-}
-
-// The tier of a form that is one of the tiers of an adult in the tree, or null.
-export function adultTier(formId: string): Tier | null {
-  for (const id of openFieldIds) {
-    for (const tiers of Object.values(planOf(id).adults)) {
-      const at = tiers.indexOf(formId);
-      if (at >= 0) return (at + 1) as Tier;
-    }
-  }
-  return null;
+  perfect: PerfectLine | null; // the Perfect run, chased live (game/perfect.ts): only while it is still possible, and for an adult that has the star
 }
 
 function logOf(c: Creature, nowMs: number): Forecast["log"] {
@@ -432,6 +424,7 @@ export function forecast(c: Creature, nowMs: number, simulatedMs = nowMs, owned:
     confidence: null,
     rule: ruleOf(c),
     log: logOf(c, nowMs),
+    perfect: perfectLine(c),
   };
   if (stage === "adult" || stage === "special") return base;
 

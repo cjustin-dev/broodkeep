@@ -13,6 +13,8 @@ import { stepRecovery } from "./combat/recovery";
 import { stepJob } from "./habitat/jobs";
 import { stepRequests } from "./requests";
 import { countFieldMinute, countNeglectMinute, nextForm } from "./growth";
+import { awardPerfect, isPerfectGrowUp, recordFinishedStage } from "./perfect";
+import { formOf } from "./retire";
 import { makeRng } from "./rng";
 import type { Rng } from "./rng";
 import { freshCounters, logEvent } from "./state";
@@ -103,6 +105,8 @@ export function makeCreature(formId: string, t: number, eggPattern: EggPattern =
     recentCandy: [],
     affection: { windowStart: t, gained: 0 },
     counters: freshCounters(),
+    // A baby has no earlier stage, so its life is known from the start. A creature hatched into a later form (the dev panel) has no record of the stages before it.
+    ...(formOf(formId)?.stage === "baby" ? { pastMistakes: 0 } : {}),
   };
 }
 
@@ -110,7 +114,10 @@ function evolveIfReady(save: Save, t: number): void {
   const c = save.creature;
   if (!c) return;
   const next = nextForm(c, t);
-  if (next) evolveTo(save, next, t);
+  if (!next) return;
+  const perfect = isPerfectGrowUp(c, next); // judged before the stage counters are replaced
+  evolveTo(save, next, t);
+  if (perfect) awardPerfect(save, c, t);
 }
 
 // Change form and start a new stage. Care stats stay as they are.
@@ -118,7 +125,9 @@ export function evolveTo(save: Save, formId: string, t: number): void {
   const c = save.creature;
   if (!c) return;
   const from = getForm(c.formId).name;
+  getForm(formId); // throws on an unknown form BEFORE anything is changed
   const hpShare = c.hp === undefined ? null : c.hp / maxHp(c); // a hurt creature stays as hurt, in proportion
+  recordFinishedStage(c); // the stage's mistakes join the earlier ones before the counters are replaced (game/perfect.ts)
   c.formId = getForm(formId).id;
   c.stageStartedAt = t;
   c.counters = freshCounters();

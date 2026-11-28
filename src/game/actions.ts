@@ -246,7 +246,7 @@ export function retireCreature(save: Save, nowMs: number): RetireResult {
   if (refusal) return refusal;
   const c = save.creature!; // retireRefusal found it
   // After a clock set back, game time can be earlier than the hatch time: the record never runs backwards.
-  save.retired.push({ formId: c.formId, bornAt: c.bornAt, retiredAt: Math.max(nowMs, c.bornAt) });
+  save.retired.push({ formId: c.formId, bornAt: c.bornAt, retiredAt: Math.max(nowMs, c.bornAt), ...(c.perfect === true ? { perfect: true as const } : {}) });
   logEvent(save, nowMs, `${getForm(c.formId).name} retired`);
   putInNewEgg(save, nowMs);
   return "retired";
