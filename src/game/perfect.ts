@@ -50,7 +50,7 @@ export const perfectText = {
   on: "Perfect run: still possible. No mistake so far in this life.",
   kept: "Perfect run. It grew up with no mistake, and the Book keeps its star.",
   star: "Perfect star",
-  // The count line of the Book, after "N of 65 creatures raised": only said when there is at least one.
+  // The count line of the Book, after "N of 65 creatures raised". The screen adds it only when there is at least one.
   count: (n: number) => `, ${n} with a Perfect star`,
 };
 

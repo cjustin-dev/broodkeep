@@ -1,16 +1,15 @@
 // Book recipes (game/recipes.ts, Spec 8 part 1, docs/adult-a4-plan.md section 14): a recipe for every creature of the Book, read off the growth rules. The main
 // check is the property: doing exactly what a recipe says, through the real growth functions, grows the creature it names. The words are pinned as literals
-// for a sample, and every string is scanned for words of loss and for creature names. The screen side (the card in the Book) is checked in a browser.
+// for a sample, and every string is scanned for words of loss and for creature names. The screen side (the card in the Book) is checked by tools/verify/recipes-browser.mjs.
 import { describe, expect, it } from "vitest";
-import { bookIds, bookPages } from "../src/data/book";
+import { bookIds, bookPages, lineageOf } from "../src/data/book";
 import { eggField } from "../src/data/eggs";
 import { fieldOfForm, fieldIds, planOf } from "../src/data/fields";
 import { foods } from "../src/data/foods";
 import { forms } from "../src/data/forms";
 import { specialId } from "../src/data/special";
 import { tuning } from "../src/data/tuning";
-import { lineageOf } from "../src/data/book";
-import { adultTier, nextForm } from "../src/game/growth";
+import { adultTier, countNeglectMinute, nextForm } from "../src/game/growth";
 import { perfectText } from "../src/game/perfect";
 import { cardText, cellLabel, describeForm, nextText, nextToFind, recipeOf, recipeText } from "../src/game/recipes";
 import { makeCreature } from "../src/game/sim";
@@ -173,12 +172,19 @@ describe("doing what a recipe says grows the creature it names (the property)", 
     expect(lineageOf(specialId)).toEqual(["blip", specialId]);
   });
 
-  it("the note is true: care keeps the clock from running, and a young never turns into the special", () => {
-    const young = fresh(planOf("land").youngOther);
-    young.counters.neglectMinutes = 999;
-    expect(nextForm(young, young.stageStartedAt + MINUTE)).toBeNull();
-    const adult = fresh(planOf("land").adults[planOf("land").youngOther]![0]!);
-    adult.counters.neglectMinutes = 999;
+  it("the note is true: a young and an adult never run the neglect clock, and the young grows into its adult, not the special", () => {
+    const land = planOf("land");
+    const young = fresh(land.youngOther);
+    const adult = fresh(land.adults[land.youngOther]![0]!);
+    for (const c of [young, adult]) {
+      for (let i = 0; i < g.neglectHours * 60 + 1; i++) countNeglectMinute(c); // awake minutes at home with no care
+      expect(c.counters.neglectMinutes, c.formId).toBe(0);
+    }
+    young.counters.neglectMinutes = 999; // even a count that was somehow there decides nothing
+    const next = nextForm(young, after(young, g.youngHours));
+    expect(next).not.toBeNull();
+    expect(next).not.toBe(specialId);
+    expect(forms[next!]!.stage).toBe("adult");
     expect(nextForm(adult, adult.stageStartedAt + 999 * HOUR)).toBeNull();
   });
 });
@@ -208,10 +214,10 @@ describe("the words", () => {
     expect(stepOf(adults[2]!, "adult")).toBe("Young: after 48 hours, with 2 to 5 mistakes.");
     expect(stepOf(adults[3]!, "adult")).toBe("Young: after 48 hours, with 6 or more mistakes.");
     expect(recipeText.special).toBe(
-      "Leave a baby or a kid at home with no care for 4 awake hours. Sleep and time away on a job do not count. A meal, a clean-up when there is something to clean, medicine while it is sick, a pet or a tickle counts as care.",
+      "Leave a baby or a kid with no care for 4 awake hours. Sleep and time away on a job do not count. A meal it eats, a clean-up when there is something to clean, medicine while it is sick, or a pet or a tickle while it is awake counts as care.",
     );
     expect(recipeText.note).toBe(
-      "Keep caring as you go: a baby or a kid with no care for 4 awake hours becomes the special form instead. A meal, a clean-up when there is something to clean, medicine while it is sick, a pet or a tickle counts as care.",
+      "Keep caring as you go: a baby or a kid with no care for 4 awake hours becomes the special form instead. A meal it eats, a clean-up when there is something to clean, medicine while it is sick, or a pet or a tickle while it is awake counts as care.",
     );
   });
 
@@ -283,10 +289,10 @@ describe("the line for the next creature to find", () => {
     expect(nextToFind(set("blip", land.kid, ...second.slice(0, 2)))!.formId).toBe(second[2]);
   });
 
-  it("skips a creature whose parent is not raised (the Water kid is next, not an adult below a young that is missing)", () => {
+  it("is the first creature in Book order that is not raised, even when a later one was raised without its parent (the Land kid is next, not a young whose kid is missing)", () => {
     const next = nextToFind(set("blip", land.kid))!;
     expect(lineageOf(next.formId).at(-2)).toBe(land.kid);
-    // a young raised without its kid: its parent is missing, so it is not the next to find... but the kid is
+    // a young raised without its kid: the kid comes first in Book order, so the kid is the next to find
     expect(nextToFind(set("blip", young))!.formId).toBe(land.kid);
   });
 

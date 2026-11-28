@@ -1,11 +1,11 @@
 // The Perfect star (game/perfect.ts, Spec 8 part 2, docs/adult-a4-plan.md section 14): the lifetime mistake count, who earns the star, what the dev panel and the
-// loader do to it, and its words. The screen side (the Book and the Forecast) is checked in a browser.
+// loader do to it, and its words. The screen side (the Book and the Forecast) is checked by tools/verify/recipes-browser.mjs.
 import { describe, expect, it } from "vitest";
 import { planOf } from "../src/data/fields";
 import { forms } from "../src/data/forms";
 import { specialId } from "../src/data/special";
 import { retireCreature } from "../src/game/actions";
-import { forceEvolve, forceHatch, skipAhead } from "../src/game/dev";
+import { forceEvolve, forceHatch, killCreature, skipAhead } from "../src/game/dev";
 import { forecast } from "../src/game/forecast";
 import { awardPerfect, isPerfectGrowUp, lifeMistakes, perfectLine, perfectText, recordFinishedStage } from "../src/game/perfect";
 import { evolveTo, makeCreature, simulateTo } from "../src/game/sim";
@@ -64,11 +64,13 @@ describe("the lifetime count, `lifeMistakes`", () => {
     expect(lifeMistakes(withStage(adults[0]!, { pastMistakes: 4, mistakes: 3 }))).toBe(7);
   });
 
-  it("is unknown (null) when the earlier stages left no whole number, and never throws", () => {
-    for (const bad of [undefined, -3, Number.NaN, 1.5, "2", null, Infinity, {}, []]) {
-      const c = withStage(young, { mistakes: 1 });
-      if (bad !== undefined) c.pastMistakes = bad as unknown as number;
-      expect(lifeMistakes(c), String(bad)).toBeNull();
+  it("is unknown (null) when the earlier stages left no whole number, for a kid, a young and an adult, and never throws", () => {
+    for (const stageForm of [kid, young, adults[0]!]) {
+      for (const bad of [undefined, -3, Number.NaN, 1.5, "2", null, Infinity, {}, []]) {
+        const c = withStage(stageForm, { mistakes: 1 });
+        if (bad !== undefined) c.pastMistakes = bad as unknown as number;
+        expect(lifeMistakes(c), `${stageForm} ${String(bad)}`).toBeNull();
+      }
     }
   });
 
@@ -144,6 +146,21 @@ describe("who earns the star, by natural growth", () => {
     expect(save.creature!.pastMistakes).toBe(3);
   });
 
+  it("a whole life with no mistake, through every real stage change from the baby, earns the star", () => {
+    const save = aboutToGrow("blip", 6, (c) => (c.counters.fieldMinutes = { land: 60 }));
+    grownUp(save);
+    expect(save.creature!.formId).toBe(kid);
+    save.creature!.stageStartedAt = T - 24 * HOUR;
+    simulateTo(save, T + 3 * MINUTE);
+    expect(save.creature!.formId).toBe(young);
+    tierOneYoung(save.creature!);
+    save.creature!.stageStartedAt = T - 48 * HOUR;
+    simulateTo(save, T + 6 * MINUTE);
+    expect(save.creature!.formId).toBe(adults[0]);
+    expect(save.creature!.perfect).toBe(true);
+    expect(save.perfect).toEqual([adults[0]]);
+  });
+
   it("a tier 2 adult with no mistake at all (four hunger cells) does not", () => {
     const save = grownUp(aboutToGrow(young, 48, (c) => ((c.counters.hungerCells = 4), (c.counters.happyCells = 5), (c.pastMistakes = 0))));
     expect(save.creature!.formId).toBe(adults[1]);
@@ -165,7 +182,7 @@ describe("who earns the star, by natural growth", () => {
     expect("pastMistakes" in save.creature!).toBe(false);
   });
 
-  it("an old baby with no record grows up with its baby mistakes recorded, and can still be perfect", () => {
+  it("an old baby with no record grows up with its baby mistakes recorded (0 here), so its life is known from the kid stage on", () => {
     const save = aboutToGrow("blip", 6, (c) => {
       delete c.pastMistakes;
       c.counters.fieldMinutes = { land: 60 };
@@ -227,12 +244,13 @@ describe("the star, once earned", () => {
     expect(save.perfect).toEqual([adults[0]]);
   });
 
-  it("goes onto the completed life when it retires, and a new egg clears the creature's flag but not the Book's list", () => {
+  it("goes onto the completed life when it retires, and the next egg leaves the Book's list as it was", () => {
     const save = perfectAdult();
     expect(retireCreature(save, T + HOUR)).toBe("retired");
     expect(save.retired).toHaveLength(1);
     expect(save.retired[0]!.perfect).toBe(true);
     expect(save.creature).toBeNull();
+    expect(save.phase).toBe("egg");
     expect(save.perfect).toEqual([adults[0]]);
   });
 
@@ -242,11 +260,15 @@ describe("the star, once earned", () => {
     expect("perfect" in save.retired[0]!).toBe(false);
   });
 
-  it("stays in the Book's list when the creature dies and the next egg hatches", () => {
+  it("stays in the Book's list when the creature dies and the next one hatches, which wears no flag", () => {
     const save = perfectAdult();
     const list = [...save.perfect];
-    save.phase = "dead";
-    save.death = { at: T, cause: "neglect" };
+    killCreature(save, T + HOUR);
+    expect(save.phase).toBe("dead");
+    expect(save.perfect).toEqual(list);
+    forceHatch(save, "blip", T + 2 * HOUR);
+    expect(save.phase).toBe("alive");
+    expect(save.creature!.perfect).toBeUndefined();
     expect(save.perfect).toEqual(list);
   });
 });
@@ -279,7 +301,7 @@ describe("the dev panel", () => {
     expect(save.creature!.perfect).toBeUndefined();
   });
 
-  it("a forced evolve back to the baby starts a life that can be perfect from there on", () => {
+  it("a forced evolve back to the baby starts a life with a known count of 0", () => {
     const save = aliveSave(young, T);
     forceEvolve(save, "blip", T);
     expect(lifeMistakes(save.creature!)).toBe(0);
@@ -393,7 +415,7 @@ describe("the Forecast's line", () => {
     expect(forecastOf(adults[3]!, (c) => (c.pastMistakes = 0))).toBeNull();
   });
 
-  it("a mistake taken now takes the line away at the next look, and a what-if does not", () => {
+  it("a mistake taken now takes the line away at the next look, and reading the forecast does not", () => {
     const c = makeCreature("blip", T);
     expect(perfectLine(c)?.kind).toBe("on");
     forecast(c, T, T, []); // reading a forecast changes nothing

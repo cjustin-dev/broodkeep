@@ -104,12 +104,11 @@ export function forceHatch(save: Save, formId: string, nowMs: number): void {
 // Change the living creature into any form, and start a fresh stage.
 export function forceEvolve(save: Save, formId: string, nowMs: number): void {
   simulateTo(save, nowMs);
-  if (save.phase !== "alive") return;
+  if (save.phase !== "alive" || !save.creature) return;
   evolveTo(save, formId, nowMs);
   // A form chosen by hand has not been lived through: no record of the stages before it, and no star for the form it was.
-  const c = save.creature!;
-  delete c.pastMistakes;
-  delete c.perfect;
+  delete save.creature.pastMistakes;
+  delete save.creature.perfect;
 }
 
 export function killCreature(save: Save, nowMs: number): void {

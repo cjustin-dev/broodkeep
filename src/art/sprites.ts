@@ -34,6 +34,7 @@ export type IconName =
   | "medicine"
   | "settings"
   | "book"
+  | "star"
   | "shop"
   | "pellet"
   | "treat"
@@ -188,6 +189,17 @@ export const icons: Record<IconName, Sprite> = {
     "DRCCCCR.",
     "DRRRRRR.",
     ".DDDDDD.",
+  ]),
+  // The Perfect star: a gold star with a dark outline and a white glint.
+  star: icon([
+    "...KK...",
+    "..KYYK..",
+    "KKKYYKKK",
+    "KYWYYYYK",
+    ".KYYYYK.",
+    ".KYYYYK.",
+    ".KYKKYK.",
+    "..K..K..",
   ]),
   // A market stall: a striped awning over a counter with a gold coin on it.
   shop: icon([

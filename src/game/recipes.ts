@@ -32,7 +32,7 @@ export interface Recipe {
 const mistakes = (n: number): string => `${n} mistake${n === 1 ? "" : "s"}`;
 const range = (lo: number, hi: number): string => (lo === hi ? mistakes(lo) : `${lo} to ${hi} mistakes`);
 
-const careWords = "A meal, a clean-up when there is something to clean, medicine while it is sick, a pet or a tickle counts as care.";
+const careWords = "A meal it eats, a clean-up when there is something to clean, medicine while it is sick, or a pet or a tickle while it is awake counts as care.";
 
 export const recipeText = {
   hatch: "Hatch an egg.",
@@ -61,7 +61,7 @@ export const recipeText = {
         return `${after} ${g.tier3MaxMistakes + 1} or more mistakes.`;
     }
   },
-  special: `Leave a baby or a kid at home with no care for ${g.neglectHours} awake hours. Sleep and time away on a job do not count. ${careWords}`,
+  special: `Leave a baby or a kid with no care for ${g.neglectHours} awake hours. Sleep and time away on a job do not count. ${careWords}`,
   note: `Keep caring as you go: a baby or a kid with no care for ${g.neglectHours} awake hours becomes the special form instead. ${careWords}`,
 };
 
@@ -130,13 +130,12 @@ export interface NextToFind {
   step: string; // the last step of its recipe: its parent is raised, so every step before it is done
 }
 
-// The first creature, in Book order, that is not raised and can be reached now: the baby always, any other once its parent (the one before it in its family line) is
-// raised. Null only when every creature of the Book is raised. An id in `found` that is not in the Book changes nothing.
+// The first creature, in Book order, that is not raised. Book order puts every form after its parent (the one before it in its family line), so the parent of the first form
+// that is missing is always raised, and the last step of its recipe is the whole of what is left to do. Null only when every creature of the Book is raised. An id in `found`
+// that is not in the Book changes nothing.
 export function nextToFind(found: ReadonlySet<string>): NextToFind | null {
   for (const id of bookIds()) {
     if (found.has(id)) continue;
-    const line = lineageOf(id);
-    if (line.length > 1 && !found.has(line[line.length - 2] as string)) continue;
     const recipe = recipeOf(id);
     if (!recipe) continue;
     return { formId: id, label: describeForm(id), step: recipe.steps[recipe.steps.length - 1]!.text };

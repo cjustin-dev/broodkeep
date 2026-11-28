@@ -8,10 +8,11 @@ import { specialId } from "../data/special";
 import { tuning } from "../data/tuning";
 import { forecast, whatIf } from "../game/forecast";
 import type { Forecast, Row } from "../game/forecast";
+import { perfectText } from "../game/perfect";
 import type { Creature } from "../game/state";
 import { useSecond } from "./AdultHud";
 import type { Game } from "./game";
-import { Pic } from "./Icon";
+import { Icon, Pic } from "./Icon";
 
 const g = tuning.growth;
 
@@ -39,7 +40,14 @@ function Lead({ f, c }: { f: Forecast; c: Creature }) {
       <div>
         <p class="fc-kicker">{kicker}</p>
         <p class="fc-name">{form.name}</p>
-        <p class="fc-sub">{sub}</p>
+        <p class="fc-sub">
+          {sub}
+          {f.perfect?.kind === "kept" && (
+            <span class="fc-star" role="img" aria-label={perfectText.star}>
+              <Icon name="star" px={16} />
+            </span>
+          )}
+        </p>
       </div>
     </section>
   );
@@ -106,6 +114,12 @@ export function ForecastPanel({ game, onClose }: { game: Game; onClose: () => vo
               </p>
             )}
             {f.tie && <p class="fc-note">{f.tie}</p>}
+            {f.perfect && (
+              <p class="fc-perfect" data-kind={f.perfect.kind}>
+                {f.perfect.kind === "kept" && <Icon name="star" px={16} />}
+                <span>{f.perfect.text}</span>
+              </p>
+            )}
 
             {f.rows.length > 0 && (
               <section class="fc-block">
